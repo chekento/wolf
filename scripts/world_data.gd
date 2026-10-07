@@ -1,6 +1,7 @@
 class_name WolfWorldData
 extends RefCounted
 
+const GRID_SIZE := 8
 const SIZE := Vector2(3200,3200)
 const CENTER := Vector2(1600,1600)
 const SPAWN := Vector2(1580,1940)
@@ -25,17 +26,53 @@ const REGION_INFO := [
 static var REGIONS: Array[Dictionary] = _make_regions()
 
 static func _make_regions() -> Array[Dictionary]:
+	var infos: Array = REGION_INFO.duplicate(true)
+	# Keep original IDs and local coordinates for existing saves.
+	for info in infos:info[3]+=Vector2i(2,2)
+	var names := [
+		["Nordkap","Eiswindbucht","Weiße Tundra","Polarweide","Schneetal","Felsnadel","Adlergrat","Nordlichtpass"],
+		["Frostküste","Fichtenhang","Kristallbach","Wintertal","Gletscherwald","Geröllhang","Gipfelweide","Steinmeer"],
+		["Robbenbucht","Nebelwald","Frostgrat","Schneekiefern","Wasserfalltal","Steinbockhöhe","Tannenpass","Quellengrund"],
+		["Weststrand","Farnschlucht","Uralter Wald","Bergwiese","Flussauen","Spiegelsee","Biberteich","Morgenwald"],
+		["Muschelküste","Wurzelwald","Moosruinen","Rudelhöhle","Kiefernwald","Eichenhain","Wildblumental","Osthang"],
+		["Winddünen","Salzwiese","Dünenküste","Schilfmoor","Dorfrand","Abendlichtung","Hirschwiese","Hasental"],
+		["Südstrand","Regenmoor","Erlenbruch","Weidenbach","Buchenwald","Luchsschlucht","Sonnengrat","Wilder Hang"],
+		["Möwenbucht","Seerosenmoor","Birkeninsel","Südauen","Schattenwald","Farnwiese","Warmer Fels","Südhorizont"]
+	]
+	var descriptions := {"forest":"Alte Stämme, Wurzelpfade und vertraute Tiergerüche","pine":"Kühle Nadeln und leise Schritte auf weichem Waldboden","river":"Das Wasser trägt neue Düfte durch die Landschaft","meadow":"Gräser bewegen sich im Wind; kleine Tiere lauschen","snow":"Frische Trittsiegel liegen zwischen Schnee und Felsen","alpine":"Steinige Höhen mit geschützten Mulden und weitem Blick","lake":"Ein ruhiges Ufer mit Seerosen und spiegelndem Wasser","ruins":"Moose und Wurzeln überwachsen alte Steine","oak":"Lichtflecken und Rascheln unter breiten Blättern","coast":"Salzige Luft und flache Wellen am Sandstrand","marsh":"Schilf, feuchte Erde und das Rufen der Vögel","village":"Du beobachtest aus sicherer Entfernung den Dorfrand"}
+	for y in range(GRID_SIZE):
+		for x in range(GRID_SIZE):
+			var coord := Vector2i(x,y)
+			var known := false
+			for info in infos:
+				if info[3]==coord:known=true;break
+			if known:continue
+			var biome := "coast" if x==0 else "snow" if y<2 and x<5 else "alpine" if y<3 or x==7 else "marsh" if y>5 and x<3 else "river" if x==3 else "lake" if x==6 and y==3 else "pine" if y==3 else "meadow" if x==6 or (y+x)%5==0 else "oak" if y>5 else "forest"
+			infos.append([names[y][x],descriptions[biome],biome,coord])
 	var regions: Array[Dictionary]=[]
-	var colors := {"forest":"#789b3a","pine":"#60873a","river":"#91a848","meadow":"#a5b952","snow":"#d4e6ec","alpine":"#9bad8c","lake":"#81a951","ruins":"#789348","oak":"#94aa40","coast":"#cebd7a","marsh":"#6c9155","village":"#9aab57"}
-	for i in range(REGION_INFO.size()):
-		var info: Array=REGION_INFO[i]
+	var colors := {"forest":"#719348","pine":"#5c813f","river":"#8ca357","meadow":"#a2b75e","snow":"#d4e6ec","alpine":"#9bad8c","lake":"#81a951","ruins":"#789348","oak":"#8b9e49","coast":"#cebd7a","marsh":"#6c9155","village":"#9aab57"}
+	for i in range(infos.size()):
+		var info: Array=infos[i]
 		var links := {}
 		for direction in ["north","south","west","east"]:
 			var delta: Vector2i={"north":Vector2i.UP,"south":Vector2i.DOWN,"west":Vector2i.LEFT,"east":Vector2i.RIGHT}[direction]
-			for j in range(REGION_INFO.size()):
-				if REGION_INFO[j][3]==info[3]+delta:links[direction]=j
+			for j in range(infos.size()):
+				if infos[j][3]==info[3]+delta:links[direction]=j
 		regions.append({"name":info[0],"subtitle":info[1],"biome":info[2],"coord":info[3],"ground":colors[info[2]],"seed":41+i*43,"links":links})
 	return regions
+
+static func species(kind: String) -> String:
+	return {"wolf":"Wolf","deer":"Reh","rabbit":"Hase","fox":"Fuchs"}.get(kind,"Tier")
+
+static func nature_sites(region: int) -> Array[Dictionary]:
+	var biome: String=REGIONS[region].biome
+	var titles := {"forest":["Wurzelversteck","Lichtfenster","Alter Schlafplatz"],"pine":["Harziger Stamm","Nadellichtung","Fuchsdurchlass"],"river":["Kieselbank","Biberzweige","Ruhige Flussbucht"],"snow":["Spuren im Pulverschnee","Windgeschützte Mulde","Kristalle am Fels"],"alpine":["Aussichtsfels","Grasmulde","Adlerschatten"],"coast":["Muschelsaum","Treibhölzer","Dünensenke"],"marsh":["Schilffenster","Trockene Insel","Vogelufer"],"meadow":["Wildblumeninsel","Hasenmulde","Graslichtung"],"lake":["Seerosenbucht","Libellenufer","Spiegelnder Stein"],"ruins":["Moosbogen","Wurzelmauer","Steinversteck"],"oak":["Eichenwurzel","Laubmulde","Sonnenbank"],"village":["Sicherer Beobachtungsplatz","Feldrand","Rückweg in den Wald"]}
+	var sites: Array[Dictionary]=[]
+	for i in range(3):
+		var pos: Vector2=[Vector2(640,2500),Vector2(2580,2670),Vector2(640,560)][i]
+		if biome=="coast":pos.x=maxf(pos.x,700)
+		sites.append({"kind":"discovery","p":pos,"scale":1.0,"variant":i,"site":"%d:%d"%[region,i],"title":titles[biome][i],"description":"Du hältst inne. Wind, Boden und Tiergerüche ergeben ein neues Stück deiner Heimat."})
+	return sites
 
 static func path_points(region: int, vertical: bool) -> PackedVector2Array:
 	var points := PackedVector2Array()
@@ -56,7 +93,7 @@ static func river_x(y: float) -> float:
 	return 970+sin(y/410)*70
 
 static func water_blocked(p: Vector2,region: int) -> bool:
-	if REGIONS[region].biome=="coast" and p.x<425:return true
+	if REGIONS[region].biome=="coast" and p.x<425 and absf(p.y-1600)>65:return true
 	if REGIONS[region].biome=="river":
 		return absf(p.x-river_x(p.y))<78 and absf(p.y-1600)>64 and absf(p.y-800)>64 and absf(p.y-2600)>64
 	return false
@@ -87,7 +124,7 @@ static func generate(region: int) -> Dictionary:
 	objects.append({"kind":"den","p":Vector2(1580,2180) if region==0 else Vector2(2500,800),"scale":1.0,"variant":0})
 	objects.append({"kind":"food","p":Vector2(1380,2040),"scale":1.0,"variant":0})
 	objects.append({"kind":"landmark","p":Vector2(2180,1040),"scale":1.0,"variant":0})
-	objects.append({"kind":"discovery","p":Vector2(640,2500),"scale":1.0,"variant":region%4})
+	objects.append_array(nature_sites(region))
 	if biome=="river":
 		for y in [800,1600,2600]:objects.append({"kind":"bridge","p":Vector2(river_x(y),y),"scale":1.0,"variant":0})
 	if region==6:objects.append({"kind":"waterfall","p":Vector2(river_x(580),580),"scale":1.0,"variant":0})
@@ -102,19 +139,25 @@ static func generate(region: int) -> Dictionary:
 			if walkable(p,objects) and not water_blocked(p,region):break
 			p+=Vector2(32,20)
 		var kind := "deer" if i<3 else "rabbit" if i<7 else "fox"
-		animals.append({"kind":kind,"p":p,"home":p,"phase":float(i)*1.8,"facing":Vector2.LEFT})
+		animals.append({"kind":kind,"p":p,"home":p,"phase":float(i)*1.8,"facing":Vector2.LEFT,"mood":"grasen","speed":0.0,"gait":0.0})
 	if region==0:
 		for i in range(4):
 			var p := Vector2(1430+i*100,2260+float(i%2)*90)
-			animals.append({"kind":"wolf","p":p,"home":p,"phase":float(i)*1.2,"facing":Vector2.UP,"young":i>=2})
+			animals.append({"kind":"wolf","p":p,"home":p,"phase":float(i)*1.2,"facing":Vector2.UP,"young":i>=2,"role":["Mutter","Vater","Geschwister","Geschwister"][i],"mood":"ruhen","speed":0.0,"gait":0.0})
+	for member in animals:
+		if member.kind=="wolf":objects=objects.filter(func(o:Dictionary):return o.kind not in ["tree","rock"] or o.p.distance_to(member.home)>100)
 	var tracks: Array[Dictionary]=[]
 	for trail in range(3):
 		for i in range(9):
-			var p := Vector2(1640+i*70,1810-i*95) if trail==0 else Vector2(1600+sin(i*0.6)*50,1530-i*105) if trail==1 else Vector2(1550-i*105,1600+sin(i*0.5)*60)
+			var endpoint: Vector2=animals[[0,3,7][trail]].home
+			var start: Vector2=[Vector2(1640,1810),Vector2(1460,1580),Vector2(1560,1450)][trail]
+			var p := start.lerp(endpoint,float(i)/8)+Vector2(sin(i*1.2)*18,cos(i*1.3)*10)
+			if i==8:p=endpoint
 			# Reserve a usable small clearing around every clue.
 			objects=objects.filter(func(o:Dictionary):return o.kind not in ["tree","rock"] or o.p.distance_to(p)>65)
-			tracks.append({"id":"%d:%d"%[region,trail*9+i],"p":p,"species":["Reh","Hase","Fuchs"][trail],"trail":trail,"found":false})
-	objects=objects.filter(func(o:Dictionary):return o.kind not in ["tree","rock"] or o.p.distance_to(Vector2(640,2500))>150)
+			tracks.append({"id":"%d:%d"%[region,trail*9+i],"p":p,"species":["Reh","Hase","Fuchs"][trail],"trail":trail,"animal_index":[0,3,7][trail],"freshness":80-trail*13,"found":false})
+	for site in nature_sites(region):
+		objects=objects.filter(func(o:Dictionary):return o.kind not in ["tree","rock"] or o.p.distance_to(site.p)>150)
 	var decor: Array[Dictionary]=[]
 	for i in range(1600):
 		var p := Vector2(rng.randf_range(10,3190),rng.randf_range(10,3190))
@@ -162,4 +205,10 @@ static func height_at(p: Vector2,region: int) -> float:
 	# Gentle continuous hills vanish at exits and on paths, keeping bridges safe.
 	var edge := sin(clampf(p.x/3200,0,1)*PI)*sin(clampf(p.y/3200,0,1)*PI)
 	var amplitude := 1.2 if biome in ["alpine","snow","meadow"] else 0.5
-	return sin(p.x/600)*cos(p.y/680)*edge*amplitude
+	var ty := clampf(p.y/3200,0,1)
+	var tx := clampf(p.x/3200,0,1)
+	var bx := sin(ty*TAU)*sin(ty*PI)*140*sin(float(region)*0.7+1)
+	var by := sin(tx*TAU)*sin(tx*PI)*140*sin(float(region)*0.7+1)
+	var distance := minf(absf(p.x-1600-bx),absf(p.y-1600-by))
+	var path_weight := smoothstep(90.0,260.0,distance)
+	return sin(p.x/600)*cos(p.y/680)*edge*amplitude*path_weight

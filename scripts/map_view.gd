@@ -31,9 +31,9 @@ func _draw() -> void:
 			6:draw_circle(p,2,Color("#6f7951"))
 	for vertical in [true,false]:
 		var points := WolfWorldData.path_points(game.state.region,vertical)
-		draw_polyline(points,ground.darkened(0.14),140,true)
-		draw_polyline(points,Color("#ddc58a") if biome!="snow" else Color("#ebf3f0"),112,true)
-		draw_polyline(points,Color("#e7cf95") if biome!="snow" else Color("#f8fcfa"),75,true)
+		draw_polyline(points,ground.darkened(0.14),92,true)
+		draw_polyline(points,Color("#afaa70") if biome!="snow" else Color("#ebf3f0"),64,true)
+		draw_polyline(points,Color("#beba83") if biome!="snow" else Color("#f8fcfa"),36,true)
 	if biome=="river":
 		var river := PackedVector2Array()
 		for i in range(65):river.append(Vector2(WolfWorldData.river_x(i*50),i*50))
@@ -49,6 +49,9 @@ func _draw() -> void:
 		for y in range(0,3200,55):
 			var q := Vector2(437+sin(game.clock*2+y)*9,y)
 			if bounds.has_point(q):draw_arc(q,25,-1.5,1.5,16,Color(0.9,0.99,0.93,0.6),3)
+	if biome=="coast":
+		draw_rect(Rect2(0,1535,460,130),Color("#d2c38d"))
+		draw_line(Vector2(0,1540),Vector2(450,1540),Color("#e4d6a1"),6)
 	# Ground objects first. Taller objects and animals are sorted by depth.
 	var items: Array[Dictionary]=[]
 	for obj in game.world.objects:
@@ -57,7 +60,7 @@ func _draw() -> void:
 		else:items.append({"p":obj.p,"object":obj})
 	for t in game.world.tracks:
 		if bounds.has_point(t.p) and (game.scent_time>0 or game.state.found.has(t.id)):
-			_draw_track(t.p,Color("#ffda77") if not game.state.found.has(t.id) else Color("#8a9b76"))
+			_draw_track(t.p,Color("#ffda77") if not game.state.found.has(t.id) else Color("#8a9b76"),t.species)
 	for a in game.world.animals:
 		if bounds.has_point(a.p):items.append({"p":a.p,"animal":a})
 	items.append({"p":game.state.pos,"player":true})
@@ -66,9 +69,24 @@ func _draw() -> void:
 		if item.has("object"):_draw_object(item.object,biome)
 		elif item.has("animal"):
 			var a: Dictionary=item.animal
-			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false))
-		else:_draw_animal(game.state.pos,"wolf",game.state.facing,true,true)
-	if game.scent_time>0:draw_arc(game.state.pos,160,0,TAU,64,Color(0.98,0.83,0.43,0.22),2)
+			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"))
+		else:_draw_animal(game.state.pos,"wolf",game.state.facing,true,true,game.player_gait,game.player_speed,game.player_mood)
+	for foot in game.state.pawsteps:
+		if bounds.has_point(foot.p):
+			var alpha: float=clampf(1.0-(game.state.elapsed-foot.time)/20.0,0,1)*0.22
+			_draw_track(foot.p,Color(0.22,0.29,0.18,alpha),"Wolf")
+	if game.state.waypoint_region>=0:
+		var target: Vector2=game.goal_position()
+		var arrow: Vector2=game.state.pos.direction_to(target)
+		var side := Vector2(-arrow.y,arrow.x)
+		var marker: Vector2=game.state.pos+arrow*100
+		draw_colored_polygon(PackedVector2Array([marker+arrow*18,marker-arrow*10+side*10,marker-arrow*10-side*10]),Color("#f3d79a"))
+	if game.scent_time>0:
+		draw_arc(game.state.pos,155+sin(game.clock*3)*15,0,TAU,64,Color(0.98,0.83,0.43,0.22),2)
+		var wind := Vector2(0.65,-0.75)
+		for i in range(8):
+			var p: Vector2=game.state.pos+wind*fposmod(game.clock*28+i*30,240)-wind*120+Vector2(0,sin(i*3)*55)
+			draw_line(p,p+wind*16,Color(0.94,0.85,0.55,0.25),2)
 	for direction in WolfWorldData.REGIONS[game.state.region].links:
 		var p := WolfWorldData.entry_point({"east":"west","west":"east","north":"south","south":"north"}[direction])
 		if not bounds.has_point(p):continue
@@ -77,10 +95,10 @@ func _draw() -> void:
 		var d: Vector2={"north":Vector2.UP,"south":Vector2.DOWN,"east":Vector2.RIGHT,"west":Vector2.LEFT}[direction]
 		var side := Vector2(-d.y,d.x)
 		draw_colored_polygon(PackedVector2Array([p+d*12,p-d*8+side*8,p-d*8-side*8]),Color("#ffdc81"))
-	var dusk := (1-cos(game.state.elapsed/250))*0.06
+	var dusk: float=(1-game.state.sunlight())*0.45
 	draw_rect(Rect2(Vector2.ZERO,WolfWorldData.SIZE),Color(0.06,0.10,0.25,dusk))
 	draw_set_transform(Vector2.ZERO)
-	_draw_weather(size,biome)
+	# Weather is rendered in the shared atmosphere layer for both views.
 
 func _draw_flower(p: Vector2,r: float,c: Color) -> void:
 	for i in range(5):draw_circle(p+Vector2(cos(i*TAU/5),sin(i*TAU/5))*r,r*0.8,c)
@@ -108,7 +126,7 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 	match obj.kind:
 		"tree":
 			_shadow(p+Vector2(9,8),52*s)
-			_sprite(obj.variant,p+Vector2(0,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else Color.WHITE)
+			_sprite(obj.variant,p+Vector2(sin(game.clock*0.7+p.y*0.02)*1.8,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else Color.WHITE)
 			if snow:
 				for i in range(3):
 					draw_line(p+Vector2(-30+i*8,-120+i*33)*s,p+Vector2(27-i*6,-111+i*30)*s,Color("#f0f8f5"),7*s)
@@ -171,7 +189,18 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 				draw_line(p+Vector2(x+15,-12),p+Vector2(x+15,26),Color("#d1b47f"),3)
 			draw_rect(Rect2(p+Vector2(-14,23),Vector2(30,44)),Color("#6d4e31"))
 
-func _draw_track(p: Vector2,c: Color) -> void:
+func _draw_track(p: Vector2,c: Color,species: String="Wolf") -> void:
+	if species=="Reh":
+		for side in [-1,1]:
+			var q := p+Vector2(side*9,side*6)
+			draw_line(q+Vector2(-2,-5),q+Vector2(-2,4),c,3)
+			draw_line(q+Vector2(2,-5),q+Vector2(2,4),c,3)
+		return
+	if species=="Hase":
+		for side in [-1,1]:
+			draw_line(p+Vector2(side*7,-8),p+Vector2(side*7,2),c,4)
+			draw_circle(p+Vector2(side*4,10+side*3),3,c)
+		return
 	for side in [-1,1]:
 		var q := p+Vector2(side*10,side*5)
 		draw_circle(q,4.5,c)
@@ -179,20 +208,42 @@ func _draw_track(p: Vector2,c: Color) -> void:
 	if game.scent_time>0:
 		draw_arc(p,21,0,TAU,24,Color(c,0.24),2)
 
-func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false) -> void:
+func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen") -> void:
 	_shadow(p+Vector2(0,18),29 if kind!="rabbit" else 17)
 	var index := 12 if kind=="deer" else 13 if kind=="rabbit" else 14 if kind=="fox" else 8
 	if kind=="wolf":
 		index=10 if absf(facing.x)>absf(facing.y) and facing.x<0 else 11 if absf(facing.x)>absf(facing.y) else 8 if facing.y<0 else 9
-	var bob := sin(game.clock*9)*1.5 if player and game.stick.vector.length()>0.1 else sin(game.clock*2)*0.7
+	var bob := sin(gait*2)*1.3 if speed>1 else sin(game.clock*2)*0.5
+	if game.state.reduced_motion:bob=0
 	var dimensions := Vector2(104,112) if kind=="wolf" else Vector2(112,107) if kind=="deer" else Vector2(67,68) if kind=="rabbit" else Vector2(96,84)
 	if index==8:dimensions.x=65
-	if kind=="wolf" and not young:dimensions*=1.15
-	_sprite(index,p+Vector2(0,-12+bob),dimensions,Color.WHITE,kind!="wolf" and facing.x>0)
+	if kind=="wolf" and not young:dimensions*=1.30
+	if player:dimensions*=game.state.growth()/0.72
+	if kind=="wolf":
+		var texture := WolfAtlas.walking(facing,int(gait*2/PI)%4 if speed>1 else 1)
+		var special := -1
+		if speed<1:
+			special=0 if mood in ["schnüffeln","trinken"] else 1 if mood=="heulen" else 2 if mood=="ruhen" else 3 if mood=="spielen" else -1
+		if special>=0:texture=WolfAtlas.wildlife(3,special)
+		var walk_size := Vector2(124,124)*(1.25 if not young else 1.0)
+		if special<0 and absf(facing.y)>absf(facing.x):walk_size=Vector2(108,133)*(1.25 if not young else 1.0)
+		if player:walk_size*=game.state.growth()/0.72
+		var rect := Rect2(p+Vector2(0,-14+bob)-walk_size*0.5,walk_size)
+		if special>=0 and facing.x>0:rect.position.x+=rect.size.x;rect.size.x=-rect.size.x
+		draw_texture_rect(texture,rect,false)
+	else:
+		var row := 0 if kind=="deer" else 1 if kind=="rabbit" else 2
+		var frame := int(gait*2/PI)%4 if speed>1 else 0
+		var texture := WolfAtlas.wildlife(row,frame)
+		var rect := Rect2(p+Vector2(0,-12+bob)-dimensions*0.5,dimensions)
+		if facing.x>0:rect.position.x+=rect.size.x;rect.size.x=-rect.size.x
+		draw_texture_rect(texture,rect,false)
+
 	if player:
 		draw_arc(p+Vector2(0,20),32,0,TAU,32,Color(0.99,0.84,0.41,0.58),2)
 
 func _draw_weather(size: Vector2,biome: String) -> void:
+	if not game.state.weather_enabled:return
 	if biome=="snow":
 		for i in range(45):
 			var p := Vector2(fposmod(i*137.2+sin(game.clock+i)*14,size.x),fposmod(i*61.1+game.clock*24,size.y))
