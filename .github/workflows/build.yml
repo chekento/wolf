@@ -1,0 +1,61 @@
+name: Wolf — tests & playable builds
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Godot 4.5.1 and export templates
+        run: |
+          curl -fsSL --retry 3 -o /tmp/godot.zip https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install /tmp/godot/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+          curl -fsSL --retry 3 -o /tmp/templates.tpz https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz
+          unzip -q /tmp/templates.tpz 'templates/android_debug.apk' 'templates/android_release.apk' 'templates/web_nothreads_release.zip' -d /tmp/templates
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.5.1.stable"
+          cp /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/4.5.1.stable/"
+      - name: Import and test
+        run: |
+          godot --headless --editor --import --quit
+          godot --headless --script tests/smoke.gd
+      - name: Configure Android SDK
+        run: |
+          sdkmanager 'platform-tools' 'build-tools;35.0.1' 'platforms;android-35'
+          python3 - <<'PY'
+          import os,pathlib
+          config=pathlib.Path.home()/'.config/godot/editor_settings-4.5.tres'
+          text=config.read_text()
+          values={'export/android/java_sdk_path':os.environ['JAVA_HOME'], 'export/android/android_sdk_path':os.environ['ANDROID_HOME']}
+          import re,json
+          for name,value in values.items():
+              text=re.sub(r'^'+re.escape(name)+r' = .*\n','',text,flags=re.M)
+              text+='\n'+name+' = '+json.dumps(value)+'\n'
+          config.write_text(text)
+          PY
+      - name: Export Android and Web
+        run: |
+          mkdir -p builds/web
+          godot --headless --export-debug Android builds/Wolf-0.1.0-debug.apk
+          godot --headless --export-release Web builds/web/index.html
+          cd builds
+          zip -qr Wolf-0.1.0-web.zip web
+          sha256sum Wolf-0.1.0-debug.apk Wolf-0.1.0-web.zip > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Wolf-0.1.0-Android-and-Web
+          path: |
+            builds/Wolf-0.1.0-debug.apk
+            builds/Wolf-0.1.0-web.zip
+            builds/SHA256SUMS.txt
+          retention-days: 30
