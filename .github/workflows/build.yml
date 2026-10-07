@@ -10,6 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      ANDROID_HOME: ${{ runner.temp }}/wolf-sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -31,7 +33,16 @@ jobs:
           godot --headless --script tests/smoke.gd
       - name: Configure Android SDK
         run: |
-          sdkmanager 'platform-tools' 'build-tools;35.0.1' 'platforms;android-35'
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl -fsSL --retry 3 -o /tmp/sdk.zip https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+          unzip -q /tmp/sdk.zip -d /tmp/wolf-sdk-unpack
+          mv /tmp/wolf-sdk-unpack/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest"
+          python3 - <<'PY'
+          import os,subprocess
+          manager=os.environ['ANDROID_HOME']+'/cmdline-tools/latest/bin/sdkmanager'
+          subprocess.run([manager,'--licenses'],input='y\n'*100,text=True,check=True)
+          subprocess.run([manager,'platform-tools','build-tools;35.0.1','platforms;android-35'],check=True)
+          PY
           python3 - <<'PY'
           import os,pathlib
           config=pathlib.Path.home()/'.config/godot/editor_settings-4.5.tres'
