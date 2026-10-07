@@ -22,7 +22,7 @@ func run() -> void:
 	game.toast.text=""
 	game.toast_time=0
 	await capture("res://docs/top-down.png")
-	game.state.pos=Vector2(850,830)
+	game.state.pos=Vector2(1700,1660)
 	game.state.facing=Vector2(0,-1)
 	game.toggle_view()
 	game.world_view.yaw=-0.35
@@ -32,4 +32,11 @@ func run() -> void:
 	game.show_map()
 	await capture("res://docs/world-map.png")
 	game.close_overlay()
+	game.toggle_view()
+	game.change_region(5,Vector2(1650,1720))
+	game.toast.text=""
+	await capture("res://docs/snow.png")
+	game.change_region(2,Vector2(1200,1650))
+	game.toast.text=""
+	await capture("res://docs/river.png")
 	quit()

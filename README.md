@@ -2,13 +2,13 @@
 
 Ein niedliches, naturbezogenes Wolfspiel in **Godot 4.5.1**. Die erste spielbare Version verbindet eine echte **2D-Draufsicht mit freier Bewegung in alle Richtungen** mit einer **überall zuschaltbaren 3D-Sicht aus den Augen des Wolfs**.
 
-Du beginnst als Jungwolf nahe deiner Familie. Erkunde vier zusammenhängende Gebiete, lerne Fährten kennen und finde Wasser, Nahrung und geschützte Ruheplätze. Kein menschliches Verhalten, keine Waffen, keine grafische Gewalt.
+Du beginnst als Jungwolf nahe deiner Familie. Erkunde 16 zusammenhängende Gebiete, lerne Fährten kennen und finde Wasser, Nahrung und geschützte Ruheplätze. Kein menschliches Verhalten, keine Waffen, keine grafische Gewalt.
 
-**Stand: 0.1.0 · spielbarer Prototyp.** Noch kein vollständiger Lebenszyklus-Simulator. Tiere und Landschaft verwenden bewusst einfache, eigenständige Grafik. Erweiterte Rudel-KI, Jagd, Jahreszeiten, Animationen und langsames körperliches Wachstum sind weitere Entwicklungsstufen.
+**Stand: 0.2.0 · spielbarer Prototyp.** Noch kein vollständiger Lebenszyklus-Simulator. Die 2D-Grafik verwendet neue, an den Stilvorlagen orientierte Comic-Sprites. Die echte 3D-Welt verwendet weiterhin einfache, räumliche Modelle. Erweiterte Rudel-KI, Jagd, Jahreszeiten, Animationen und langsames körperliches Wachstum sind weitere Entwicklungsstufen.
 
 ## Spielen
 
-- **Android:** APK aus dem [Build-Artefakt](https://github.com/chekento/wolf/actions/workflows/build.yml) herunterladen, ZIP entpacken und `Wolf-0.1.0-debug.apk` installieren. Android 7+; ARM64. Der Build benötigt keine Internetberechtigung.
+- **Android:** APK aus dem [Build-Artefakt](https://github.com/chekento/wolf/actions/workflows/build.yml) herunterladen, ZIP entpacken und `Wolf-0.2.0-debug.apk` installieren. Android 7+; ARM64. Der Build benötigt keine Internetberechtigung.
 - **Computer:** Repository herunterladen, `project.godot` mit Godot **4.5.1** öffnen und F6/F5 starten. Das Spiel verwendet den Compatibility-Renderer.
 - **Browser:** Das Web-Artefakt enthält einen exportierten Browser-Build. Entpacken und mit einem lokalen HTTP-Server öffnen, z. B. `python3 -m http.server 8000` im Web-Ordner. `index.html` nicht direkt als lokale Datei öffnen.
 
@@ -24,21 +24,26 @@ Dies sind **Aufnahmen des laufenden Spiels**, keine Konzeptbilder. Beide Ansicht
 
 ## Gebiete und Spielumfang
 
-| Gebiet | Verbindungen | Charakter |
-|---|---|---|
-| Rudelhöhle | Norden: Bergwiese · Osten: Kiefernwald | Sicherer Anfang mit zwei erwachsenen Rudelwölfen |
-| Kiefernwald | Westen: Rudelhöhle · Norden: Flussauen | Dichte Bäume und Fährten |
-| Flussauen | Süden: Kiefernwald · Westen: Bergwiese | Fluss mit passierbarer Furt |
-| Bergwiese | Süden: Rudelhöhle · Osten: Flussauen | Offeneres Gelände und Aussicht |
+Die Welt bildet einen zusammenhängenden **4×4-Verbund mit 16 Gebieten**. Jedes Gebiet umfasst 3200×3200 Welteinheiten. Gegenüber Version 0.1.0 ist die Gesamtfläche **16-mal so groß**. Gebietswechsel funktionieren über die Kartenränder in beiden Ansichten.
 
-Die Karten bilden einen zusammenhängenden 2×2-Verbund. Folge den breiten Wegen zu den offenen Kartenrändern. Gebietswechsel funktionieren in beiden Ansichten, ohne Teleportmenü.
+| Westen → Osten | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| Norden | Frostgrat | Schneekiefern | Wasserfalltal | Steinbockhöhe |
+| Zweite Reihe | Uralter Wald | Bergwiese | Flussauen | Spiegelsee |
+| Dritte Reihe | Moosruinen | Rudelhöhle | Kiefernwald | Eichenhain |
+| Süden | Dünenküste | Schilfmoor | Dorfrand | Abendlichtung |
 
-- Sieben Erlebnisse: Wasser finden, drei Spuren lesen, Rudelantwort hören, alle Gebiete erkunden, Reh und Hase beobachten, vier Wegsteine entdecken und an der Höhle ruhen.
-- Schnüffeln zeigt Fährten für 18 Sekunden; untersuchte Spuren bleiben markiert.
-- Tiere bewegen sich und fliehen bei Annäherung. Beobachtung im Wolfsblick benötigt Abstand, Blickkontakt und eine freie Sichtlinie.
-- Nahrung, Wasser, Kraft und Rudelbindung; langsamer Verbrauch, Erholung und optionaler Trab.
-- Naturtagebuch und lokale Spielstände. Automatisches Speichern alle 20 Sekunden, bei Gebietswechseln und beim Wechsel in den Hintergrund.
-- Hochkant-Oberfläche, Touch-Steuerung und scrollbare, pausierende Menüs.
+- 20 Erlebnisse und Ziele: Fährten lesen, Rudel kennenlernen, Tiere beobachten, Naturorte finden und alle Gebiete erkunden.
+- Neue Comic-Bäume, vier Wolfansichten, Rehe, Hasen, Füchse, Höhle und Porträt; Schnee, Wasserfälle, Ruinen, Küste und Häuser am Dorfrand.
+- Zwei Erwachsene und zwei junge Rudelwölfe. Begrüßen stärkt die Bindung; vertraute Erwachsene folgen in der Nähe.
+- Schnüffeln zeigt Fährten für 18 Sekunden. Leises Gehen erleichtert die Annäherung; Beobachtung im Wolfsblick benötigt Abstand und eine freie Sichtlinie.
+- Nahrung, Wasser, Kraft und Rudelbindung; Duftmarken, Erfahrung, Rang und Naturtagebuch.
+- Minikarte mit Wegen und wichtigen Orten. Vergrößerbare Übersicht über alle 16 Gebiete.
+- Automatisches Speichern alle 20 Sekunden, beim Gebietswechsel und beim Wechsel in den Hintergrund. Spielstände aus 0.1.0 werden übernommen.
+
+| Schneekiefern | Flussauen |
+|---|---|
+| ![Spielaufnahme Schnee](docs/snow.png) | ![Spielaufnahme Fluss](docs/river.png) |
 
 ## Steuerung
 
@@ -48,10 +53,12 @@ Die Karten bilden einen zusammenhängenden 2×2-Verbund. Folge den breiten Wegen
 | Umsehen in 3D | Über die Landschaft wischen | Linke Maustaste ziehen; alternativ I/J/K/L |
 | Ansicht wechseln | 3D / 2D-Taste | V |
 | Schnüffeln | Schnüffeln | F |
-| Spuren / Wasser / Nahrung / Wegstein / Tier untersuchen | Untersuchen | E |
+| Spuren / Wasser / Nahrung / Wegstein / Tier untersuchen | Aktion | E |
 | Heulen | Heulen | H |
-| Ruhen nahe einer Höhle | Ruhen | R |
+| Ruhen nahe einer Höhle | Aktion an der Höhle / Menü → Hier ruhen | R |
 | Schneller laufen | Trab umschalten | Umschalt halten |
+| Leise gehen | Leise umschalten | Touch-Schaltfläche |
+| Duftmarke | Duft setzen | Touch-Schaltfläche |
 | Gebietskarte | Karte | M |
 | Menü / zurück | ☰ / × | Escape |
 
@@ -71,11 +78,11 @@ godot --headless --script tests/smoke.gd
 godot --path .
 ```
 
-Der Smoke-Test prüft reproduzierbare Karten, gegenseitige Übergänge, sichere Ankunftspunkte, Speichern/Laden, Interaktionen, Sichtlinien, Kameraausrichtung, die Flussfurt und Menüwechsel. Tests verwenden eine separate Spielstanddatei, damit der echte Spielstand unberührt bleibt.
+Der Smoke-Test prüft reproduzierbare Karten, gegenseitige Übergänge, sichere Ankunftspunkte, Speichern/Laden, Interaktionen, Sichtlinien, Kameraausrichtung, alle 16 Gebiete, Brücken, Rudelinteraktionen, Entdeckungen, Duftmarken, die Spielstandmigration und Menüwechsel. Tests verwenden eine separate Spielstanddatei, damit der echte Spielstand unberührt bleibt.
 
 ```sh
 mkdir -p builds/web
-godot --headless --export-debug Android builds/Wolf-0.1.0-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.2.0-debug.apk
 godot --headless --export-release Web builds/web/index.html
 ```
 
@@ -87,6 +94,9 @@ Für Android: passende Godot-Exportvorlagen, JDK 17, Android SDK mit `platform-t
 - `scripts/state.gd`: Bedürfnisse, Fortschritt, Tagebuch und Spielstände
 - `scripts/main.gd`: Spielablauf, Interaktionen und Menüs
 - `scripts/map_view.gd`: 2D-Draufsicht
+- `scripts/atlas.gd`: Comic-Spriteatlas
+- `scripts/minimap.gd`: Minikarte
+- `docs/art-assets.md`: Grafikherkunft und Generierung
 - `scripts/world_view.gd`: echte 3D-Welt und Kamera
 - `scripts/touch_stick.gd`: Touch-/Maus-Stick
 - `tests/smoke.gd`: Gameplay-Prüfungen

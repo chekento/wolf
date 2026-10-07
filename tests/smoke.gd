@@ -14,7 +14,7 @@ func _initialize() -> void:
 func run() -> void:
 	WolfState.save_path="user://wolf_test_state.json"
 	var data := WolfWorldData
-	for region in range(4):
+	for region in range(16):
 		var a := data.generate(region)
 		var b := data.generate(region)
 		check(a==b,"deterministic region %d"%region)
@@ -37,6 +37,12 @@ func run() -> void:
 	check(restored.load_from(path),"save loaded")
 	check(restored.pos==s.pos and restored.region==s.region and restored.found==s.found and restored.drank and restored.elapsed==s.elapsed,"progress round trip")
 	DirAccess.remove_absolute(path)
+	var old := FileAccess.open(path,FileAccess.WRITE)
+	old.store_string(JSON.stringify({"version":1,"region":0,"pos":[790,970],"visited":[0,1],"found":["0:0"]}))
+	old.close()
+	var migrated := WolfState.new()
+	check(migrated.load_from(path) and migrated.pos==data.SPAWN and migrated.visited.has(1) and migrated.found.has("0:0"),"old save migration keeps progress")
+	DirAccess.remove_absolute(path)
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
@@ -47,10 +53,10 @@ func run() -> void:
 	game.state.pos=game.world.tracks[0].p
 	game.interact()
 	check(game.state.found.has("0:0"),"scent track interaction")
-	game.state.pos=Vector2(1250,1070)
+	game.state.pos=Vector2(2495,2140)
 	game.interact()
 	check(game.state.drank and game.state.thirst==100,"drink at bank")
-	game.state.pos=Vector2(790,1000)
+	game.state.pos=Vector2(1580,2020)
 	game.howl()
 	game.rest()
 	check(game.state.howled and game.state.rested,"pack response and rest")
@@ -63,18 +69,36 @@ func run() -> void:
 	check(Vector2.UP.rotated(-game.world_view.yaw).distance_to(forward)<0.001,"movement follows camera direction")
 	game.toggle_view()
 	check(not game.first_person and game.map_view.visible,"return to 2D")
-	game.state.pos=Vector2(1578,800)
+	game.state.pos=Vector2(3178,1600)
 	game.move_wolf(Vector2(8,0))
-	check(game.state.region==1 and game.state.pos==Vector2(50,800),"walk through connected east exit")
-	game.change_region(2,Vector2(400,800))
-	check(game.can_walk(Vector2(480,800)),"river ford open")
-	check(not game.can_walk(Vector2(480,600)),"deep river blocked")
+	check(game.state.region==1 and game.state.pos==Vector2(55,1600),"walk through connected east exit")
+	game.change_region(2,Vector2(800,1600))
+	check(game.can_walk(Vector2(WolfWorldData.river_x(1600),1600)),"river ford open")
+	check(not game.can_walk(Vector2(WolfWorldData.river_x(1100),1100)),"deep river blocked")
 	game.scent_time=0
-	for region in range(4):
+	for region in range(16):
 		game.change_region(region,data.SPAWN)
-		game.state.pos=Vector2(1090,520)
+		game.state.pos=Vector2(2180,1040)
 		game.interact()
-	check(game.state.visited.size()==4 and game.state.landmarks.size()==4,"exploration quest across regions")
+	check(game.state.visited.size()==16 and game.state.landmarks.size()==16,"exploration quest across regions")
+	game.state.pos=Vector2(640,2500)
+	game.interact()
+	check(game.state.discoveries.has(15),"hidden nature discovery")
+	game.mark_territory()
+	check(game.state.marked.has(15),"persistent scent mark")
+	check(game.state.xp>0 and game.state.level()>1,"experience and ranks")
+	game.change_region(0,Vector2(1430,2260))
+	game.interact()
+	check(game.state.pack_contacts>0 and game.state.bond>40,"pack greeting")
+	var reached: Array[int]=[0]
+	var frontier: Array[int]=[0]
+	while not frontier.is_empty():
+		var current: int=frontier.pop_front()
+		for target in data.REGIONS[current].links.values():
+			if not reached.has(target):
+				reached.append(target)
+				frontier.append(target)
+	check(reached.size()==16,"all regions reachable without teleporting")
 	# Test observation with a clear line of sight, then a blocking trunk.
 	game.change_region(0,Vector2(800,800))
 	game.world.animals[0].p=Vector2(800,580)
@@ -83,6 +107,7 @@ func run() -> void:
 	game.world_view.pitch=-0.17
 	check(game.observe() and game.state.observations.has("Reh"),"first person animal observation")
 	game.state.observations.clear()
+	game.world.animals=game.world.animals.slice(0,1)
 	game.world.objects=[{"kind":"tree","p":Vector2(800,700),"scale":1.0,"variant":0}]
 	check(not game.observe(),"tree blocks animal observation")
 	var touch := InputEventScreenTouch.new()

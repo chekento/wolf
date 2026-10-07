@@ -57,16 +57,16 @@ jobs:
       - name: Export Android and Web
         run: |
           mkdir -p builds/web
-          godot --headless --export-debug Android builds/Wolf-0.1.0-debug.apk
+          godot --headless --export-debug Android builds/Wolf-0.2.0-debug.apk
           godot --headless --export-release Web builds/web/index.html
           cd builds
-          zip -qr Wolf-0.1.0-web.zip web
-          sha256sum Wolf-0.1.0-debug.apk Wolf-0.1.0-web.zip > SHA256SUMS.txt
+          zip -qr Wolf-0.2.0-web.zip web
+          sha256sum Wolf-0.2.0-debug.apk Wolf-0.2.0-web.zip > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Wolf-0.1.0-Android-and-Web
+          name: Wolf-0.2.0-Android-and-Web
           path: |
-            builds/Wolf-0.1.0-debug.apk
-            builds/Wolf-0.1.0-web.zip
+            builds/Wolf-0.2.0-debug.apk
+            builds/Wolf-0.2.0-web.zip
             builds/SHA256SUMS.txt
           retention-days: 30
