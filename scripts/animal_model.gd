@@ -37,6 +37,8 @@ var _swing_starts: Array[float] = [0.0,0.0,0.0,0.0]
 var _swing_from: Array[float] = [0.0,0.0,0.0,0.0]
 var _swing_to: Array[float] = [0.0,0.0,0.0,0.0]
 var _was_moving := false
+var _feeding_amount := 0.0
+var muzzle_tip := Vector3.ZERO
 var _surfaces: Dictionary = {}
 var _parents: Dictionary = {}
 
@@ -76,7 +78,12 @@ func piece(parent: Node3D,points: Array,radii: Array,color: Color,segments: int=
 				var v := tangent.cross(u).normalized()
 				var radial := u*cos(angle)*r.x+v*sin(angle)*r.y
 				var p: Vector3=points[coord.x]+radial
-				var normal := (u*cos(angle)/maxf(r.x,0.018)+v*sin(angle)/maxf(r.y,0.018)).normalized()
+				# Longitudinal taper belongs in the normal as well as the outline.
+				# Pure radial normals made cheeks and shoulders light like barrels.
+				var span: float=maxf(.001,points[after].distance_to(points[before]))
+				var slope: Vector2=(radii[after]-radii[before])/span
+				var axial := -(slope.x*cos(angle)*cos(angle)/maxf(r.x,.018)+slope.y*sin(angle)*sin(angle)/maxf(r.y,.018))
+				var normal := (u*cos(angle)/maxf(r.x,0.018)+v*sin(angle)/maxf(r.y,0.018)+tangent*axial).normalized()
 				if r.length()<0.015:normal=-tangent if coord.x==0 else tangent
 				var c := color
 				if dorsal:
@@ -130,7 +137,7 @@ func build(species: String,young: bool=false) -> void:
 	var fox := kind=="fox"
 	var deer := kind=="deer"
 	var rabbit := kind=="rabbit"
-	var fur := Color("#929795") if kind=="wolf" else Color("#b8783f") if fox else Color("#a88356") if deer else Color("#9c8d77")
+	var fur := Color("#8e9593") if kind=="wolf" else Color("#bd783d") if fox else Color("#a78150") if deer else Color("#9b8d79")
 	var cream := Color("#d6d1bd") if not fox else Color("#e4d9bf")
 	body_scale=0.70 if rabbit else 0.82 if fox else 1.08 if deer else 1.0
 	if young:body_scale*=0.73
@@ -138,51 +145,63 @@ func build(species: String,young: bool=false) -> void:
 	body_height=0.47 if rabbit else 0.715 if fox else 1.10 if deer else 0.79
 	torso=pivot(self,Vector3(0,body_height,0),"Torso")
 	if rabbit:
-		ellipsoid(torso,Vector3(0,-0.01,0.09),Vector3(0.265,0.30,0.43),fur,16,true)
-		ellipsoid(torso,Vector3(0,-0.055,-0.24),Vector3(0.19,0.24,0.20),cream)
+		ellipsoid(torso,Vector3(0,-0.035,0.10),Vector3(0.26,0.275,0.44),fur,16,true)
+		ellipsoid(torso,Vector3(0,-0.06,-0.24),Vector3(0.17,0.215,0.20),cream)
 	else:
-		var width := 0.225 if deer or fox else 0.30
-		var depth := 0.34 if deer else 0.26 if fox else 0.34
-		piece(torso,[Vector3(0,0,-0.70),Vector3(0,0.02,-0.48),Vector3(0,0.035,-0.13),Vector3(0,-0.035,0.29),Vector3(0,-0.07,0.57),Vector3(0,-0.07,0.66)],[Vector2(0.035,0.07),Vector2(width*0.88,depth),Vector2(width,depth*0.94),Vector2(width*0.87,depth*0.75),Vector2(width*0.79,depth*0.77),Vector2(0.025,0.04)],fur,16,true)
-		ellipsoid(torso,Vector3(0,-0.02,-0.46),Vector3(width*0.93,depth*1.06,0.22),fur,14,true)
-		ellipsoid(torso,Vector3(0,-0.16,-0.49),Vector3(width*0.69,0.23,0.17),cream if not deer else fur.lightened(0.08))
+		var width := .205 if deer else .205 if fox else .28
+		var depth := .295 if deer else .235 if fox else .315
+		piece(torso,[Vector3(0,.0,-.70),Vector3(0,.025,-.51),Vector3(0,.045,-.27),Vector3(0,.025,-.02),Vector3(0,.025,.22),Vector3(0,-.035,.48),Vector3(0,-.055,.63),Vector3(0,-.055,.69)],[Vector2(.028,.045),Vector2(width*.88,depth),Vector2(width,depth*.98),Vector2(width*.89,depth*.85),Vector2(width*.72,depth*.68),Vector2(width*.82,depth*.80),Vector2(width*.62,depth*.67),Vector2(.018,.026)],fur,16,true)
+		ellipsoid(torso,Vector3(0,-.015,-.46),Vector3(width*.91,depth*1.02,.235),fur,14,true)
+		ellipsoid(torso,Vector3(0,-.15,-.49),Vector3(width*.64,.215,.17),cream if not deer else fur.lightened(.08))
 		if not deer:
 			for side in [-1,1]:
-				piece(torso,[Vector3(side*width*0.6,0.07,-0.52),Vector3(side*width*1.01,-0.10,-0.35),Vector3(side*width*1.10,-0.24,-0.25)],[Vector2(0.13,0.10),Vector2(0.10,0.10),Vector2.ZERO],fur.lightened(0.055))
+				piece(torso,[Vector3(side*width*.60,.065,-.51),Vector3(side*width*.95,-.07,-.38),Vector3(side*width*1.02,-.17,-.28),Vector3(side*width*.91,-.21,-.24)],[Vector2(.10,.09),Vector2(.095,.08),Vector2(.055,.045),Vector2(.008,.008)],fur.lightened(.055))
 	neck=pivot(torso,Vector3(0,0.11 if not rabbit else 0.08,-0.48 if not rabbit else -0.25),"Neck")
 	if deer:
-		piece(neck,[Vector3(0,-0.04,0.04),Vector3(0,0.26,-0.12),Vector3(0,0.52,-0.16)],[Vector2(0.17,0.20),Vector2(0.15,0.16),Vector2(0.11,0.11)],fur,14,true)
+		piece(neck,[Vector3(0,-.06,.045),Vector3(0,.12,-.055),Vector3(0,.32,-.135),Vector3(0,.52,-.16)],[Vector2(.15,.18),Vector2(.14,.155),Vector2(.115,.13),Vector2(.088,.095)],fur,14,true)
 		head=pivot(neck,Vector3(0,0.53,-0.16),"Head")
 	elif rabbit:
 		ellipsoid(neck,Vector3(0,0.04,-0.03),Vector3(0.16,0.19,0.18),fur)
 		head=pivot(neck,Vector3(0,0.13,-0.11),"Head")
 	else:
-		ellipsoid(neck,Vector3(0,0.09,-0.05),Vector3(0.205 if fox else 0.25,0.265,0.24),fur,14,true)
-		piece(neck,[Vector3(0,0.02,-0.13),Vector3(0,-0.14,-0.20),Vector3(0,-0.29,-0.09)],[Vector2(0.16,0.15),Vector2(0.13,0.10),Vector2.ZERO],cream)
+		ellipsoid(neck,Vector3(0,.09,-.06),Vector3(.177 if fox else .225,.235,.255),fur,14,true)
+		piece(neck,[Vector3(0,.015,-.13),Vector3(0,-.10,-.18),Vector3(0,-.22,-.12),Vector3(0,-.26,-.065)],[Vector2(.14,.13),Vector2(.12,.09),Vector2(.07,.055),Vector2(.010,.010)],cream)
 		head=pivot(neck,Vector3(0,0.24,-0.24),"Head")
-	var skull := Vector3(0.155,0.16,0.24) if deer else Vector3(0.19,0.17,0.21) if rabbit else Vector3(0.205,0.19,0.25) if fox else Vector3(0.24,0.215,0.28)
+	var skull := Vector3(.145,.145,.245) if deer else Vector3(.18,.165,.20) if rabbit else Vector3(.178,.175,.25) if fox else Vector3(.218,.195,.285)
 	ellipsoid(head,Vector3(0,0.005,0.035),skull,fur,16,true)
-	var muzzle_length := 0.27 if rabbit else 0.45 if deer else 0.55 if fox else 0.56
-	var muzzle_width := 0.095 if deer else 0.105 if rabbit else 0.12 if fox else 0.145
-	piece(head,[Vector3(0,-0.07,-0.11),Vector3(0,-0.095,-muzzle_length*0.62),Vector3(0,-0.11,-muzzle_length*0.94),Vector3(0,-0.11,-muzzle_length)],[Vector2(muzzle_width,0.10),Vector2(muzzle_width*0.87,0.085),Vector2(muzzle_width*0.51,0.047),Vector2(0.012,0.027)],cream if not deer else fur.darkened(0.12),14)
-	ellipsoid(head,Vector3(0,-0.10,-muzzle_length),Vector3(0.068 if not rabbit else 0.027,0.041,0.028),Color("#29332c"))
+	var muzzle_length := .22 if rabbit else .43 if deer else .53 if fox else .525
+	var muzzle_width := .084 if deer else .096 if rabbit else .107 if fox else .135
+	muzzle_tip=Vector3(0,-.10,-muzzle_length)
+	piece(head,[Vector3(0,-.07,-.10),Vector3(0,-.09,-muzzle_length*.58),Vector3(0,-.105,-muzzle_length*.91),muzzle_tip],[Vector2(muzzle_width,.089),Vector2(muzzle_width*.88,.071),Vector2(muzzle_width*.61,.038),Vector2(.017,.024)],cream if not deer else fur.lightened(.05),14)
+	if not rabbit:
+		# A furred nasal bridge sits above pale lip fur, giving the muzzle a
+		# tapered silhouette instead of a single pale cone.
+		piece(head,[Vector3(0,-.005,-.115),Vector3(0,-.015,-muzzle_length*.59),Vector3(0,-.055,-muzzle_length*.93)],[Vector2(muzzle_width*.87,.067),Vector2(muzzle_width*.67,.050),Vector2(muzzle_width*.39,.018)],fur,12,true)
+	ellipsoid(head,muzzle_tip,Vector3(.049 if deer else .029 if rabbit else .063,.029 if rabbit else .036,.027),Color("#29312c"))
+	for side in [-1,1]:
+		if not rabbit:ellipsoid(head,muzzle_tip+Vector3(side*.042,-.006,-.016),Vector3(.012,.013,.010),Color("#18231f"),6)
+		piece(head,[Vector3(side*muzzle_width*.76,-.128,-muzzle_length*.35),Vector3(side*muzzle_width*.66,-.127,-muzzle_length*.76)],[Vector2(.005,.005),Vector2(.002,.002)],Color("#514d40"),6)
 	jaw=pivot(head,Vector3(0,-0.145,-0.12),"Jaw")
 	piece(jaw,[Vector3(0,0,0),Vector3(0,-0.018,-muzzle_length*0.45),Vector3(0,-0.006,-muzzle_length*0.83)],[Vector2(muzzle_width*0.90,0.042),Vector2(muzzle_width*0.70,0.034),Vector2(0.03,0.014)],cream.darkened(0.04))
 	for side in [-1,1]:
 		if not deer and not rabbit:
-			piece(head,[Vector3(side*skull.x*0.64,-0.025,-0.02),Vector3(side*skull.x*1.15,-0.12,0.07),Vector3(side*skull.x*0.88,-0.17,0.15)],[Vector2(0.11,0.07),Vector2(0.105,0.07),Vector2.ZERO],cream)
+			piece(head,[Vector3(side*skull.x*.65,-.025,-.035),Vector3(side*skull.x*1.04,-.09,.045),Vector3(side*skull.x*1.11,-.13,.105),Vector3(side*skull.x*.92,-.15,.16)],[Vector2(.085,.06),Vector2(.088,.060),Vector2(.055,.040),Vector2(.009,.009)],cream)
 		var eye := pivot(head,Vector3(side*skull.x*0.94,0.018,-0.13 if not rabbit else -0.07),"Eye"+str(side))
 		eyes.append(eye)
-		ellipsoid(eye,Vector3.ZERO,Vector3(0.022,0.037,0.037),Color("#28332b"))
-		ellipsoid(eye,Vector3(side*0.009,0,-0.007),Vector3(0.015,0.026,0.023),Color("#bd954a") if not deer and not rabbit else Color("#573f2a"))
-		ellipsoid(eye,Vector3(side*0.021,0,-0.014),Vector3(0.010,0.022,0.009),Color("#202923"))
+		ellipsoid(eye,Vector3.ZERO,Vector3(.021,.030 if not rabbit else .035,.040),Color("#28332b"))
+		ellipsoid(eye,Vector3(side*.009,0,-.007),Vector3(.015,.023,.026),Color("#be984e") if not deer and not rabbit else Color("#654c32"))
+		ellipsoid(eye,Vector3(side*.021,0,-.014),Vector3(.010,.019,.011),Color("#202923"))
 		ellipsoid(eye,Vector3(side*0.025,0.009,-0.020),Vector3(0.005,0.007,0.005),Color("#f7f0d9"),8)
-		ellipsoid(head,Vector3(side*skull.x*0.88,0.082,-0.14),Vector3(0.037,0.017,0.05),fur.darkened(0.18))
+		ellipsoid(head,Vector3(side*skull.x*.88,.063,-.14),Vector3(.043,.014,.060),fur.darkened(.18))
 		var ear := pivot(head,Vector3(side*0.105 if deer else side*0.13 if rabbit else side*0.17,0.13 if deer else 0.15,0.08),"Ear"+str(side))
 		ears.append(ear)
-		var tip := Vector3(side*0.17,0.25,0.02) if deer else Vector3(side*0.045,0.59,0.07) if rabbit else Vector3(side*0.023,0.32 if fox else 0.285,0.008)
-		piece(ear,[Vector3.ZERO,tip*0.42,tip],[Vector2(0.09,0.047),Vector2(0.072,0.033),Vector2.ZERO],fur,12)
-		piece(ear,[Vector3(0,0.017,-0.04),tip*0.40+Vector3(0,0,-0.034),tip*0.86+Vector3(0,0,-0.008)],[Vector2(0.055,0.009),Vector2(0.047,0.008),Vector2.ZERO],Color("#b8a899"),10)
+		var tip := Vector3(side*.225,.175,.02) if deer else Vector3(side*.045,.65,.07) if rabbit else Vector3(side*.032,.35 if fox else .25,.009)
+		if rabbit:
+			piece(ear,[Vector3.ZERO,tip*.25,tip*.62,tip*.88,tip],[Vector2(.042,.030),Vector2(.073,.030),Vector2(.070,.025),Vector2(.039,.020),Vector2(.012,.010)],fur,12,true)
+			piece(ear,[tip*.13+Vector3(0,0,-.028),tip*.37+Vector3(0,0,-.030),tip*.72+Vector3(0,0,-.025),tip*.91+Vector3(0,0,-.014)],[Vector2(.021,.006),Vector2(.043,.006),Vector2(.035,.006),Vector2(.009,.005)],Color("#b79a86"),10)
+		else:
+			piece(ear,[Vector3.ZERO,tip*.32,tip*.67,tip],[Vector2(.083,.043),Vector2(.088 if deer else .071,.033),Vector2(.056,.026),Vector2(.009,.007)],fur,12,true)
+			piece(ear,[Vector3(0,.018,-.037),tip*.35+Vector3(0,0,-.030),tip*.72+Vector3(0,0,-.022),tip*.93+Vector3(0,0,-.009)],[Vector2(.048,.006),Vector2(.049,.007),Vector2(.029,.006),Vector2(.004,.004)],Color("#bbab96"),10)
 	for i in range(4):
 		var side := -1.0 if i%2==0 else 1.0
 		var front := i<2
@@ -207,7 +226,7 @@ func build(species: String,young: bool=false) -> void:
 		foot_targets.append(Vector3(limb.position.x,foot_size.y,limb.position.z+bend-.082))
 		ellipsoid(paw,Vector3.ZERO,foot_size,Color("#554a3d") if deer else cream.darkened(0.13),12)
 		if deer:
-			piece(paw,[Vector3(0,.003,-.048),Vector3(0,-.033,-.078)],[Vector2(0.006,0.024),Vector2(0.004,0.023)],Color("#302f28"),6)
+			piece(paw,[Vector3(0,.003,-.048),Vector3(0,-.025,-.078)],[Vector2(0.006,0.024),Vector2(0.004,0.023)],Color("#302f28"),6)
 		else:
 			for toe in [-1,0,1]:ellipsoid(paw,Vector3(toe*.031,-.007,-.088 if not rabbit else -.118),Vector3(.017,.016,.032),cream.darkened(.19),8)
 	tail=pivot(torso,Vector3(0,-0.055,0.43 if rabbit else 0.61),"Tail")
@@ -222,8 +241,9 @@ func build(species: String,young: bool=false) -> void:
 		ellipsoid(torso,Vector3(0,0.0,0.51),Vector3(0.19,0.23,0.11),cream)
 		for side in [-1,1]:
 			var antler := Color("#7d6a4c")
-			piece(head,[Vector3(side*0.10,0.15,0.06),Vector3(side*0.17,0.36,0.065),Vector3(side*0.29,0.62,0.025),Vector3(side*0.36,0.76,-0.045)],[Vector2(0.027,0.027),Vector2(0.025,0.025),Vector2(0.018,0.018),Vector2.ZERO],antler,8)
-			piece(head,[Vector3(side*0.16,0.34,0.065),Vector3(side*0.28,0.43,-0.085),Vector3(side*0.31,0.57,-0.12)],[Vector2(0.018,0.018),Vector2(0.012,0.012),Vector2.ZERO],antler,8)
+			piece(head,[Vector3(side*.09,.14,.085),Vector3(side*.12,.27,.11),Vector3(side*.15,.43,.15),Vector3(side*.20,.57,.16),Vector3(side*.22,.65,.10)],[Vector2(.027,.025),Vector2(.025,.023),Vector2(.019,.019),Vector2(.013,.013),Vector2(.002,.002)],antler,8)
+			piece(head,[Vector3(side*.12,.29,.11),Vector3(side*.15,.39,-.02),Vector3(side*.18,.46,-.095)],[Vector2(.017,.017),Vector2(.011,.011),Vector2(.001,.001)],antler.lightened(.06),8)
+			piece(head,[Vector3(side*.15,.43,.15),Vector3(side*.22,.49,.27),Vector3(side*.27,.57,.30)],[Vector2(.015,.015),Vector2(.010,.010),Vector2(.001,.001)],antler,8)
 	_finish_surfaces()
 
 func stride_length() -> float:
@@ -243,6 +263,9 @@ func set_foot_heights(heights: Array[float]) -> void:
 
 func foot_position(index: int) -> Vector3:
 	return torso.transform*legs[index].transform*knees[index].transform*paws[index].position
+
+func nose_position() -> Vector3:
+	return torso.transform*neck.transform*head.transform*muzzle_tip
 
 func _solve_leg(index: int,target: Vector3,blend: float,torso_inverse: Transform3D) -> void:
 	var geometry: Vector3=limb_geometry[index]
@@ -271,6 +294,7 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 	var immediate := last_time<0 or time<last_time or (time==0.0 and last_time==0.0) or absf(cycle-_last_cycle)>PI
 	var dt := minf(maxf(time-last_time,0.0),.1) if not immediate else 0.0
 	var blend := 1.0 if immediate else 1.0-exp(-dt*10.0)
+	var posture_blend := 1.0 if immediate else 1.0-exp(-dt*6.0)
 	var distance_phase := 0.0 if immediate else maxf(0.0,cycle-_last_cycle)
 	_movement=lerpf(_movement,clampf(speed/80.0,0,1),blend)
 	var movement := _movement
@@ -284,7 +308,10 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 	var resting := not moving and mood=="ruhen"
 	var greeting := mood=="begrüßen"
 	var escaping := mood=="fliehen"
+	var feeding := not moving and mood in ["grasen","schnüffeln","trinken"]
+	var drinking := feeding and mood=="trinken"
 	_rest_amount=lerpf(_rest_amount,1.0 if resting else 0.0,blend)
+	_feeding_amount=lerpf(_feeding_amount,1.0 if feeding else 0.0,blend)
 	var duty_goal := .32 if rabbit else .58 if escaping else .66
 	var body_drop := .105 if kind=="deer" else .055 if kind=="fox" else .05 if rabbit else .065
 	var breathing := sin(time*1.65+phase)*.004*motion*(1.0-movement)
@@ -292,8 +319,9 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 	var lowest_ground := minf(minf(foot_ground[0],foot_ground[1]),minf(foot_ground[2],foot_ground[3]))
 	target_height-=maxf(0,-lowest_ground-.012)
 	if rabbit and moving:target_height+=sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*.055*movement*motion
-	var rest_height := (.20 if rabbit else .42 if kind=="deer" else .29 if kind=="fox" else .34)+sin(time*1.6+phase)*.007*motion
+	var rest_height := (.285 if rabbit else .43 if kind=="deer" else .34 if kind=="fox" else .355)+sin(time*1.6+phase)*.007*motion
 	target_height=lerpf(target_height,rest_height,_rest_amount)
+	target_height-=(.14 if kind=="deer" else .04 if rabbit else .025 if kind=="wolf" else .02)*_feeding_amount
 	if moving or foot_planted.has(false):
 		# Ease down before rear-pad landing rather than imposing a sudden
 		# height limit only when the approaching pad has reached the ground.
@@ -305,7 +333,8 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 			target_height=minf(target_height,landing_height)
 	torso.position.y=lerpf(torso.position.y,target_height,blend)
 	var bow := -.14 if mood=="spielen" and not moving else -.055 if escaping else 0.0
-	torso.rotation.x=lerp_angle(torso.rotation.x,bow+(sin(cycle)*.065*movement*motion if rabbit else 0.0),blend)
+	var feeding_bow := (-.14 if kind=="deer" else -.045 if rabbit else -.025)*_feeding_amount
+	torso.rotation.x=lerp_angle(torso.rotation.x,bow+feeding_bow+(sin(cycle)*.065*movement*motion if rabbit else 0.0),blend)
 	torso.rotation.z=lerp_angle(torso.rotation.z,sin(cycle)*.012*movement*motion,blend)
 	# Walk becomes diagonal trot gradually. Correction is limited to swing,
 	# so changing speed never drags a supporting paw across the soil.
@@ -366,11 +395,11 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 			z_offset=_swing_z(_swing_from[i],_swing_to[i],swing,stride_length()*(1.0-_swing_starts[i]))
 			lift=_swing_lift(swing,maxf(movement,.35))
 		else:
-			var folded_z := (-.16 if i<2 else -.22)*_rest_amount
+			var folded_z := (-.16 if i<2 else -.18 if rabbit else -.22)*_rest_amount
 			if mood=="spielen":folded_z+=(-.10 if i<2 else .07)*(1.0-_rest_amount)
 			z_offset=lerpf(foot_targets[i].z-base_z,folded_z,blend)
 		if immediate and not moving:
-			z_offset=(-.16 if i<2 else -.22) if resting else (-.10 if i<2 else .07) if mood=="spielen" else 0.0
+			z_offset=(-.16 if i<2 else -.18 if rabbit else -.22) if resting else (-.10 if i<2 else .07) if mood=="spielen" else 0.0
 		foot_planted[i]=planted
 		foot_targets[i]=Vector3(legs[i].position.x,foot_ground[i]+paw_sizes[i].y+lift,base_z+z_offset)
 	# Limit body height for all approaching feet as well as supporting ones;
@@ -397,27 +426,38 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 	var head_turn := lerpf(sin(time*.7+phase)*.08*motion,clampf(look_angle,-.65,.65),alert)
 	if escaping:neck_angle=-.12;head_angle=-.06
 	if not moving:
-		if mood in ["grasen","schnüffeln","trinken"]:
-			neck_angle=-.58+sin(time*2)*.025*motion
-			head_angle=-.27
+		if feeding:
+			# A long-necked animal must reach the plant with its actual muzzle.
+			# The counter-rotation at the skull lets it feed without folding
+			# the entire face into its chest.
+			neck_angle=(-2.05 if kind=="deer" else -1.72 if rabbit else -1.44 if kind=="fox" else -1.48)+sin(time*(1.45 if kind=="deer" else 2.0))*.016*motion
+			head_angle=.68 if kind=="deer" else .14
+			if drinking:neck_angle-=.025;head_angle+=sin(time*2.9)*.018*motion
 		elif mood=="heulen":neck_angle=.53;head_angle=.24;head_turn=0.0
-		elif resting:neck_angle=-.22;head_angle=-.18;head_turn=-.35 if not rabbit else .12
+		elif resting:
+			neck_angle=-.28 if kind=="fox" else -.22
+			head_angle=-.25 if kind=="fox" else -.18
+			head_turn=-.55 if kind=="fox" else -.35 if not rabbit else .12
 		elif greeting:neck_angle=-.08+sin(time*2.3)*.025*motion;head_angle=-.06
 		elif alert>.35:neck_angle=.04+alert*.06;head_angle=.035
-	neck.rotation.x=lerp_angle(neck.rotation.x,neck_angle,blend)
-	head.rotation.x=lerp_angle(head.rotation.x,head_angle,blend)
-	head.rotation.y=lerp_angle(head.rotation.y,head_turn,blend)
-	jaw.rotation.x=lerp_angle(jaw.rotation.x,-.12 if mood=="heulen" else -.018*movement,blend)
+	neck.rotation.x=lerp_angle(neck.rotation.x,neck_angle,posture_blend)
+	head.rotation.x=lerp_angle(head.rotation.x,head_angle,posture_blend)
+	head.rotation.y=lerp_angle(head.rotation.y,head_turn,posture_blend)
+	var chew := maxf(0.0,sin(time*(3.5 if drinking else 2.3)))*(.022 if drinking else .035)*motion if feeding else 0.0
+	jaw.rotation.x=lerp_angle(jaw.rotation.x,-.12 if mood=="heulen" else -.018*movement-chew,posture_blend)
 	var tail_amount := .28 if mood=="spielen" else .18 if greeting else .025 if escaping else .045
 	var tail_turn := sin(time*(2.7 if greeting or mood=="spielen" else 1.1)+phase)*tail_amount*motion+sin(cycle)*.035*movement*motion
+	if resting:tail_turn=.65 if kind=="fox" else -.18 if kind=="wolf" else 0.0
 	tail.rotation.y=lerp_angle(tail.rotation.y,tail_turn,blend)
 	tail.rotation.x=lerp_angle(tail.rotation.x,-.23 if resting else -.20 if greeting or mood=="spielen" else .08 if escaping else sin(time*1.7)*.025*motion,blend)
 	for i in range(ears.size()):
 		var twitch := pow(maxf(0,sin(time*.81+float(i)*2.5)),12)*.11*motion
 		ears[i].rotation.z=lerp_angle(ears[i].rotation.z,(-.1 if i==0 else .1) if resting else twitch*(1 if i==0 else -1),blend)
-		ears[i].rotation.x=lerp_angle(ears[i].rotation.x,-.26 if resting else -.18 if escaping else .12 if greeting else alert*.055,blend)
+		var ear_pitch := (1.35 if rabbit else .30 if kind=="deer" else .18 if kind=="fox" else .12) if resting else .26 if escaping else .12 if greeting else alert*.055
+		ear_pitch+=(1.0 if rabbit else .70 if kind=="deer" else .90 if kind=="fox" else .80)*_feeding_amount
+		ears[i].rotation.x=lerp_angle(ears[i].rotation.x,ear_pitch,posture_blend)
 		var ear_turn := clampf(look_angle,-.6,.6)*alert*(.42 if i==0 else .30)
-		ears[i].rotation.y=lerp_angle(ears[i].rotation.y,ear_turn,blend)
+		ears[i].rotation.y=lerp_angle(ears[i].rotation.y,ear_turn,posture_blend)
 	for eye in eyes:
 		var blink := fposmod(time+phase,7.0 if alert>.35 else 5.8)<.13
 		eye.scale.y=lerpf(eye.scale.y,.09 if resting or blink else 1.0,blend)

@@ -16,7 +16,15 @@ func _draw() -> void:
 	var w := size.x
 	var h := size.y
 	var dark: bool=game!=null and game.state.time_name()=="Nacht"
-	var sky := Color("#24464c") if dark else Color("#9bc2b3")
+	var biome: String=WolfWorldData.REGIONS[game.state.region].biome if game!=null else "forest"
+	var skies := {"snow":"#b9cfda","alpine":"#b2c5cf","coast":"#aeced0","river":"#a3c9bc","marsh":"#adbcad","meadow":"#bad3ae","pine":"#9bbcaf","oak":"#c5c3a3","lake":"#b0cacf"}
+	var sky := Color("#24464c") if dark else Color(skies.get(biome,"#9bc2b3"))
+	var ridges: Array[Color]=[Color("#779889"),Color("#426f62"),Color("#244f43")]
+	if biome in ["snow","alpine"]:ridges=[Color("#cbd7d2"),Color("#99b2ac"),Color("#617e78")]
+	elif biome=="coast":ridges=[Color("#b8c9ae"),Color("#82afa7"),Color("#426f68")]
+	elif biome=="marsh":ridges=[Color("#8b9e89"),Color("#667b60"),Color("#405747")]
+	elif biome=="meadow":ridges=[Color("#adc18c"),Color("#819f66"),Color("#526f4b")]
+	elif biome=="oak":ridges=[Color("#b4ac79"),Color("#8c965e"),Color("#596b43")]
 	draw_style_box(game.panel_style(sky,18),Rect2(Vector2.ZERO,size))
 	for band in range(16):
 		var t := float(band)/15
@@ -32,14 +40,24 @@ func _draw() -> void:
 			var y := h*(0.41+layer*0.12)+sin(step*0.29+layer*2)*h*0.09+cos(step*0.54)*h*0.025
 			ridge.append(Vector2(x,y))
 		ridge.append(Vector2(w-3,h-5))
-		draw_colored_polygon(ridge,[Color("#779889"),Color("#426f62"),Color("#244f43")][layer])
+		draw_colored_polygon(ridge,ridges[layer])
 	var stream := PackedVector2Array([Vector2(w*0.56,h*0.57),Vector2(w*0.5,h*0.72),Vector2(w*0.63,h*0.85),Vector2(w*0.48,h-4)])
-	draw_polyline(stream,Color("#85b7ab"),5,true)
+	if biome in ["river","lake","marsh"]:draw_polyline(stream,Color("#85b7ab"),8 if biome=="river" else 5,true)
+	if biome=="coast":
+		for row in range(4):draw_line(Vector2(w*.47,h*(.58+row*.08)),Vector2(w-4,h*(.60+row*.08)),Color("#9fc9c2"),3,true)
+	if biome in ["snow","alpine"]:
+		for i in range(5):
+			var peak := Vector2(w*(.43+i*.12),h*(.37+sin(i)*.04))
+			draw_colored_polygon(PackedVector2Array([peak,peak+Vector2(-17,21),peak+Vector2(14,17)]),Color("#e2e8dd"))
 	for i in range(12):
 		var x := w*i/11
 		var y := h*0.78+sin(i*1.7)*10
 		var height := 26+fposmod(i*13,26)
-		_tree(Vector2(x,y),height,Color("#153d34"))
+		if biome in ["coast","meadow"] and i%3!=0:continue
+		if biome in ["oak","forest"]:
+			draw_line(Vector2(x,y),Vector2(x,y-height*.7),Color("#435442"),3)
+			for crown in range(3):draw_circle(Vector2(x+(crown-1)*height*.17,y-height*.68-absf(crown-1)*height*.07),height*.24,Color("#4b6843") if biome=="oak" else Color("#244e41"))
+		else:_tree(Vector2(x,y),height,Color("#415e57") if biome=="snow" else Color("#153d34"))
 	for i in range(11):
 		var point := Vector2(w*0.06+i*w*0.084,h*0.90+sin(i*1.3)*6)
 		draw_line(point,point-Vector2(4,8),Color("#93af69"),1.5)

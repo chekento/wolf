@@ -11,6 +11,7 @@ var ground_chunks: Array[Dictionary]=[]
 var cached_paths: Array[PackedVector2Array]=[]
 var path_mesh: ArrayMesh
 var cached_tree_shadows := 0
+var cached_habitat_count := 0
 const GROUND_CHUNK := 400.0
 
 func seasonal_color(color: Color,foliage: bool=false) -> Color:
@@ -58,6 +59,64 @@ func _ground_buffer(buffers: Dictionary,p: Vector2) -> Dictionary:
 	if not buffers.has(key):buffers[key]={"vertices":PackedVector2Array(),"colors":PackedColorArray()}
 	return buffers[key]
 
+func _ground_leaf(buffer: Dictionary,p: Vector2,angle: float,length: float,width: float,color: Color) -> void:
+	var direction := Vector2(cos(angle),sin(angle))
+	var side := Vector2(-sin(angle),cos(angle))
+	var points := [p+direction*length,p+side*width,p-direction*length*.78,p-side*width]
+	for index in range(4):_ground_triangle(buffer,p,points[index],points[(index+1)%4],color.lightened(.045 if index%2 else 0))
+
+func _ground_twig(buffer: Dictionary,a: Vector2,b: Vector2,width: float,color: Color) -> void:
+	var side := Vector2(-(b-a).y,(b-a).x).normalized()*width
+	_ground_triangle(buffer,a-side,b-side,b+side,color.darkened(.12))
+	_ground_triangle(buffer,a-side,b+side,a+side,color)
+	_ground_disc(buffer,a,width,Color("#c4a575"),6)
+	_ground_disc(buffer,b,width*.63,Color("#cdb58b"),6)
+
+func _ground_habitat(buffer: Dictionary,p: Vector2,entry: Dictionary) -> void:
+	var kind: String=entry.kind
+	var habitat_scale: float=entry.scale
+	var rotation: float=entry.rotation
+	if kind in ["habitat_litter","habitat_fungi","habitat_deadwood"]:
+		for i in range(14 if kind=="habitat_litter" else 7):
+			var angle := float(i)*2.399+rotation
+			var root := p+Vector2(cos(angle),sin(angle))*(4.0+float(i%4)*3.5)*habitat_scale
+			var color: Color=[Color("#8c794f"),Color("#a68b5b"),Color("#65774a"),Color("#b2986b")][i%4]
+			_ground_leaf(buffer,root,angle+.8,(2.5+float(i%3)*.55)*habitat_scale,1.15*habitat_scale,seasonal_color(color))
+		if kind=="habitat_fungi":
+			for i in range(3):
+				var root := p+Vector2(-7+float(i)*7.5,sin(float(i)*2.0)*5.5).rotated(rotation)*habitat_scale
+				_ground_twig(buffer,root+Vector2(0,2),root+Vector2(0,-2),.8*habitat_scale,Color("#ccbf9e"))
+				_ground_disc(buffer,root,3.2*habitat_scale,Color("#9e7853").lightened(float(i)*.025),8)
+				_ground_disc(buffer,root-Vector2(.8,.8)*habitat_scale,.7*habitat_scale,Color("#c5b392"),5)
+		elif kind=="habitat_deadwood":
+			_ground_twig(buffer,p+Vector2(-14,-4).rotated(rotation)*habitat_scale,p+Vector2(14,4).rotated(rotation)*habitat_scale,2.4*habitat_scale,Color("#806c4d"))
+			_ground_twig(buffer,p+Vector2(-3,-1).rotated(rotation)*habitat_scale,p+Vector2(5,-12).rotated(rotation)*habitat_scale,.8*habitat_scale,Color("#917958"))
+		return
+	if kind in ["habitat_pebbles","habitat_driftwood","habitat_moss","habitat_snowtufts","habitat_frostwood"]:
+		var stones := 7 if kind=="habitat_pebbles" else 3 if kind in ["habitat_driftwood","habitat_frostwood"] else 5
+		for i in range(stones):
+			var angle := float(i)*2.399+rotation
+			var root := p+Vector2(cos(angle),sin(angle))*(5.0+float(i%3)*3.5)*habitat_scale
+			var color: Color=seasonal_color(Color("#7e8b5c"),true) if kind=="habitat_moss" else Color("#d5e2df") if kind in ["habitat_snowtufts","habitat_frostwood"] else [Color("#a7ada4"),Color("#859990"),Color("#bec2ad")][i%3]
+			_ground_oval(buffer,root,Vector2(3.2+float(i%3),2.4+float(i%2))*(habitat_scale*1.3 if kind in ["habitat_moss","habitat_snowtufts"] else habitat_scale),color,8)
+		if kind in ["habitat_driftwood","habitat_frostwood"]:
+			var first: Vector2=p+Vector2(-15,-3).rotated(rotation)*habitat_scale
+			var last: Vector2=p+Vector2(14,4).rotated(rotation)*habitat_scale
+			_ground_twig(buffer,first,last,1.8*habitat_scale,Color("#ad9c7b") if kind=="habitat_driftwood" else Color("#9a9983"))
+			if kind=="habitat_frostwood":_ground_twig(buffer,first,last,.48*habitat_scale,Color("#e3ebe4"))
+			return
+		if kind=="habitat_pebbles":return
+	for i in range(8 if kind in ["habitat_sedge","habitat_seedheads"] else 6):
+		var angle := float(i)*2.399+rotation
+		var root := p+Vector2(cos(angle),sin(angle))*(3+float(i%3)*3.4)*habitat_scale
+		var tip := root+Vector2(cos(angle)*3,-(5+float(i%3)*1.4))*habitat_scale
+		var color: Color=seasonal_color(Color("#8c9165") if kind=="habitat_seedheads" else Color("#8d9c89") if kind=="habitat_snowtufts" else Color("#6c8256"),true)
+		_ground_triangle(buffer,root-Vector2(.5,0),root+Vector2(.5,0),tip,color)
+		if kind in ["habitat_sedge","habitat_seedheads"]:_ground_leaf(buffer,tip,-PI/2,1.7*habitat_scale,.7*habitat_scale,Color("#b5a17b"))
+		if kind=="habitat_herbs":
+			_ground_leaf(buffer,root+Vector2(0,-2),angle+.6,3.0*habitat_scale,1.1*habitat_scale,color.lightened(.06))
+			_ground_flower(buffer,tip,1.2*habitat_scale,Color("#ddd5b8") if i%2 else Color("#bbb2c5"))
+
 func _bake_ground(ground: Color,biome: String) -> void:
 	# Quiet flowers, pebbles and painted soil do not change every frame. Bake
 	# their small triangles together; individual draw_circle calls are costly
@@ -65,10 +124,12 @@ func _bake_ground(ground: Color,biome: String) -> void:
 	ground_season=game.state.season_name()
 	ground_chunks.clear()
 	cached_tree_shadows=0
+	cached_habitat_count=0
 	cached_paths.clear()
 	var paths := WolfWorldData.render_paths(game.state.region,game.world.objects)
 	for branch in paths.branches:cached_paths.append(branch.points)
 	path_mesh=WolfWildernessPaths.mesh_2d(paths,seasonal_color(paths.color))
+	var habitat := WolfHabitatDetails.for_region(game.state.region,game.world)
 	var buffers := {}
 	for patch in ground_patches:
 		var buffer := _ground_buffer(buffers,patch.p)
@@ -85,10 +146,14 @@ func _bake_ground(ground: Color,biome: String) -> void:
 		_ground_oval(buffer,obj.p+Vector2(9,8),Vector2(52,52*.42)*obj.scale,Color(.09,.19,.10,.19))
 		cached_tree_shadows+=1
 	var grass := seasonal_color(Color("#5b7b3f"),true) if biome!="snow" else Color("#b2cbd5")
-	for d in game.world.decor:
+	for index in range(game.world.decor.size()):
+		var d: Dictionary=game.world.decor[index]
 		var buffer := _ground_buffer(buffers,d.p)
 		var p: Vector2=d.p
 		var r: float=d.size
+		if habitat.entries.has(index):
+			_ground_habitat(buffer,p,habitat.entries[index]);cached_habitat_count+=1
+			continue
 		match d.variant:
 			0,1:_ground_disc(buffer,p,r*2,Color(ground.darkened(.1),.30))
 			2,3:

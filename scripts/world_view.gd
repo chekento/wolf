@@ -101,7 +101,7 @@ func flush_batches() -> void:
 		var mm := MultiMesh.new()
 		mm.transform_format=MultiMesh.TRANSFORM_3D
 		mm.use_colors=true
-		mm.mesh=WolfForestMesh.get_mesh(batch.kind) if batch.kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge","mushroom","shell"] else sphere_mesh() if batch.kind=="sphere" else cone_mesh() if batch.kind=="cone" else BoxMesh.new()
+		mm.mesh=WolfForestMesh.get_mesh(batch.kind) if WolfForestMesh.is_habitat_mesh(batch.kind) or batch.kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge","mushroom","shell"] else sphere_mesh() if batch.kind=="sphere" else cone_mesh() if batch.kind=="cone" else BoxMesh.new()
 		# A default BoxMesh has size 1×1×1.
 		mm.instance_count=batch.transforms.size()
 		for i in range(batch.transforms.size()):
@@ -112,10 +112,11 @@ func flush_batches() -> void:
 		n.multimesh=mm
 		n.position=batch.center
 		n.material_override=nature_material(Color.WHITE,1 if batch.kind in ["pine","leaf"] else 2 if batch.kind in ["trunk","log"] else 4 if batch.kind in ["grass","fern","reed","flower"] else 0)
-		if batch.kind in ["grass","fern","reed","flower"]:
+		if WolfForestMesh.is_habitat_mesh(batch.kind) or batch.kind in ["grass","fern","reed","flower"]:
+			if WolfForestMesh.is_habitat_mesh(batch.kind):n.set_meta("habitat_kind",batch.kind)
 			n.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			n.visibility_range_end=46
-			n.visibility_range_end_margin=5
+			n.visibility_range_end=26 if WolfForestMesh.is_habitat_mesh(batch.kind) else 46
+			n.visibility_range_end_margin=3 if WolfForestMesh.is_habitat_mesh(batch.kind) else 5
 			decorative_nodes.append(n)
 		contents.add_child(n)
 	batches.clear()
@@ -178,11 +179,18 @@ func build_river() -> void:
 
 func build_understory(biome: String) -> void:
 	var paths := WolfWorldData.render_paths(game.state.region,game.world.objects)
+	var habitat := WolfHabitatDetails.for_region(game.state.region,game.world)
 	for i in range(game.world.decor.size()):
 		var d: Dictionary=game.world.decor[i]
 		var p: Vector2=d.p
 		if WolfWildernessPaths.contains(p,paths,7) or WolfWorldData.water_blocked(p,game.state.region):continue
 		if i%3==0 and biome in ["snow","alpine","coast"]:continue
+		if habitat.entries.has(i):
+			var entry: Dictionary=habitat.entries[i]
+			# A whole low habitat group replaces this existing grass instance.
+			# The decor anchor, collision-free world and instance count stay.
+			add_shape(entry.kind,world_pos(p),Vector3.ONE*float(entry.scale),seasonal_color(entry.tint),entry.rotation)
+			continue
 		var kind := "fern" if biome in ["forest","oak","ruins"] and (i%6==0 or d.variant==3 and sin(p.x*.006+p.y*.004)>.15) else "reed" if biome=="marsh" and i%4==0 else "flower" if biome in ["meadow","lake"] and i%7==0 else "grass"
 		if biome=="snow":kind="grass"
 		if game.state.season_name()=="Winter" and kind=="flower":kind="grass"

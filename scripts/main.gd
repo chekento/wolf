@@ -55,6 +55,8 @@ var map_selected := -1
 var guided_encounter_id := ""
 var guided_progress := -1
 var guided_main_story := ""
+var guided_nature_journey := ""
+var nature_journey_ready_notice := ""
 var main_story_ready_notice := ""
 var trail_navigation := WolfTrailNavigation.new()
 var navigation_points := PackedVector2Array()
@@ -387,6 +389,7 @@ func _process(dt: float) -> void:
 	_update_animals(minf(dt,0.08))
 	_tick_wildlife_observation(dt)
 	_tick_main_story(dt)
+	_tick_nature_journey(dt)
 	if first_person:world_view.sync_camera()
 	map_view.queue_redraw()
 	minimap.queue_redraw()
@@ -399,6 +402,7 @@ func _process(dt: float) -> void:
 		check_quests()
 		_refresh_encounter_guide()
 		_refresh_main_story_guide()
+		_refresh_nature_journey_guide()
 		_refresh_status()
 	save_timer+=dt
 	if save_timer>20:
@@ -637,7 +641,12 @@ func sniff() -> void:
 	notify("Frische Fährten werden goldfarben sichtbar. Folge ihrem Verlauf und untersuche sie." if nearest<500 else "Du riechst Wald, Wasser und ferne Tiere. Suche entlang der Wege weiter.")
 
 func interact() -> void:
-	if _interact_main_story():return
+	if state.nature_journey_status().accepted and guided_main_story.is_empty():
+		if _interact_nature_journey():return
+		if _interact_main_story():return
+	else:
+		if _interact_main_story():return
+		if _interact_nature_journey():return
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
@@ -737,13 +746,13 @@ func inspect_nature_site(obj: Dictionary) -> void:
 	notify(obj.title+" · "+obj.description)
 	check_quests()
 
-func observation_candidate(for_main_story: bool=false) -> Dictionary:
+func observation_candidate(for_main_story: bool=false,for_nature_journey: bool=false) -> Dictionary:
 	var forward := Vector2(-sin(world_view.yaw),-cos(world_view.yaw))
 	var nearest: Dictionary={}
 	var closest := INF
-	var locked_key := str(state.main_story_status().get("watch_animal","")) if for_main_story else str(state.active_encounter.get("watch_animal",""))
+	var locked_key := str(state.main_story_status().get("watch_animal","")) if for_main_story else str(state.nature_journey_status().get("watch_animal","")) if for_nature_journey else str(state.active_encounter.get("watch_animal",""))
 	for a in world.animals:
-		if for_main_story and a.kind!="deer":continue
+		if (for_main_story or for_nature_journey) and a.kind!="deer":continue
 		if not locked_key.is_empty() and WolfPackLife.animal_key(a)!=locked_key:continue
 		var diff: Vector2=a.p-state.pos
 		if a.kind=="wolf" or diff.length()<145 or diff.length()>420:continue
@@ -770,10 +779,14 @@ func _tick_wildlife_observation(dt: float) -> void:
 func observe() -> bool:
 	var story := state.main_story_status()
 	var for_story: bool=story.started and not story.done and story.action=="watch"
-	var animal := observation_candidate(for_story)
+	var journey := state.nature_journey_status()
+	var for_journey: bool=journey.accepted and not journey.ready and journey.action=="watch"
+	var prefer_journey: bool=for_journey and (not for_story or guided_main_story.is_empty())
+	var animal := observation_candidate(for_story and not prefer_journey,prefer_journey)
 	if animal.is_empty():return false
 	var species := WolfWorldData.species(animal.kind)
 	state.note_action("observe",species)
+	if first_person:state.note_nature_journey_observation(animal,player_speed,sneak_button.button_pressed or player_speed<1,true)
 	if for_story and first_person:state.note_main_story_observation(animal,player_speed,sneak_button.button_pressed or player_speed<1,true)
 	if first_person:state.note_wildlife_observation(species,animal,state.pos,player_speed,sneak_button.button_pressed or player_speed<1)
 	if not state.observations.has(species):
@@ -871,9 +884,17 @@ func _refresh_status() -> void:
 		if state.waypoint_region!=state.region:
 			var route := route_to(state.waypoint_region)
 			if not route.is_empty():quest_hint.text+="\nÜbergang nach "+WolfWorldData.REGIONS[route[0]].name
+	var journey := state.nature_journey_status()
+	var prefer_journey: bool=journey.accepted and guided_main_story.is_empty()
 	if story.started and not story.done:quest_hint.text=story.objective+" · "+story.progress
+	if prefer_journey:quest_hint.text=journey.objective+" · "+journey.progress
 	_refresh_observation_hud()
-	_refresh_main_story_presence_hud()
+	if prefer_journey:
+		_refresh_main_story_presence_hud()
+		_refresh_nature_journey_hud()
+	else:
+		_refresh_nature_journey_hud()
+		_refresh_main_story_presence_hud()
 
 func wildlife_activity_name(activity: String) -> String:
 	return {"forage":"Nahrung suchen","drink":"Trinken","shelter":"Geschützt ruhen","roaming":"Unterwegs","wandern":"Unterwegs","lauschen":"Lauschen","fliehen":"Aufgeschreckt","fressen":"Fressen","grasen":"Grasen","schnüffeln":"Duft prüfen","trinken":"Trinken","ruhen":"Ruhen","laufen":"Unterwegs"}.get(activity,"Lauschen")
@@ -928,7 +949,13 @@ func _refresh_observation_hud() -> void:
 
 func context_action() -> String:
 	var main_action := _main_story_context()
-	if not main_action.is_empty():return main_action
+	var nature_action := _nature_journey_context()
+	if state.nature_journey_status().accepted and guided_main_story.is_empty():
+		if not nature_action.is_empty():return nature_action
+		if not main_action.is_empty():return main_action
+	else:
+		if not main_action.is_empty():return main_action
+		if not nature_action.is_empty():return nature_action
 	if state.food_cooldown<=0:
 		for obj in world.objects:
 			if obj.kind=="food" and obj.p.distance_to(state.pos)<85:return "Fressen"
@@ -1023,6 +1050,7 @@ func set_waypoint(region: int,point: Vector2) -> void:
 	if region<0 or region>=WolfWorldData.REGIONS.size():return
 	guided_encounter_id=""
 	guided_main_story=""
+	guided_nature_journey=""
 	point=point.clamp(Vector2(20,20),WolfWorldData.SIZE-Vector2(20,20))
 	state.waypoint_region=region
 	state.waypoint_pos=point
@@ -1105,7 +1133,7 @@ func hero(parent: VBoxContainer,caption: String,height: float=180) -> void:
 
 func nav_tile(parent: GridContainer,heading: String,subtitle: String,glyph: String,callback: Callable) -> void:
 	var tile := button("",callback)
-	tile.custom_minimum_size=Vector2(0,114)
+	tile.custom_minimum_size=Vector2(0,138)
 	tile.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	parent.add_child(tile)
 	var margin := MarginContainer.new()
@@ -1121,7 +1149,9 @@ func nav_tile(parent: GridContainer,heading: String,subtitle: String,glyph: Stri
 	art.custom_minimum_size=Vector2(30,30)
 	art.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN
 	stack.add_child(art)
-	stack.add_child(label(heading,17))
+	var heading_label := label(heading,16)
+	heading_label.custom_minimum_size.x=0
+	stack.add_child(heading_label)
 	var detail := label(subtitle,12)
 	detail.add_theme_color_override("font_color",Color("#b3c9ad"))
 	stack.add_child(detail)
@@ -1137,6 +1167,7 @@ func show_menu() -> void:
 	v.add_child(grid)
 	var chapters := state.story_scenes().size()
 	nav_tile(grid,"Rudelerinnerungen","Kapitel %d/%d"%[mini(state.story_step+1,chapters),chapters],"book",show_story)
+	nav_tile(grid,"Naturreisen","Sechs Wege für deine Nase","leaf",show_nature_journeys)
 	nav_tile(grid,"Wildnisatlas","Wege, Naturorte & Ziele","map",show_map)
 	nav_tile(grid,"Deine Familie","Nähe & Begleitung","paw",show_pack)
 	nav_tile(grid,"Begegnungen","Neue Düfte und Aufgaben","compass",show_encounter)
@@ -1154,7 +1185,7 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.8.0 · Die Düfte der Heimat",13))
+	v.add_child(label("Wolf 0.9.0 · Naturreisen",13))
 
 func show_travel_help() -> void:
 	var v := modal("Nase & sichere Wege")
@@ -1740,6 +1771,7 @@ func _interact_main_story() -> bool:
 					state.found.append(track.id);state.skills.nose=mini(100,int(state.skills.nose)+1)
 					state.record("Fährte · "+track.species+". Du prüfst die frischen Trittsiegel auf deiner Reise.")
 				state.note_main_story_action("track",track.id)
+				state.note_nature_journey_action("track",track.id)
 				player_mood="schnüffeln";action_timer=2
 				notify("Du erkennst die Fährte und folgst ihrem Duft.")
 				break
@@ -1843,3 +1875,117 @@ func _refresh_main_story_presence_hud() -> void:
 	elif not story.companion_ready:observation_hint.text="Warte auf deine Mutter. Im Rudelmenü kannst du sie mitnehmen."
 	elif story.action=="rest_wait" and player_mood!="ruhen":observation_hint.text="Wähle Ruhen im Schutz der Höhle."
 	else:observation_hint.text="Gemeinsam lauschen · %.1f / %.0f Sekunden"%[story.seconds,story.seconds_required]
+
+func _nature_journey_context() -> String:
+	var goal := state.nature_journey_status()
+	if not goal.accepted or goal.ready or state.region!=int(goal.target_region):return ""
+	match str(goal.action):
+		"drink":
+			for obj in world.objects:
+				if obj.kind=="water" and ((obj.variant==0 and obj.p.distance_to(state.pos)<190*obj.scale+90) or (obj.variant==1 and absf(state.pos.x-WolfWorldData.river_x(state.pos.y))<155)):return "Trinken"
+		"site":
+			for obj in world.objects:
+				if obj.kind=="discovery" and obj.site==goal.site_id and obj.p.distance_to(state.pos)<140:return "Ort prüfen"
+		"track":
+			for track in world.tracks:
+				if track.id==goal.track_id and track.p.distance_to(state.pos)<100 and scent_time>0:return "Spur lesen"
+		"mark":
+			if state.pos.distance_to(goal.target_pos)<140:return "Duft setzen"
+		"rest", "rest_wait":
+			if state.pos.distance_to(goal.target_pos)<185:
+				for obj in world.objects:
+					if obj.kind=="den" and obj.p.distance_to(state.pos)<190:return "Ruhen"
+		"watch":
+			if first_person and not observation_candidate(false,true).is_empty():return "Beobachten"
+	return ""
+
+func _interact_nature_journey() -> bool:
+	var action := _nature_journey_context()
+	if action.is_empty():return false
+	var goal := state.nature_journey_status()
+	match action:
+		"Trinken":
+			state.thirst=100;state.drank=true;player_mood="trinken";action_timer=3
+			state.note_action("drink");notify("Du trinkst am kühlen Ufer.")
+		"Ort prüfen":
+			for obj in world.objects:
+				if obj.kind=="discovery" and obj.site==goal.site_id:inspect_nature_site(obj);break
+		"Spur lesen":
+			for track in world.tracks:
+				if track.id!=goal.track_id:continue
+				if not state.found.has(track.id):
+					state.found.append(track.id);state.skills.nose=mini(100,int(state.skills.nose)+1)
+					state.record("Fährte · "+track.species+". Du prüfst den Duft auf deiner Naturreise.")
+				state.note_nature_journey_action("track",track.id)
+				state.note_main_story_action("track",track.id)
+				player_mood="schnüffeln";action_timer=2;notify("Du liest das ausgewählte Trittsiegel.");break
+		"Duft setzen":mark_territory()
+		"Ruhen":rest()
+		"Beobachten":return observe()
+	check_quests();return true
+
+func _tick_nature_journey(dt: float) -> void:
+	if app_idle or is_instance_valid(overlay):return
+	var goal := state.nature_journey_status()
+	if not goal.accepted or goal.ready:return
+	var animal := observation_candidate(false,true) if first_person and goal.action=="watch" else {}
+	state.tick_nature_journey(minf(dt,.1),player_speed,animal,not animal.is_empty(),sneak_button.button_pressed or player_speed<1,player_mood)
+	var updated := state.nature_journey_status()
+	if updated.ready and nature_journey_ready_notice!=updated.id:
+		nature_journey_ready_notice=updated.id;_save_game()
+		notify("Deine Naturreise ist erlebt. Öffne Naturreisen und nimm die Erfahrung mit.")
+
+func guide_nature_journey() -> void:
+	var goal := state.nature_journey_status()
+	if not goal.accepted or goal.ready:return
+	set_waypoint(int(goal.target_region),goal.target_pos)
+	guided_nature_journey="%s:%d"%[goal.id,goal.stage]
+
+func _refresh_nature_journey_guide() -> void:
+	if guided_nature_journey.is_empty():return
+	var goal := state.nature_journey_status()
+	if not goal.accepted or goal.ready:guided_nature_journey="";return
+	if guided_nature_journey!="%s:%d"%[goal.id,goal.stage]:guide_nature_journey()
+
+func show_nature_journeys() -> void:
+	var goal := state.nature_journey_status()
+	var v := modal("Naturreisen")
+	if goal.accepted:
+		if goal.ready:
+			v.add_child(button("Die Erfahrung mitnehmen",func():
+				if state.claim_nature_journey():_save_game();guided_nature_journey="";show_nature_journeys()
+			))
+		else:v.add_child(button("Meine Naturreise fortsetzen",func():guide_nature_journey();close_overlay()))
+		card(v,str(goal.title),str(goal.text)+"\n\n"+str(goal.objective)+"\n"+str(goal.progress))
+		var progress := ProgressBar.new();progress.max_value=maxf(1,float(goal.required));progress.value=goal.current;v.add_child(progress)
+		if goal.action in ["watch","rest_wait"]:card(v,"Ein echter Augenblick","%.1f / %.0f ruhige Sekunden. Menüs pausieren die Reise. Beobachte dasselbe ruhige Reh im 3D-Blick mit freier Sicht; eine Rast zählt nur während wirklichen Liegens."%[goal.seconds,goal.seconds_required])
+		v.add_child(button("Naturreise zurücklegen",func():
+			state.abandon_nature_journey();guided_nature_journey="";_save_game();show_nature_journeys()
+		))
+	else:v.add_child(button("Zurück in die Wildnis",close_overlay))
+	v.add_child(label("Sechs Wege in "+WolfWorldData.REGIONS[state.region].name,22))
+	v.add_child(label("Wähle einen Duft. Sechs kleine Reisen führen zu wirklichen Handlungen und bringen jeweils 30 Erfahrung. Die Hauptgeschichte bleibt unabhängig.",16))
+	# Compact rows keep all six titles available without sprawling hero cards.
+	for offer in state.nature_journeys_options():
+		var id: String=offer.id
+		var row := button(("✓ " if offer.completed else "◌ ")+str(offer.title),func():
+			if state.begin_nature_journey(id):_save_game();guide_nature_journey();close_overlay()
+		)
+		row.custom_minimum_size.y=54;row.add_theme_font_size_override("font_size",16);row.tooltip_text=str(offer.summary);row.disabled=not offer.available
+		v.add_child(row)
+	v.add_child(button("Hauptgeschichte",show_main_story))
+	v.add_child(button("Zurück",show_menu))
+
+func _refresh_nature_journey_hud() -> void:
+	var goal := state.nature_journey_status()
+	if not goal.accepted or goal.ready or is_instance_valid(overlay) or goal.action not in ["watch","rest_wait"]:return
+	observation_panel.show();observation_progress.show()
+	observation_progress.max_value=maxf(1,float(goal.seconds_required));observation_progress.value=goal.seconds
+	observation_title.text="Naturreise · "+str(goal.title)
+	if goal.action=="watch":
+		if not first_person:observation_hint.text="Wechsle in 3D und beobachte ein ruhiges Reh."
+		elif not goal.watch_started:observation_hint.text="Mit ruhigen Pfoten und Abstand: wähle Beobachten."
+		elif not goal.watch_ready:observation_hint.text="Halte dasselbe ruhige Reh mit freier Sicht im Blick."
+		else:observation_hint.text="Ruhiger Blick · %.1f / %.0f Sekunden"%[goal.seconds,goal.seconds_required]
+	elif not goal.player_ready:observation_hint.text="Bleib im geschützten Rastplatz ruhig liegen."
+	else:observation_hint.text="Geschützte Ruhe · %.1f / %.0f Sekunden"%[goal.seconds,goal.seconds_required]

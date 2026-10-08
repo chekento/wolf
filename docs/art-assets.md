@@ -4,7 +4,7 @@
 
 Generierungsrichtung: Niedliche, farbige, handgemalte Comic-Wildnis; weiche Konturen, warme Farben, freundliche Wölfe, natürlicher Lebensraum. Transparenter 4×4-Atlas mit Kiefer, Eiche, Birke, Busch, Fels, Baumstumpf, Blumen und Höhle; Wolf in vier Richtungen; Reh, Hase, Fuchs und Wolfporträt. Einzelne Objekte ohne Beschriftung, ohne Rahmen und ohne Hintergrund, für ein Spiel aus schräger Draufsicht. Die beigefügten Wald-, Rudel- und Schneeansichten dienen als stilistische Orientierung.
 
-Die Dateien in `docs/` sind echte Aufnahmen des laufenden Spiels. Die 3D-Modelle werden direkt in Godot aus räumlichen Grundformen erstellt und sind eine erste Ausbaustufe.
+Die Spielbilder in `docs/` sind echte Aufnahmen des laufenden Spiels. Gesondert beschriftete Tier-Nahansichten zeigen die tatsächlichen Spielmeshes in einer kontrollierten Godot-Testszene. Die 3D-Modelle werden direkt in Godot aus räumlichen Grundformen erstellt und sind eine erste Ausbaustufe.
 
 
 ## Erweiterung 0.3.0
@@ -53,3 +53,9 @@ Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellu
 ## 0.8.0
 
 Die neuen Wildwechsel werden als originale deterministische Geometrie erzeugt und teilen ihre weichen Gabelungen und acht Bodenpaletten zwischen Draufsicht, 3D und Karten. Die Tieranimationen verwenden weiterhin dieselben 21 Gelenkmeshes mit Gelände-Pfotenkontakt; weichere Gangwechsel, auslaufende Landungen und natürliche Kopf-/Ohr-/Rutenbewegungen entstehen im eigenen Code. Keine neuen externen Bild- oder Modellassets. Die Hauptgeschichte ist neu geschriebene friedliche Naturerzählung.
+
+## 0.9.0
+
+Elf originale niedrige Bodenmotive entstehen aus eigenem Mesh-Code: Laub, Pilze, Totholz, Kiesel, Treibholz, Seggen, Moos, bereifte Zweige, Schneebüschel, Kräuter und Samenstände. Sie ersetzen ausgewählte bestehende Dekorationsanker, ohne Weltobjekte oder Hindernisse hinzuzufügen. Dieselben Motive werden in vorhandene 2D-Bodenflächen gezeichnet.
+
+Die Tiermodelle erhalten eigene anatomische Schnauzen-, Lippen-, Nasen- und Ohrformen sowie kompakteres Rehgeweih. Verfeinerte Oberflächennormalen, Gras-/Trink- und Ruheposen bleiben in denselben 21 Gelenkmeshes zusammengefasst. Regionale Menübilder werden prozedural gezeichnet; die sechs Naturreisetypen sind neu geschriebene friedliche Aufgaben. Keine neuen externen Bild- oder Modellpakete, unveränderte originale PNG-Atlanten.

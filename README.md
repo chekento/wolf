@@ -1,12 +1,12 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-[![Android APK 0.8.0](https://img.shields.io/badge/Android-APK%200.8.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
-[![Version](https://img.shields.io/badge/Version-0.8.0-5865F2?style=for-the-badge)](CHANGELOG.md)
+[![Android APK 0.9.0](https://img.shields.io/badge/Android-APK%200.9.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
+[![Version](https://img.shields.io/badge/Version-0.9.0-5865F2?style=for-the-badge)](CHANGELOG.md)
 [![Godot](https://img.shields.io/badge/Godot-4.5.1-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org/)
 
 **[🇩🇪 Deutsch](#-deutsch) · [🇬🇧 English](#-english)**
 
-> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.8.0-Android-and-Web** herunter. Darin liegt `Wolf-0.8.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
+> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.9.0-Android-and-Web** herunter. Darin liegt `Wolf-0.9.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
 
 ---
 
@@ -109,6 +109,12 @@ Schmale, geschwungene Wildwechsel ersetzen die gleichförmigen Kreuzungen. Laub,
 
 Die Animationen blenden Gangarten weicher, setzen Pfoten am Boden auf und lassen einen begonnenen Schritt beim Anhalten auslaufen.
 
+## 🌿 Eigene Naturreisen
+
+In jedem Gebiet warten sechs eigenständige Naturreisen: Duftspur, Trinkufer, zwei konkrete Hasentrittsiegel, ruhige Rehbeobachtung, zwei Naturorte und ein geschützter Ruheplatz. Das ergibt **1536 regionale Angebote** neben der Hauptgeschichte. Nimm eine Reise bewusst an, erfülle ihre geordneten Handlungen und erinnere sie anschließend im Menü. Bereits bekannte Orte und Fährten zählen erst durch frische Handlungen; jede Reise belohnt einmal.
+
+Regionale Menübilder, ein eigener Naturreisenbereich und tatsächliche Fortschrittsanzeigen begleiten die neuen Aufgaben. Kleine Laub-, Pilz-, Totholz-, Kräuter-, Kiesel- und Moosgruppen ergänzen den Boden, ohne neue Hindernisse oder veränderte alte Spielpositionen.
+
 ## 🦌 Lebendige Tierwelt
 
 Rehe, Hasen, Füchse und Wölfe wählen tatsächliche:
@@ -130,15 +136,13 @@ Die visuelle Richtung verbindet **niedliche, gut lesbare Comic-Grafik** mit glau
 
 Die Top-Down-Ansicht verwendet Comic-Laufsequenzen, Aktionsposen und Bodenschatten. In 3D besitzen Wolf, Reh, Hase und Fuchs eigene Modelle mit unterschiedlichen Körperformen und beweglichen Gliedmaßen.
 
-Version 0.8.0 erweitert die Landschaft unter anderem mit:
+Version 0.9.0 ergänzt:
 
-- unregelmäßigeren Baumkronen
-- geneigten Ästen
-- gebogenen Gräsern
-- Farnbüscheln
-- Waldlaub
-- wiederverwendeten Baum-Bodenschatten
-- erweiterten Fell- und Gesichtsdetails
+- schlankere Schnauzen mit Nasenrücken, Lippen und Nüstern
+- gerundete Hasenohren, größere Fuchsohren und kompaktes Rehgeweih
+- tiefere Gras- und Trinkposen sowie ruhigere Ruhehaltungen
+- elf Arten kleiner Bodenmotive für Wald, Wiese, Ufer, Moor und Schnee
+- regionale Menüillustrationen und sechs wählbare Naturreisen je Gebiet
 
 Dazu kommen bewegtes Wasser, Wolken, Mond, Sterne, Regen, Schnee, Nebel und jahreszeitliche Farbänderungen.
 
@@ -158,9 +162,19 @@ Die folgenden Bilder stammen aus dem tatsächlich laufenden Godot-Prototyp.
 |---|---|
 | ![Hauptgeschichte](docs/main-story.png) | ![Ruhige Beobachtung](docs/main-story-watch.png) |
 
+| Naturreisen | Aktive Naturreise |
+|---|---|
+| ![Naturreisen](docs/nature-journeys.png) | ![Aktive Naturreise](docs/nature-journey-active.png) |
+
 | Rudel in 3D | Begegnung |
 |---|---|
 | ![Rudel in 3D](docs/pack-3d.png) | ![Begegnung](docs/encounter.png) |
+
+Die folgenden kontrollierten Nahansichten zeigen die tatsächlichen neuen Spielmeshes in einer separaten Godot-Testszene.
+
+| Wolfsmodell | Reh beim Grasen |
+|---|---|
+| ![Wolfsmodell](docs/animal-wolf-detail.png) | ![Reh beim Grasen](docs/animal-deer-grazing.png) |
 
 ### Visuelle Zielrichtung
 
@@ -199,13 +213,13 @@ Wetter, Licht und Umgebung verändern die Atmosphäre über:
 
 ## 📱 Android-Download
 
-**Aktuelle Version: 0.8.0 · Die Düfte der Heimat**
+**Aktuelle Version: 0.9.0 · Naturreisen**
 
-1. Oben auf **Android APK 0.8.0** klicken.
+1. Oben auf **Android APK 0.9.0** klicken.
 2. Den neuesten erfolgreichen grünen Workflow-Lauf auf `main` öffnen.
-3. Unter **Artifacts** `Wolf-0.8.0-Android-and-Web` herunterladen.
+3. Unter **Artifacts** `Wolf-0.9.0-Android-and-Web` herunterladen.
 4. ZIP entpacken.
-5. `Wolf-0.8.0-debug.apk` installieren.
+5. `Wolf-0.9.0-debug.apk` installieren.
 
 Technik:
 
@@ -221,7 +235,7 @@ Technik:
 
 ## 🧪 Entwicklungsstand
 
-Version **0.8.0** wurde laut aktuellem Prüfbericht mit **3005 Prüfungen** validiert.
+Version **0.9.0** wurde laut aktuellem Prüfbericht mit **3257 Prüfungen** validiert.
 
 Noch nicht vollständig umgesetzt sind unter anderem:
 
@@ -233,7 +247,7 @@ Noch nicht vollständig umgesetzt sind unter anderem:
 Weitere Dokumentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validierung 0.8.0](docs/validation-0.8.0.md)
+- [Validierung 0.9.0](docs/validation-0.9.0.md)
 - [Android-Installation](docs/android-install.md)
 - [Grafikherkunft & Schriftlizenz](docs/art-assets.md)
 - [Entwicklungsübergabe](docs/development-handoff.md)
@@ -339,6 +353,12 @@ Narrow organic wildlife trails replace uniform crossroads. Leaves, needles, gras
 
 Smoother gait blending, planted support paws and completed landing steps improve animation transitions.
 
+## 🌿 Your own nature journeys
+
+Every region offers six independent nature journeys: scent, drinking banks, two specific rabbit tracks, calm deer observation, two landmarks and a sheltered rest. That adds **1,536 regional offers** alongside the main story. Explicitly accept a journey, fulfil its ordered physical objectives and remember it in the menu. Familiar sites and tracks still require fresh actions; each journey rewards once.
+
+Regional menu scenes, a dedicated journey board and live progress support these objectives. Small foliage, mushroom, deadwood, herb, pebble and moss groups enrich the ground without adding obstacles or moving existing places.
+
 ## 🦌 Living wildlife
 
 Deer, rabbits, foxes and wolves choose actual:
@@ -360,15 +380,13 @@ The visual direction combines a **cute, readable illustrated style** with a beli
 
 Top-down gameplay uses comic movement frames, action poses and ground shadows. In 3D, wolf, deer, rabbit and fox have distinct models and articulated body parts.
 
-Version 0.8.0 expands the scenery with:
+Version 0.9.0 adds:
 
-- more irregular tree crowns
-- angled branches
-- curved grasses
-- fern clusters
-- forest-floor foliage
-- reused tree ground shadows
-- additional fur and facial detail
+- slimmer muzzles with nasal bridges, lips and nostrils
+- rounded rabbit ears, larger fox ears and compact deer antlers
+- deeper grazing and drinking poses and calmer resting postures
+- eleven small ground motifs for forest, meadow, banks, marsh and snow
+- regional menu illustrations and six selectable nature journeys per region
 
 Animated water, clouds, moon, stars, rain, snow, fog and seasonal colour changes add atmosphere.
 
@@ -388,9 +406,19 @@ The following images come from the running Godot prototype.
 |---|---|
 | ![Main story](docs/main-story.png) | ![Quiet observation](docs/main-story-watch.png) |
 
+| Nature journeys | Active nature journey |
+|---|---|
+| ![Nature journeys](docs/nature-journeys.png) | ![Active nature journey](docs/nature-journey-active.png) |
+
 | Pack in 3D | Encounter |
 |---|---|
 | ![Pack in 3D](docs/pack-3d.png) | ![Encounter](docs/encounter.png) |
+
+These controlled close-ups show the actual new game meshes in a separate Godot test scene.
+
+| Wolf model | Grazing deer |
+|---|---|
+| ![Wolf model](docs/animal-wolf-detail.png) | ![Grazing deer](docs/animal-deer-grazing.png) |
 
 ### Visual target
 
@@ -429,13 +457,13 @@ Atmosphere changes through:
 
 ## 📱 Android download
 
-**Current version: 0.8.0 · The Scents of Home**
+**Current version: 0.9.0 · Nature Journeys**
 
-1. Click **Android APK 0.8.0** at the top.
+1. Click **Android APK 0.9.0** at the top.
 2. Open the newest successful green workflow run on `main`.
-3. Download the artifact `Wolf-0.8.0-Android-and-Web`.
+3. Download the artifact `Wolf-0.9.0-Android-and-Web`.
 4. Extract the ZIP.
-5. Install `Wolf-0.8.0-debug.apk`.
+5. Install `Wolf-0.9.0-debug.apk`.
 
 Technical requirements:
 
@@ -451,7 +479,7 @@ Technical requirements:
 
 ## 🧪 Development status
 
-Version **0.8.0** is documented as validated with **3,005 checks** in the current validation report.
+Version **0.9.0** is documented as validated with **3,257 checks** in the current validation report.
 
 Not yet fully implemented:
 
@@ -463,7 +491,7 @@ Not yet fully implemented:
 Further documentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validation 0.8.0](docs/validation-0.8.0.md)
+- [Validation 0.9.0](docs/validation-0.9.0.md)
 - [Android installation](docs/android-install.md)
 - [Art assets & font licence](docs/art-assets.md)
 - [Development handoff](docs/development-handoff.md)
@@ -491,7 +519,12 @@ godot --headless --script tests/animation_expansion.gd
 godot --headless --script tests/main_story.gd
 godot --headless --script tests/main_story_controls.gd
 godot --headless --script tests/story_journey.gd
-godot --headless --export-debug Android builds/Wolf-0.8.0-debug.apk
+godot --headless --script tests/habitat_details.gd
+godot --headless --script tests/animal_detail.gd
+godot --headless --script tests/nature_journeys.gd
+godot --headless --script tests/nature_journey_controls.gd
+godot --headless --script tests/nature_journey_integration.gd
+godot --headless --export-debug Android builds/Wolf-0.9.0-debug.apk
 ```
 
 Idea and direction / Idee und Ausrichtung: **KoSch / Kolja Werner Schumann**.

@@ -54,6 +54,7 @@ var encounter_preview: Dictionary = {}
 var routine_seen: Array[String] = []
 var pack_signal: Dictionary = {}
 var main_story_progress: Dictionary = WolfMainStory.initial()
+var nature_journey_progress: Dictionary = WolfNatureJourneys.initial()
 
 
 
@@ -190,11 +191,59 @@ func clear_main_story_presence() -> void:
 func _record_main_story_progress(goal: Dictionary,changed: bool) -> void:
 	if changed and not goal.is_empty():record("Hauptgeschichte · Ein eigener Schritt · "+str(goal.objective))
 
+func nature_journeys_options() -> Array[Dictionary]:
+	return WolfNatureJourneys.options(nature_journey_progress,region)
+
+func nature_journey_status() -> Dictionary:
+	return WolfNatureJourneys.status(nature_journey_progress,region,pos)
+
+func begin_nature_journey(id: String) -> bool:
+	if not WolfNatureJourneys.begin(nature_journey_progress,id,region):return false
+	var journey := nature_journey_status()
+	record("Naturreise beginnt · "+str(journey.title)+" · "+str(journey.text))
+	return true
+
+func claim_nature_journey() -> bool:
+	var journey := nature_journey_status()
+	if not WolfNatureJourneys.claim(nature_journey_progress):return false
+	xp+=int(journey.reward)
+	skills[journey.skill]=mini(100,int(skills[journey.skill])+2)
+	bond=minf(100,bond+1)
+	record("Naturreise erlebt · "+str(journey.title)+" · Du behältst diesen eigenen Weg im Gedächtnis.")
+	return true
+
+func abandon_nature_journey() -> bool:
+	if not WolfNatureJourneys.abandon(nature_journey_progress):return false
+	record("Naturreise unterbrochen · Du kannst später einen neuen eigenen Weg beginnen.")
+	return true
+
+func note_nature_journey_action(action: String,detail: String="") -> bool:
+	var goal := WolfNatureJourneys.current_stage(nature_journey_progress)
+	var changed := WolfNatureJourneys.note_action(nature_journey_progress,action,detail,region,pos)
+	_record_nature_journey_progress(goal,changed)
+	return changed
+
+func note_nature_journey_observation(animal: Dictionary,player_speed: float,quiet: bool,clear_view: bool=true) -> bool:
+	return WolfNatureJourneys.note_observation(nature_journey_progress,animal,region,pos,player_speed,quiet,clear_view)
+
+func tick_nature_journey(dt: float,player_speed: float=0,watch_animal: Dictionary={},watch_clear: bool=false,quiet: bool=false,player_mood: String="") -> bool:
+	var goal := WolfNatureJourneys.current_stage(nature_journey_progress)
+	var changed := WolfNatureJourneys.tick(nature_journey_progress,dt,region,pos,player_speed,watch_animal,watch_clear,quiet,player_mood)
+	_record_nature_journey_progress(goal,changed)
+	return changed
+
+func clear_nature_journey_presence() -> void:
+	WolfNatureJourneys.clear_live(nature_journey_progress)
+
+func _record_nature_journey_progress(goal: Dictionary,changed: bool) -> void:
+	if changed and not goal.is_empty():record("Naturreise · Ein eigener Schritt · "+str(goal.objective))
+
 func note_action(action: String,detail: String="") -> void:
 	var key := action+":"+detail if action=="observe" else action
 	if not action_counts.has(key):return
 	action_counts[key]=mini(100000000,int(action_counts[key])+1)
 	note_main_story_action(action,detail)
+	note_nature_journey_action(action,detail)
 	if action in ["greet","rest","howl"]:
 		pack_signal={"action":action,"region":region,"pos":pos,"at":elapsed,"serial":int(action_counts[key])}
 	if active_encounter.is_empty():return
@@ -220,6 +269,7 @@ func clear_encounter_presence() -> void:
 	# Presence is a live measurement; the earned visit and observation time
 	# remain valid when a view, region or foreground session changes.
 	clear_main_story_presence()
+	clear_nature_journey_presence()
 	if active_encounter.is_empty():return
 	if active_encounter.task=="wildlife_cycle":active_encounter.current_activity=""
 	if active_encounter.task=="pack_walk":active_encounter.player_ready=false;active_encounter.companion_ready=false
@@ -519,7 +569,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"main_story":WolfMainStory.saved(main_story_progress)}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -598,6 +648,7 @@ func load_from(path: String = "") -> bool:
 	encounter_preview={}
 	pack_signal={}
 	main_story_progress=WolfMainStory.restored(data.get("main_story",{}))
+	nature_journey_progress=WolfNatureJourneys.restored(data.get("nature_journeys",{}))
 	return true
 
 

@@ -1,0 +1,192 @@
+{
+  "version": "0.9.0",
+  "date": "2026-10-08",
+  "engine": "4.5.1.stable.official.f62fdbde1",
+  "base_main": "ea46e6f5f4f4d4dc868ee37bf1df3a395faa9789",
+  "checks": 3257,
+  "suites": [
+    {
+      "suite": "import",
+      "exit": 0,
+      "seconds": 9.24,
+      "checks": 0,
+      "errors": []
+    },
+    {
+      "suite": "smoke",
+      "exit": 0,
+      "seconds": 49.08,
+      "checks": 2220,
+      "errors": []
+    },
+    {
+      "suite": "gameplay_expansion",
+      "exit": 0,
+      "seconds": 46.81,
+      "checks": 138,
+      "errors": []
+    },
+    {
+      "suite": "graphics_expansion",
+      "exit": 0,
+      "seconds": 2.18,
+      "checks": 75,
+      "errors": []
+    },
+    {
+      "suite": "ui_expansion",
+      "exit": 0,
+      "seconds": 5.79,
+      "checks": 52,
+      "errors": []
+    },
+    {
+      "suite": "animal_behavior",
+      "exit": 0,
+      "seconds": 3.58,
+      "checks": 18,
+      "errors": []
+    },
+    {
+      "suite": "atlas_expansion",
+      "exit": 0,
+      "seconds": 3.58,
+      "checks": 25,
+      "errors": []
+    },
+    {
+      "suite": "ecology_expansion",
+      "exit": 0,
+      "seconds": 22.41,
+      "checks": 63,
+      "errors": []
+    },
+    {
+      "suite": "encounter_controls",
+      "exit": 0,
+      "seconds": 2.72,
+      "checks": 25,
+      "errors": []
+    },
+    {
+      "suite": "locomotion_expansion",
+      "exit": 0,
+      "seconds": 0.77,
+      "checks": 40,
+      "errors": []
+    },
+    {
+      "suite": "living_world",
+      "exit": 0,
+      "seconds": 22.46,
+      "checks": 58,
+      "errors": []
+    },
+    {
+      "suite": "landscape_expansion",
+      "exit": 0,
+      "seconds": 2.88,
+      "checks": 11,
+      "errors": []
+    },
+    {
+      "suite": "atlas_observation",
+      "exit": 0,
+      "seconds": 3.89,
+      "checks": 25,
+      "errors": []
+    },
+    {
+      "suite": "path_expansion",
+      "exit": 0,
+      "seconds": 32.17,
+      "checks": 31,
+      "errors": []
+    },
+    {
+      "suite": "animation_expansion",
+      "exit": 0,
+      "seconds": 1.17,
+      "checks": 56,
+      "errors": []
+    },
+    {
+      "suite": "main_story",
+      "exit": 0,
+      "seconds": 1.27,
+      "checks": 91,
+      "errors": []
+    },
+    {
+      "suite": "main_story_controls",
+      "exit": 0,
+      "seconds": 3.33,
+      "checks": 36,
+      "errors": []
+    },
+    {
+      "suite": "story_journey",
+      "exit": 0,
+      "seconds": 2.58,
+      "checks": 41,
+      "errors": []
+    },
+    {
+      "suite": "habitat_details",
+      "exit": 0,
+      "seconds": 16.9,
+      "checks": 40,
+      "errors": []
+    },
+    {
+      "suite": "animal_detail",
+      "exit": 0,
+      "seconds": 0.67,
+      "checks": 45,
+      "errors": []
+    },
+    {
+      "suite": "nature_journeys",
+      "exit": 0,
+      "seconds": 20.11,
+      "checks": 82,
+      "errors": []
+    },
+    {
+      "suite": "nature_journey_controls",
+      "exit": 0,
+      "seconds": 3.21,
+      "checks": 20,
+      "errors": []
+    },
+    {
+      "suite": "nature_journey_integration",
+      "exit": 0,
+      "seconds": 3.9,
+      "checks": 65,
+      "errors": []
+    }
+  ],
+  "android_device_tested": false,
+  "android": {
+    "name": "Wolf-0.9.0-debug.apk",
+    "path": "/workspace/scratch/f0379b84af57/wolf-next-09/builds/Wolf-0.9.0-debug.apk",
+    "bytes": 32351567,
+    "sha256": "9c3799e55b8e95ccc352ebe5afb43b545a86760c3960ea1c26d313dec8d6dda2",
+    "certificate_sha256": "08b255aa8a68369a40d089d7a5bb0e0c5e058d6ddb358f9ef449630a81bd3f1c",
+    "package": "cloud.kosch.wolf",
+    "version_code": 9,
+    "min_sdk": 24,
+    "target_sdk": 35,
+    "abi": [
+      "arm64-v8a"
+    ],
+    "internet_permission": false,
+    "zip_crc": true,
+    "zipalign_16k": true,
+    "signature_v2_v3": true,
+    "web_crc": true,
+    "android_device_tested": false,
+    "library_file_id": "libfile_be640555e6548191b155d7bd050bfb48"
+  }
+}

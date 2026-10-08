@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 — 2026-10-08
+
+- Sechs Arten eigener Naturreisen in jedem Gebiet, insgesamt 1536 regionale Angebote: Naturort und Duft, Trinkufer, konkrete Hasenfährte, ruhige Rehbeobachtung, zwei stille Naturorte und tatsächliche Rast am Schutzplatz.
+- Eine bewusst angenommene Reise mit frischen geordneten Handlungen, eigenem gespeicherten Fortschritt und einmaliger Abschlussbelohnung; Hauptgeschichte und bisherige Begegnungen bleiben unabhängig erhalten.
+- Eigener Naturreisenbereich, sichtbare Annahme-/Fortsetzung-/Abschlussknöpfe, echte Beobachtungs-/Rastzeiten und regionale illustrierte Menüs.
+- Feinere originale Tierköpfe, Schnauzen, Ohren und Geweihformen sowie artspezifische Ruhe-, Gras- und Trinkhaltungen bei erhaltenem Pfotenkontakt.
+- Kleine biomeigene Laub-, Pilz-, Totholz-, Kräuter-, Kiesel- und Moosgruppen bereichern den Boden; alte Weltobjekte und begehbare Flächen bleiben erhalten.
+
 ## 0.8.0 — 2026-10-08
 
 - Neue Hauptgeschichte „Die Düfte der Heimat“ mit acht Kapiteln und 21 tatsächlichen Handlungsschritten: Mutter begrüßen, gemeinsame Ankunft, Trinkufer, konkrete Fährten, Naturorte und Duftmarken, ruhige Rehbeobachtung und Heimkehr mit gemeinsamer Rast.
