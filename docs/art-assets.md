@@ -41,3 +41,10 @@ Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellu
 - Kopf, Ohren, Blick und Rute reagieren auf Aufmerksamkeit, Flucht und freundliche Begrüßung. Reh, Hase, Fuchs und Wolf erhalten unterschiedliche Schrittweiten, Standzeiten und Körperbewegungen.
 - Die vorhandenen originalen 2D-Tieratlanten bleiben unverändert. Laufdistanz, Ruhe, Nahrungssuche, Flucht und Aufmerksamkeit werden über geteilte Körper-/Kopfposen deutlicher dargestellt.
 - Die gemessenen zusätzlichen Gelenkflächen erhöhen die 3D-Zeichenaufrufe. Feste 540×960-Software-GL-Szenen blieben ausführbar; diese Werte sind keine Android-Gerätemessung.
+
+## Erweiterung 0.7.0
+
+- Unregelmäßige Kronen, gebogene Grasfächer und schmalere Farnblätter stammen aus eigenem Mesh-Code. Geneigte Äste nutzen vorhandene Instanzen; die Zahl der räumlichen Baum-Batches bleibt begrenzt.
+- Waldlaub, Humus und Moos entstehen aus eigenen Shaderflächen. Sehr nahe niedrige Flora senkt sich sanft unter die Kamera, um den Wolfsblick frei zu halten.
+- Eigene Fell- und Gesichtsflächen bleiben in den vorhandenen Tier-Gelenkmeshes zusammengefasst. Reale NPC-Laufstrecke und 2D-Fressrichtung sind korrigiert. Kein externes Modellpaket und keine übernommenen Simulator-Grafiken.
+- Die neuen Spielaufnahmen und Grafikdetails werden direkt mit Godot 4.5.1 unter Linux aufgenommen. Die originalen PNG-Atlanten bleiben unverändert.

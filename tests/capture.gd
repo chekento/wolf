@@ -29,12 +29,14 @@ func run() -> void:
 	game.toast.text=""
 	game.toast_time=0
 	await capture("res://docs/wolfs-eye.png")
-	game.show_map()
+	game.show_map(true)
 	game.state.map_reveal=true
 	await capture("res://docs/world-map.png")
 	game.map_panel.set_local(0)
 	game.map_panel.zoom_by(1.4)
 	await capture("res://docs/region-map.png")
+	game.show_map(false,game.atlas_view_state())
+	await capture("res://docs/atlas-list.png")
 	game.show_story()
 	await capture("res://docs/story.png")
 	game.show_menu()
@@ -67,6 +69,27 @@ func run() -> void:
 	game.player_gait=0.7
 	game.toast.text=""
 	await capture("res://docs/follow-camera.png")
+	game.state.active_encounter={}
+	for serial in range(80):
+		game.state.encounter_serial=serial
+		if game.state.encounter_status().task=="quiet_watch":game.state.begin_encounter();break
+	game.state.sound_enabled=false
+	game.state.pos=Vector2(1600,1800)
+	var kind: String={"Reh":"deer","Hase":"rabbit","Fuchs":"fox"}[game.state.active_encounter.detail]
+	var watched := {"kind":kind,"p":Vector2(1600,1540),"home":Vector2(1600,1540),"phase":0.0,"mood":"lauschen","alarm":0.0,"facing":Vector2.LEFT,"speed":0.0,"gait":0.0}
+	game.world.animals=[watched];game.world.objects=[];game.world.tracks=[]
+	game.scent_time=0
+	game.set_process(false)
+	game.world_view.rebuild()
+	if game.state.camera_follow:game.switch_camera()
+	game.world_view.yaw=0;game.world_view.pitch=-.14
+	game.player_speed=0;game.interact()
+	for i in range(37):game._tick_wildlife_observation(.1)
+	game._refresh_status();game.world_view.sync_camera()
+	game.toast.text="";game.toast_time=0
+	await capture("res://docs/observation.png")
+	game.show_encounter()
+	await capture("res://docs/observation-menu.png")
 	game.set_process(false)
 	game.sound.stream_paused=false;game.ambient.stream_paused=false
 	await create_timer(0.2).timeout

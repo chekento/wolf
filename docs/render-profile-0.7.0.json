@@ -1,0 +1,277 @@
+{
+  "engine": "4.5.1",
+  "base_commit": "2e70c5808507f9c47a3e1bbf7124a0ba9835f830",
+  "baseline": {
+    "engine": "4.5.1-stable (official)",
+    "hud_hidden": true,
+    "method": "gl_compatibility",
+    "renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "results": [
+      {
+        "draws": 408.6,
+        "geometry": {
+          "batches": 0,
+          "instances": 0,
+          "kinds": {},
+          "mesh_nodes": 0
+        },
+        "mean_ms": 23.6274125,
+        "median_ms": 22.256,
+        "p90_ms": 26.241,
+        "primitives": 49059,
+        "process_ms": 103.644825,
+        "scene": "forest-2d"
+      },
+      {
+        "draws": 216.15,
+        "geometry": {
+          "batches": 190,
+          "instances": 5359,
+          "kinds": {
+            "fern": 24,
+            "flower": 19,
+            "grass": 25,
+            "leaf": 24,
+            "log": 3,
+            "mushroom": 3,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 24,
+            "trunk": 24
+          },
+          "mesh_nodes": 454
+        },
+        "mean_ms": 207.2784875,
+        "median_ms": 202.838,
+        "p90_ms": 228.05,
+        "primitives": 53528.8,
+        "process_ms": 224.3445125,
+        "scene": "forest-eyes"
+      },
+      {
+        "draws": 495.8125,
+        "geometry": {
+          "batches": 190,
+          "instances": 5359,
+          "kinds": {
+            "fern": 24,
+            "flower": 19,
+            "grass": 25,
+            "leaf": 24,
+            "log": 3,
+            "mushroom": 3,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 24,
+            "trunk": 24
+          },
+          "mesh_nodes": 454
+        },
+        "mean_ms": 212.0724375,
+        "median_ms": 211.857,
+        "p90_ms": 227.471,
+        "primitives": 136623.25,
+        "process_ms": 226.2018,
+        "scene": "forest-follow"
+      },
+      {
+        "draws": 549.45,
+        "geometry": {
+          "batches": 168,
+          "instances": 4953,
+          "kinds": {
+            "fern": 15,
+            "flower": 20,
+            "grass": 25,
+            "leaf": 15,
+            "log": 1,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 25,
+            "trunk": 23
+          },
+          "mesh_nodes": 370
+        },
+        "mean_ms": 180.5772375,
+        "median_ms": 177.503,
+        "p90_ms": 196.113,
+        "primitives": 150335.7,
+        "process_ms": 194.5072125,
+        "scene": "snow-follow"
+      },
+      {
+        "draws": 193.575,
+        "geometry": {
+          "batches": 183,
+          "instances": 3765,
+          "kinds": {
+            "fern": 15,
+            "flower": 17,
+            "grass": 25,
+            "leaf": 23,
+            "log": 3,
+            "pine": 24,
+            "primitive": 4,
+            "reed": 7,
+            "ridge": 16,
+            "stone": 25,
+            "trunk": 24
+          },
+          "mesh_nodes": 371
+        },
+        "mean_ms": 91.1321125,
+        "median_ms": 90.5,
+        "p90_ms": 100.183,
+        "primitives": 54302.4,
+        "process_ms": 101.577275,
+        "scene": "river-follow"
+      }
+    ],
+    "sample_frames": 80,
+    "viewport": "(540, 960)",
+    "warmup_frames": 20
+  },
+  "final": {
+    "engine": "4.5.1-stable (official)",
+    "hud_hidden": true,
+    "method": "gl_compatibility",
+    "renderer": "llvmpipe (LLVM 20.1.2, 256 bits)",
+    "results": [
+      {
+        "draws": 200.1625,
+        "geometry": {
+          "batches": 0,
+          "instances": 0,
+          "kinds": {},
+          "mesh_nodes": 0
+        },
+        "mean_ms": 19.3416375,
+        "median_ms": 19.096,
+        "p90_ms": 20.993,
+        "primitives": 47893,
+        "process_ms": 114.9529625,
+        "scene": "forest-2d"
+      },
+      {
+        "draws": 191.15,
+        "geometry": {
+          "batches": 191,
+          "instances": 5394,
+          "kinds": {
+            "fern": 25,
+            "flower": 19,
+            "grass": 25,
+            "leaf": 24,
+            "log": 3,
+            "mushroom": 3,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 24,
+            "trunk": 24
+          },
+          "mesh_nodes": 454
+        },
+        "mean_ms": 205.6674875,
+        "median_ms": 202.684,
+        "p90_ms": 217.134,
+        "primitives": 59135.8,
+        "process_ms": 220.9849,
+        "scene": "forest-eyes"
+      },
+      {
+        "draws": 497,
+        "geometry": {
+          "batches": 191,
+          "instances": 5394,
+          "kinds": {
+            "fern": 25,
+            "flower": 19,
+            "grass": 25,
+            "leaf": 24,
+            "log": 3,
+            "mushroom": 3,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 24,
+            "trunk": 24
+          },
+          "mesh_nodes": 454
+        },
+        "mean_ms": 219.481625,
+        "median_ms": 217.438,
+        "p90_ms": 230.633,
+        "primitives": 143900,
+        "process_ms": 234.2560125,
+        "scene": "forest-follow"
+      },
+      {
+        "draws": 543.5375,
+        "geometry": {
+          "batches": 168,
+          "instances": 4975,
+          "kinds": {
+            "fern": 15,
+            "flower": 20,
+            "grass": 25,
+            "leaf": 15,
+            "log": 1,
+            "pine": 23,
+            "primitive": 1,
+            "reed": 4,
+            "ridge": 16,
+            "stone": 25,
+            "trunk": 23
+          },
+          "mesh_nodes": 370
+        },
+        "mean_ms": 178.1908375,
+        "median_ms": 177.601,
+        "p90_ms": 193.693,
+        "primitives": 152213.15,
+        "process_ms": 188.08795,
+        "scene": "snow-follow"
+      },
+      {
+        "draws": 200.625,
+        "geometry": {
+          "batches": 183,
+          "instances": 3793,
+          "kinds": {
+            "fern": 15,
+            "flower": 17,
+            "grass": 25,
+            "leaf": 23,
+            "log": 3,
+            "pine": 24,
+            "primitive": 4,
+            "reed": 7,
+            "ridge": 16,
+            "stone": 25,
+            "trunk": 24
+          },
+          "mesh_nodes": 371
+        },
+        "mean_ms": 92.017925,
+        "median_ms": 91.004,
+        "p90_ms": 96.691,
+        "primitives": 61628,
+        "process_ms": 106.0744875,
+        "scene": "river-follow"
+      }
+    ],
+    "sample_frames": 80,
+    "viewport": "(540, 960)",
+    "warmup_frames": 20
+  },
+  "android_device_tested": false
+}

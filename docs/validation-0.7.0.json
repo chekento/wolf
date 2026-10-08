@@ -1,0 +1,40 @@
+{
+  "engine": "4.5.1.stable.f62fdbde1",
+  "date": "2026-10-08",
+  "suites": {
+    "smoke": 2220,
+    "gameplay_expansion": 138,
+    "graphics_expansion": 75,
+    "ui_expansion": 52,
+    "animal_behavior": 18,
+    "atlas_expansion": 25,
+    "ecology_expansion": 63,
+    "encounter_controls": 25,
+    "locomotion_expansion": 40,
+    "living_world": 58,
+    "landscape_expansion": 11,
+    "atlas_observation": 25
+  },
+  "problems": [],
+  "warnings": [],
+  "android_device_tested": false,
+  "total_pass": 2750,
+  "apk": {
+    "file": "Wolf-0.7.0-debug.apk",
+    "bytes": 32285379,
+    "sha256": "389028d826585e08218b0db6d9da6d0fd179c818a56e1b39d55be4ecd5c3466d",
+    "package": "cloud.kosch.wolf",
+    "version_code": 7,
+    "version_name": "0.7.0",
+    "min_sdk": 24,
+    "target_sdk": 35,
+    "abi": "arm64-v8a",
+    "zip_crc": "passed",
+    "zip_alignment_16k": "passed",
+    "signature_schemes": [
+      "v2",
+      "v3"
+    ]
+  },
+  "signer_sha256": "08b255aa8a68369a40d089d7a5bb0e0c5e058d6ddb358f9ef449630a81bd3f1c"
+}

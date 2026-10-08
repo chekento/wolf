@@ -1,16 +1,26 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-**0.6.0 · Der Duft der Wildnis** — ein offline spielbares Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege erschließen deine Heimat.
+**0.7.0 · Lebendige Wege** — ein offline spielbares Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege erschließen deine Heimat.
 
 Frei begehbare **2D-Draufsicht**, **echter 3D-Wolfsblick** und eine neue **3D-Folgekamera** teilen Landschaften, Tierpositionen und Spuren. Eigene Comic-Grafik und Tiermodelle verbinden sich mit friedlichen Rudelgeschichten und langsamer natürlicher Entwicklung.
 
 ## Spielen & Download
 
-- **Android 7+ / ARM64:** Die signierte `Wolf-0.6.0-debug.apk` wird direkt im Chat bereitgestellt. [GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml) erstellt zusätzlich Android- und Web-Artefakte. Debug-Builds mit lokalem Spielstand und ohne Internetberechtigung.
+- **Android 7+ / ARM64:** Die signierte `Wolf-0.7.0-debug.apk` wird direkt im Chat bereitgestellt. [GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml) erstellt zusätzlich Android- und Web-Artefakte. Debug-Builds mit lokalem Spielstand und ohne Internetberechtigung.
 - **Computer:** `project.godot` mit Godot **4.5.1** öffnen und starten.
 - **Browser:** Web-Artefakt entpacken, im Web-Ordner `python3 -m http.server 8000` starten und `http://localhost:8000` öffnen.
 
-**Installation gegenüber 0.3.0:** Der frühere lokale Debug-Schlüssel war nicht mehr verfügbar. Seit 0.4.0 wird ein neuer, dauerhaft gesicherter Schlüssel verwendet. 0.6.0 setzt die Signatur der lokalen 0.4.0 und 0.5.0 fort; Android erlaubt damit weiterhin kein direktes Update über 0.3.0. Einen vorhandenen Spielstand vor jeder Deinstallation sichern; siehe [Installationshinweise](docs/android-install.md). Spätere lokal ausgelieferte Builds sollen denselben neuen Schlüssel verwenden. Actions-Builds erhalten einen eigenen temporären Debug-Schlüssel.
+**Installation gegenüber 0.3.0:** Der frühere lokale Debug-Schlüssel war nicht mehr verfügbar. Seit 0.4.0 wird ein dauerhaft gesicherter Schlüssel verwendet. Die lokale 0.7.0 setzt diese Signatur von 0.4.0 bis 0.6.0 fort; Android erlaubt damit weiterhin kein direktes Update über 0.3.0. Einen vorhandenen Spielstand vor jeder Deinstallation sichern; siehe [Installationshinweise](docs/android-install.md). Spätere lokal ausgelieferte Builds verwenden denselben Schlüssel. Actions-Builds erhalten einen eigenen temporären Debug-Schlüssel.
+
+## Neu in 0.7.0
+
+Tiere beenden ihre wirklichen Wege zu Nahrung, Deckung und Trinkufer und bleiben dort für eine artspezifische Zeit. Eine lange Strecke wird nicht mehr durch einen globalen Zeitwechsel unterbrochen. Rehe nutzen nahe gemeinsame Futterplätze, wenn ein freier Weg existiert; eine nahe Fluchtreaktion erreicht die kleine Gruppe und klingt nach Ende der Gefahr wieder ab. Geschwister wechseln kurze gemeinsame Laufspiele mit echten Ruhepausen ab.
+
+Zwei neue Begegnungen verlangen tatsächliche gemeinsame Ankunft mit dem Elternwolf an zwei Orten beziehungsweise die Beobachtung desselben Tieres bei zwei unterschiedlichen ruhigen Tätigkeiten. Nur aktive Sekunden, wirkliche Zielankunft und freie Sicht zählen. Das Spiel zeigt draußen den Fortschritt sowie Hinweise bei Bewegung, Aufregung, fehlender Elternnähe oder verlorenem Blickkontakt. Ein näher vorbeikommendes Tier übernimmt nicht die gewählte Beobachtung.
+
+**Große Karte** vergrößert den Wildnisatlas auf den verfügbaren Bildschirm. Beim Wechsel zur Ortsliste bleiben Gebiet, Zoom, geografischer Ausschnitt, Ebenen und Duftziel erhalten. Rückkehr ins Spiel, Standort, Ziele und Ebenen bleiben ohne Scrollen erreichbar.
+
+Unregelmäßigere Baumkronen, geneigte Äste, gebogene Gräser, Farnbüschel und Waldlaub geben der Landschaft mehr Vielfalt. Baum-Bodenschatten werden in vorhandenen 2D-Bodenabschnitten wiederverwendet. Eigene Fell- und Gesichtsdetails erweitern die Tiermodelle bei gleichbleibender Gelenkzahl. Die NPC-Schrittweite passt jetzt zur tatsächlich gegangenen Strecke; in 2D senkt Grasen die Schnauze richtig zum Boden.
 
 ## Neu in 0.6.0
 
@@ -97,8 +107,11 @@ godot --headless --script tests/atlas_expansion.gd
 godot --headless --script tests/ecology_expansion.gd
 godot --headless --script tests/encounter_controls.gd
 godot --headless --script tests/locomotion_expansion.gd
+godot --headless --script tests/living_world.gd
+godot --headless --script tests/landscape_expansion.gd
+godot --headless --script tests/atlas_observation.gd
 mkdir -p builds/web
-godot --headless --export-debug Android builds/Wolf-0.6.0-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.7.0-debug.apk
 godot --headless --export-release Web builds/web/index.html
 ```
 
@@ -110,7 +123,7 @@ godot --audio-driver Dummy --script tools/profile_rendering.gd -- /tmp/wolf-prof
 
 Er misst fünf feste Szenen mit ausgeblendeter Oberfläche, je 20 Aufwärm- und 80 Messbildern, und speichert Bilder sowie JSON-Messwerte. Messergebnisse des Software-Renderers sagen keine Android-Gerätebildrate voraus.
 
-Android: Godot-4.5.1-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1`, `platforms;android-35`. Package `cloud.kosch.wolf`, ARM64, minSdk 24, targetSdk 35. Private Signierschlüssel bleiben außerhalb des Repositorys. [Entwicklungsübergabe](docs/development-handoff.md) und [Prüfbericht](docs/validation-0.6.0.md) beschreiben den tatsächlich geprüften Stand.
+Android: Godot-4.5.1-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1`, `platforms;android-35`. Package `cloud.kosch.wolf`, ARM64, minSdk 24, targetSdk 35. Private Signierschlüssel bleiben außerhalb des Repositorys. [Entwicklungsübergabe](docs/development-handoff.md) und [Prüfbericht](docs/validation-0.7.0.md) beschreiben den tatsächlich geprüften Stand mit 2750 Prüfungen.
 
 Spielbarer Prototyp. Noch kein Test auf einem physischen Android-Gerät und noch kein vollständiger Lebenszyklus mit Partnersuche, eigener Nachwuchspflege oder kooperativer Jagd. Bedürfnisse und Tierverhalten bleiben spielerisch vereinfacht.
 

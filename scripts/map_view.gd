@@ -9,6 +9,7 @@ var ground_patches: Array[Dictionary]=[]
 var ground_season := ""
 var ground_chunks: Array[Dictionary]=[]
 var cached_paths: Array[PackedVector2Array]=[]
+var cached_tree_shadows := 0
 const GROUND_CHUNK := 400.0
 
 func seasonal_color(color: Color,foliage: bool=false) -> Color:
@@ -29,6 +30,24 @@ func _ground_disc(buffer: Dictionary,p: Vector2,r: float,colour: Color,segments:
 		var b := float(i+1)/segments*TAU
 		_ground_triangle(buffer,p,p+Vector2(cos(a),sin(a))*r,p+Vector2(cos(b),sin(b))*r,colour)
 
+func _ground_oval(buffer: Dictionary,p: Vector2,radii: Vector2,colour: Color,segments: int=20) -> void:
+	for i in range(segments):
+		var a := float(i)/segments*TAU
+		var b := float(i+1)/segments*TAU
+		_ground_triangle(buffer,p,p+Vector2(cos(a),sin(a))*radii,p+Vector2(cos(b),sin(b))*radii,colour)
+
+func _ground_fern(buffer: Dictionary,p: Vector2,r: float,colour: Color) -> void:
+	for frond in range(6):
+		var angle := frond*TAU/6.0
+		var direction := Vector2(cos(angle),sin(angle)*.65)
+		var side := Vector2(-sin(angle),cos(angle)*.65)
+		for leaf in range(3):
+			var t := .20+float(leaf)*.22
+			var root := p+direction*r*t
+			var tip := p+direction*r*(t+.27)
+			for sign_value in [-1,1]:
+				_ground_triangle(buffer,root,root+side*r*(1-t)*.30*sign_value+direction*r*.07,tip,colour.lightened(float(frond%2)*.055))
+
 func _ground_flower(buffer: Dictionary,p: Vector2,r: float,colour: Color) -> void:
 	for i in range(5):_ground_disc(buffer,p+Vector2(cos(i*TAU/5),sin(i*TAU/5))*r,r*.8,colour,8)
 	_ground_disc(buffer,p,r*.45,Color("#e7b844"),8)
@@ -44,6 +63,7 @@ func _bake_ground(ground: Color,biome: String) -> void:
 	# on mobile even when their radius is only two pixels.
 	ground_season=game.state.season_name()
 	ground_chunks.clear()
+	cached_tree_shadows=0
 	cached_paths.clear()
 	for vertical in [true,false]:cached_paths.append(WolfWorldData.path_points(game.state.region,vertical))
 	var buffers := {}
@@ -51,6 +71,16 @@ func _bake_ground(ground: Color,biome: String) -> void:
 		var buffer := _ground_buffer(buffers,patch.p)
 		var colour := ground.lightened(.08) if patch.light else ground.darkened(.08)
 		for ring in range(3):_ground_disc(buffer,patch.p,patch.r*(1.0-float(ring)*.20),Color(colour,.075),32)
+	# Tree shadows do not depend on the camera or the tiny crown sway. Bake
+	# the original three shapes with the soil instead of issuing them for
+	# every visible trunk on every mobile frame.
+	for obj in game.world.objects:
+		if obj.kind!="tree":continue
+		var buffer := _ground_buffer(buffers,obj.p)
+		_ground_disc(buffer,obj.p+Vector2(24,35),53*obj.scale,Color(.16,.26,.12,.045),20)
+		_ground_disc(buffer,obj.p+Vector2(-12,55),33*obj.scale,Color(.16,.26,.12,.035),16)
+		_ground_oval(buffer,obj.p+Vector2(9,8),Vector2(52,52*.42)*obj.scale,Color(.09,.19,.10,.19))
+		cached_tree_shadows+=1
 	var grass := seasonal_color(Color("#5b7b3f"),true) if biome!="snow" else Color("#b2cbd5")
 	for d in game.world.decor:
 		var buffer := _ground_buffer(buffers,d.p)
@@ -59,6 +89,9 @@ func _bake_ground(ground: Color,biome: String) -> void:
 		match d.variant:
 			0,1:_ground_disc(buffer,p,r*2,Color(ground.darkened(.1),.30))
 			2,3:
+				if d.variant==3 and biome in ["forest","oak","ruins"]:
+					_ground_fern(buffer,p,maxf(7,r*1.1),grass)
+					continue
 				_ground_triangle(buffer,p-Vector2(.7,0),p+Vector2(.7,0),p+Vector2(-3,-r),grass)
 				_ground_triangle(buffer,p+Vector2(2.3,0),p+Vector2(3.7,0),p+Vector2(5,-r*1.3),grass.lightened(.16))
 				_ground_flower(buffer,p+Vector2(-3,-r),2.2,Color("#f4d358"))
@@ -105,11 +138,6 @@ func _draw() -> void:
 		draw_polyline(points,ground.darkened(0.14),92,true)
 		draw_polyline(points,Color("#afaa70") if biome!="snow" else Color("#ebf3f0"),64,true)
 		draw_polyline(points,Color("#beba83") if biome!="snow" else Color("#f8fcfa"),36,true)
-	# Broken leaf shadows echo the illustrated crowns without hiding pathways.
-	for obj in game.world.objects:
-		if obj.kind!="tree" or not bounds.has_point(obj.p):continue
-		draw_circle(obj.p+Vector2(24,35),53*obj.scale,Color(0.16,0.26,0.12,0.045))
-		draw_circle(obj.p+Vector2(-12,55),33*obj.scale,Color(0.16,0.26,0.12,0.035))
 	if biome=="river":
 		var river := PackedVector2Array()
 		for i in range(65):river.append(Vector2(WolfWorldData.river_x(i*50),i*50))
@@ -247,7 +275,6 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 	var snow := biome=="snow"
 	match obj.kind:
 		"tree":
-			_shadow(p+Vector2(9,8),52*s)
 			var sway := 0.0 if game.state.reduced_motion else sin(game.clock*0.7+p.y*0.02)*1.8
 			_sprite(obj.variant,p+Vector2(sway,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else seasonal_color(Color.WHITE,true))
 			if snow:
@@ -345,9 +372,10 @@ static func animal_pose(kind: String,facing: Vector2,gait: float,speed: float,mo
 	var feeding := speed<1 and mood in ["grasen","schnüffeln","trinken"]
 	var lift := sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*5 if kind=="rabbit" and speed>1 else sin(cycle*2)*1.1 if speed>1 else 0.0
 	if reduced:lift=0.0
-	return {"scale":Vector2(1.04,.74) if resting else Vector2(1.03,.94) if mood=="fliehen" else Vector2.ONE,"lift":lift,"head_angle":.27 if feeding else -.10 if attention>.35 else .07 if mood=="begrüßen" else .0,"head_drop":8.0 if feeding else 0.0,"tilt":clampf(facing.y,-1,1)*(-.10 if facing.x>0 else .10),"frame":posmod(int(cycle*2/PI),4) if speed>1 else 1 if kind=="wolf" else 0}
+	return {"scale":Vector2(1.04,.74) if resting else Vector2(1.03,.94) if mood=="fliehen" else Vector2.ONE,"lift":lift,"head_angle":-.38 if feeding else .12 if attention>.35 else -.06 if mood=="begrüßen" else .0,"head_drop":4.0 if feeding else 0.0,"tilt":clampf(facing.y,-1,1)*(-.10 if facing.x>0 else .10),"frame":posmod(int(cycle*2/PI),4) if speed>1 else 1 if kind=="wolf" else 0}
 
 func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen",attention: float=0.0) -> void:
+	gait=WolfAnimalModel.renderer_gait(gait,player)
 	_shadow(p+Vector2(0,18),29 if kind!="rabbit" else 17)
 	var index := 12 if kind=="deer" else 13 if kind=="rabbit" else 14 if kind=="fox" else 8
 	if kind=="wolf":

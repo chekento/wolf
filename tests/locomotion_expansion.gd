@@ -37,6 +37,12 @@ func run() -> void:
 		model.animate(distance_step*.16,32,"wandern",0)
 		second_z=model.foot_position(planted_index).z*model.scale.x-distance_step*.08*22*.032
 		check(absf(second_z-first_z)<.006,"slow walk also keeps its stance pad planted "+species)
+		var npc_distance_step := model.stride_length()*model.scale.x/(18.0*.032)
+		model.animate(WolfAnimalModel.renderer_gait(npc_distance_step*.08,false),32,"wandern",0)
+		first_z=model.foot_position(planted_index).z*model.scale.x
+		model.animate(WolfAnimalModel.renderer_gait(npc_distance_step*.16,false),32,"wandern",0)
+		second_z=model.foot_position(planted_index).z*model.scale.x-npc_distance_step*.08*18*.032
+		check(absf(second_z-first_z)<.006,"actual NPC distance units also keep the stance pad planted "+species)
 		model.set_foot_heights([-.025,.02,.01,-.015])
 		model.animate(0,0,"lauschen",0)
 		var uneven_error := 0.0
@@ -56,7 +62,9 @@ func run() -> void:
 	var grazing := WolfMapView.animal_pose("deer",Vector2.LEFT,0,0,"grasen")
 	var resting := WolfMapView.animal_pose("fox",Vector2.RIGHT,0,0,"ruhen")
 	var standing := WolfMapView.animal_pose("fox",Vector2.RIGHT,0,0,"lauschen")
-	check(grazing.head_drop>6 and grazing.head_angle>.2,"2D grazing lowers and turns illustrated head")
+	var muzzle := Vector2(-39,-10)
+	var posed_muzzle := muzzle.rotated(grazing.head_angle)+Vector2(0,grazing.head_drop)
+	check(posed_muzzle.y>muzzle.y+12,"2D grazing actually lowers the illustrated muzzle")
 	check(resting.scale.y<standing.scale.y*.8,"2D resting body is visibly lower")
 	check(WolfMapView.animal_pose("rabbit",Vector2.LEFT,.16,80,"laufen",true).lift==0,"reduced-motion 2D keeps body steady")
 	print("Locomotion failures: ",failures)

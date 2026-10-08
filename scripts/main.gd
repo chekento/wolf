@@ -57,6 +57,11 @@ var guided_progress := -1
 var trail_navigation := WolfTrailNavigation.new()
 var navigation_points := PackedVector2Array()
 var map_places: VBoxContainer
+var atlas_expanded := false
+var observation_panel: PanelContainer
+var observation_title: Label
+var observation_hint: Label
+var observation_progress: ProgressBar
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
 
 
@@ -259,6 +264,25 @@ func _build_ui() -> void:
 	look_area.offset_bottom=-242
 	look_area.mouse_filter=Control.MOUSE_FILTER_STOP
 	look_area.gui_input.connect(_look_input)
+	observation_panel=PanelContainer.new()
+	ui.add_child(observation_panel)
+	observation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	observation_panel.offset_left=28;observation_panel.offset_right=-28
+	observation_panel.offset_top=-422;observation_panel.offset_bottom=-325
+	observation_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	observation_panel.add_theme_stylebox_override("panel",panel_style(Color(0.08,0.19,0.15,0.92),16))
+	var observation_stack := VBoxContainer.new()
+	observation_stack.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	observation_stack.add_theme_constant_override("separation",3)
+	observation_panel.add_child(observation_stack)
+	observation_title=label("",17);observation_stack.add_child(observation_title)
+	observation_hint=label("",14);observation_stack.add_child(observation_hint)
+	observation_progress=ProgressBar.new()
+	observation_progress.custom_minimum_size.y=7
+	observation_progress.show_percentage=false
+	observation_progress.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	observation_stack.add_child(observation_progress)
+	observation_panel.hide()
 	toast=label("",16)
 	ui.add_child(toast)
 	toast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -396,6 +420,7 @@ func move_wolf(delta: Vector2) -> void:
 		state.pos=state.pos.clamp(Vector2(14,14),WolfWorldData.SIZE-Vector2(14,14))
 
 func change_region(index: int,entry: Vector2) -> void:
+	state.clear_encounter_presence()
 	if not world.is_empty():world_memory.capture(state.region,world)
 	state.region=index
 	state.pos=entry
@@ -429,36 +454,28 @@ func _sync_companion() -> void:
 	world.animals.append({"kind":"wolf","p":p,"home":p,"phase":0.0,"facing":state.facing,"young":false,"role":"Mutter","companion":true,"mood":"begleiten","speed":0.0,"gait":0.0})
 
 func _update_animals(dt: float) -> void:
+	# A missing or disabled escort must not retain yesterday's live proximity.
+	state.tick_pack_walk(0.0,{},player_speed)
 	if not world.has("_animal_motion"):
 		var motion := WolfAnimalMotion.new()
 		motion.configure(state.region,world.objects)
 		world._animal_motion=motion
 	var navigation: WolfAnimalMotion=world._animal_motion
+	for member in world.animals:
+		if member.kind!="wolf" and not member.has("_ecology"):member._ecology=navigation.ecology_targets(member)
+	for member in world.animals:
+		if member.kind=="deer" and not member._ecology.has("group_forage"):member._ecology.group_forage=navigation.group_forage_target(member,world.animals)
 	for a in world.animals:
 		var distance: float=a.p.distance_to(state.pos)
-		var phase: float=clock*0.12+a.phase
 		var target: Vector2=a.home
 		var speed := 20.0
 		var mood := "wandern"
-		var interval := int((clock+a.phase*13)/35)%6
 		if a.kind!="wolf":
-			if not a.has("_ecology"):a._ecology=navigation.ecology_targets(a)
 			var ecology: Dictionary=a._ecology
 			var previous_behavior: String=a.get("behavior","")
-			var activity: Dictionary=WolfPackLife.wildlife_routine(a.kind,state.hour(),interval%5)
+			var activity: Dictionary=WolfPackLife.wildlife_activity(a,state.hour(),dt)
 			var profile: Dictionary=WolfPackLife.wildlife_profile(a.kind)
-			target=ecology.other_forage if interval in [2,5] else ecology.forage
-			speed=24.0 if a.kind=="fox" else 28.0
-			a.behavior="forage"
-			if activity.rest:
-				target=ecology.shelter;a.behavior="shelter"
-			elif interval==3 and ecology.has_water:
-				target=ecology.water;a.behavior="drink"
-			elif interval==4:
-				target=ecology.shelter;a.behavior="shelter"
-			if a.p.distance_to(target)<12:
-				speed=0
-				mood="ruhen" if activity.rest else "trinken" if a.behavior=="drink" else "lauschen" if a.behavior=="shelter" else "schnüffeln" if a.kind=="fox" else "grasen"
+			target=activity.target;speed=activity.speed;mood=activity.mood;a.behavior=activity.behavior
 			var quiet := sneak_button.button_pressed or player_speed<=35
 			var visible: bool=distance<float(profile.notice) and navigation.segment_free(a.p,state.pos)
 			var awareness := clampf(1.0-distance/float(profile.notice),0,1)*(0.75 if quiet else 1.7) if visible else 0.0
@@ -466,9 +483,15 @@ func _update_animals(dt: float) -> void:
 			if loud_call:awareness=1.0
 			a.attention=lerpf(float(a.get("attention",0)),clampf(awareness,0,1),clampf(dt*4,0,1))
 			var flee_radius: float=float(profile.quiet_flee)-float(state.skills.stealth)*0.08 if quiet else float(profile.loud_flee)+(30.0 if player_speed>100 else 0.0)
-			var threatened: bool=(distance<flee_radius and (visible or distance<60)) or loud_call
+			var direct_threat: bool=(distance<flee_radius and (visible or distance<60)) or loud_call
+			var herd_threat := false
+			if a.kind=="deer":
+				for neighbor in world.animals:
+					if neighbor.kind=="deer" and clock-float(neighbor.get("_direct_threat_at",-100))<2 and a.p.distance_to(neighbor.p)<260 and a.home.distance_to(neighbor.home)<450:herd_threat=true;break
+			if direct_threat:a._direct_threat_at=clock
+			var threatened: bool=direct_threat or herd_threat
 			if threatened:
-				a.alarm=float(profile.recover)
+				a.alarm=float(profile.recover) if direct_threat else maxf(float(a.get("alarm",0)),2.0)
 				a._return_cover=false
 				if not a.has("_refuge") or clock>=float(a.get("_escape_replan",0)) or a._refuge.distance_to(state.pos)<flee_radius:
 					a._refuge=navigation.refuge_from(a,state.pos)
@@ -506,7 +529,12 @@ func _update_animals(dt: float) -> void:
 				target=routine.target;speed=routine.speed;mood=routine.mood
 				if a.get("young",false):
 					if float(a.phase)>3:target+=Vector2(45,35)
-					if mood=="spielen":target+=Vector2(sin(phase*4),cos(phase*3))*70
+					if mood=="spielen":
+						var partner: Dictionary={}
+						for sibling in world.animals:
+							if sibling.kind=="wolf" and sibling.get("young",false) and float(sibling.phase)!=float(a.phase):partner=sibling;break
+						var play := WolfPackLife.sibling_play(a,partner,target,clock)
+						target=play.target;speed=play.speed;mood=play.mood;a.behavior=play.behavior
 				var free_target: Vector2=navigation.nearest_free(target)
 				if free_target.is_finite():target=free_target
 				if mood=="ruhen":
@@ -521,7 +549,7 @@ func _update_animals(dt: float) -> void:
 				if distance<80:target=a.p;speed=0;a.facing=a.p.direction_to(state.pos)
 			if action_timer>0 and player_mood=="heulen" and distance<500:target=a.p;speed=0;mood="heulen"
 		a.target_pos=state.pos if a.get("behavior","") in ["alert","greet"] else target
-		var purposeful: bool=a.kind=="wolf" or a.p.distance_to(target)>260
+		var purposeful: bool=a.kind=="wolf" or a.p.distance_to(target)>260 or a.get("behavior","") in ["flee","recover","shelter","drink"]
 		var next: Vector2=navigation.advance(a,target,speed,dt,clock,purposeful)
 		var moved: float=next.distance_to(a.p)
 		if moved>0.01:a.facing=(next-a.p).normalized()
@@ -529,8 +557,11 @@ func _update_animals(dt: float) -> void:
 		a.gait=a.get("gait",0.0)+moved/18.0
 		a.p=next
 		a.mood=mood
+		if a.kind=="wolf" and (a.get("companion",false) or (state.escort and a.get("role","")=="Mutter")):
+			state.tick_pack_walk(dt,a,player_speed,navigation.segment_free(a.p,state.pos))
 
 func toggle_view() -> void:
+	state.clear_encounter_presence()
 	first_person=not first_person
 	look_pointer=-1;looking_mouse=false
 	world_view.visible=first_person
@@ -547,6 +578,7 @@ func toggle_view() -> void:
 	notify("Wische über die Landschaft zum Umsehen. Untersuchen entdeckt sichtbare Tiere." if first_person else "Du siehst die Karte wieder von oben. Bewege dich in alle Richtungen.")
 
 func switch_camera() -> void:
+	state.clear_encounter_presence()
 	look_pointer=-1;looking_mouse=false
 	state.camera_follow=not state.camera_follow
 	if first_person:world_view.set_follow_camera(state.camera_follow)
@@ -703,6 +735,7 @@ func observation_candidate() -> Dictionary:
 	var forward := Vector2(-sin(world_view.yaw),-cos(world_view.yaw))
 	var nearest: Dictionary={}
 	var closest := INF
+	var locked_key := str(state.active_encounter.get("watch_animal",""))
 	for a in world.animals:
 		var diff: Vector2=a.p-state.pos
 		if a.kind=="wolf" or diff.length()<145 or diff.length()>420:continue
@@ -716,11 +749,12 @@ func observation_candidate() -> Dictionary:
 				blocked=true
 				break
 		if blocked:continue
+		if not locked_key.is_empty() and WolfPackLife.animal_key(a)==locked_key:return a
 		if diff.length()<closest:nearest=a;closest=diff.length()
 	return nearest
 
 func _tick_wildlife_observation(dt: float) -> void:
-	if state.active_encounter.is_empty() or state.active_encounter.task!="quiet_watch":return
+	if state.active_encounter.is_empty() or state.active_encounter.task not in ["quiet_watch","wildlife_cycle"]:return
 	var animal := observation_candidate() if first_person else {}
 	var species := WolfWorldData.species(animal.kind) if not animal.is_empty() else ""
 	state.tick_wildlife_observation(minf(dt,0.1),species,animal,state.pos,player_speed,sneak_button.button_pressed or player_speed<1)
@@ -736,7 +770,7 @@ func observe() -> bool:
 		state.skills.stealth=mini(100,int(state.skills.stealth)+5)
 		state.record("Beobachtung · "+species+". Du bleibst auf Abstand und beobachtest leise aus dem Wolfsblick.")
 	notify("Du beobachtest ein "+species+". Es lauscht und prüft seine Umgebung.")
-	if not state.active_encounter.is_empty() and state.active_encounter.task=="quiet_watch":notify("Bleibe mit Abstand ruhig und halte das Tier im Blick. Nur wirklich beobachtete aktive Sekunden zählen.")
+	if not state.active_encounter.is_empty() and state.active_encounter.task in ["quiet_watch","wildlife_cycle"]:notify("Bleibe mit Abstand ruhig und halte dasselbe Tier im Blick. Die Leiste zeigt dir, was gerade zählt.")
 	check_quests()
 	return true
 
@@ -826,6 +860,58 @@ func _refresh_status() -> void:
 		if state.waypoint_region!=state.region:
 			var route := route_to(state.waypoint_region)
 			if not route.is_empty():quest_hint.text+="\nÜbergang nach "+WolfWorldData.REGIONS[route[0]].name
+	_refresh_observation_hud()
+
+func wildlife_activity_name(activity: String) -> String:
+	return {"forage":"Nahrung suchen","drink":"Trinken","shelter":"Geschützt ruhen","roaming":"Unterwegs","wandern":"Unterwegs","lauschen":"Lauschen","fliehen":"Aufgeschreckt","fressen":"Fressen","grasen":"Grasen","schnüffeln":"Duft prüfen","trinken":"Trinken","ruhen":"Ruhen","laufen":"Unterwegs"}.get(activity,"Lauschen")
+
+func _refresh_observation_hud() -> void:
+	if not is_instance_valid(observation_panel):return
+	observation_panel.hide()
+	if is_instance_valid(overlay):return
+	var encounter := state.encounter_status()
+	if encounter.accepted and not encounter.done and encounter.task=="pack_walk":
+		observation_panel.show();observation_progress.show()
+		observation_progress.max_value=3;observation_progress.value=float(encounter.get("joint_seconds",0))
+		observation_title.text="Gemeinsamer Weg · Ruhepunkt "+("2" if encounter.get("pack_first",false) else "1")
+		if not state.escort:observation_hint.text="Nimm im Rudelmenü die Begleitung wieder auf."
+		elif not encounter.get("player_ready",false):observation_hint.text="Folge dem Duftziel zum gemeinsamen Ruhepunkt."
+		elif not encounter.get("companion_ready",false):observation_hint.text="Warte, bis der Elternwolf neben dir angekommen ist."
+		elif player_speed>1:observation_hint.text="Bleib einen Moment bei deinem Elternwolf stehen."
+		else:observation_hint.text="Gemeinsam lauschen · %.1f / 3 ruhige Sekunden"%float(encounter.get("joint_seconds",0))
+		return
+	if not first_person:return
+	var animal := observation_candidate()
+	var watching: bool=encounter.accepted and not encounter.done and encounter.task in ["quiet_watch","wildlife_cycle"]
+	if animal.is_empty() and not watching:return
+	observation_panel.show()
+	observation_progress.visible=watching
+	if animal.is_empty():
+		observation_title.text="Ein ruhiger Blick bleibt"
+		observation_hint.text="Suche dasselbe Tier mit Abstand im Wolfsblick."
+	else:
+		var activity := str(animal.get("mood","lauschen"))
+		observation_title.text=WolfWorldData.species(animal.kind)+" · "+wildlife_activity_name(activity)+" · %d Pfotenschritte"%maxi(1,roundi(animal.p.distance_to(state.pos)/25.0))
+		observation_hint.text="Wähle Beobachten, um diesen Augenblick kennenzulernen."
+	if not watching:return
+	observation_progress.max_value=3 if encounter.task=="wildlife_cycle" else 12
+	observation_progress.value=float(encounter.get("activity_seconds",0) if encounter.task=="wildlife_cycle" else encounter.get("watch_seconds",0))
+	if not encounter.get("watch_started",false):
+		observation_hint.text="Nähere dich leise. Wähle bei ruhigen Pfoten Beobachten."
+	elif animal.is_empty():pass
+	elif WolfPackLife.animal_key(animal)!=str(encounter.get("watch_animal","")):
+		observation_hint.text="Halte das zu Beginn beobachtete Tier im Blick."
+	elif player_speed>1:
+		observation_hint.text="Bleib stehen und halte den Blick ruhig."
+	elif str(animal.get("mood",""))=="fliehen" or float(animal.get("alarm",0))>0:
+		observation_hint.text="Das Tier ist aufgeschreckt. Warte mit Abstand."
+	elif encounter.task=="wildlife_cycle":
+		var current := str(encounter.get("current_activity",""))
+		var first := str(encounter.get("first_activity",""))
+		if encounter.get("cycle_first",false) and (current.is_empty() or current==first):observation_hint.text="Schon gesehen: "+wildlife_activity_name(first)+". Warte auf eine andere Aktivität."
+		elif not current.is_empty():observation_hint.text=wildlife_activity_name(current)+" · %.1f / 3 ruhige Sekunden"%float(encounter.get("activity_seconds",0))
+		else:observation_hint.text="Warte, bis das Tier an Nahrung, Wasser oder Deckung angekommen ist."
+	else:observation_hint.text="Ruhiger Blick · %.1f / 12 aktive Sekunden"%float(encounter.get("watch_seconds",0))
 
 func context_action() -> String:
 	if state.food_cooldown<=0:
@@ -946,7 +1032,7 @@ func close_overlay(resume_audio: bool=true) -> void:
 	stick.reset()
 	if resume_audio:_sync_audio()
 
-func modal(heading: String) -> VBoxContainer:
+func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 	close_overlay(false)
 	stick.reset()
 	overlay=ColorRect.new()
@@ -958,8 +1044,8 @@ func modal(heading: String) -> VBoxContainer:
 	var margin := MarginContainer.new()
 	overlay.add_child(margin)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["left","right"]:margin.add_theme_constant_override("margin_"+side,26)
-	for side in ["top","bottom"]:margin.add_theme_constant_override("margin_"+side,38)
+	for side in ["left","right"]:margin.add_theme_constant_override("margin_"+side,12 if full_bleed else 26)
+	for side in ["top","bottom"]:margin.add_theme_constant_override("margin_"+side,18 if full_bleed else 38)
 	var panel := PanelContainer.new()
 	margin.add_child(panel)
 	panel.add_theme_stylebox_override("panel",panel_style(Color("#193d31"),24))
@@ -1051,7 +1137,7 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.6.0 · Der Duft der Wildnis",13))
+	v.add_child(label("Wolf 0.7.0 · Lebendige Wege",13))
 
 func show_travel_help() -> void:
 	var v := modal("Nase & sichere Wege")
@@ -1080,7 +1166,7 @@ func show_encounter() -> void:
 			if state.begin_encounter():guide_encounter();close_overlay();_refresh_status()
 		))
 	card(v,encounter.title,encounter.text,Color("#bfa367"))
-	var task_name: String={"tracks":"Eine frische Fährte","sites":"Geschützte Naturorte","journey":"Ein eigener Weg","visit":"Jenseits vertrauter Kronen","observe":"Mit ruhigen Pfoten beobachten","water_rest":"Wasser und Geborgenheit","family":"Eine vertraute Antwort","care_route":"Ein sicherer Versorgungsweg","edge_pair":"Zwei Arten in einer Landschaft","quiet_watch":"Ein ruhiger Blick bleibt","site_mark":"Einen Ort am Duft wiedererkennen"}.get(encounter.task,"Dein nächster Schritt")
+	var task_name: String={"tracks":"Eine frische Fährte","sites":"Geschützte Naturorte","journey":"Ein eigener Weg","visit":"Jenseits vertrauter Kronen","observe":"Mit ruhigen Pfoten beobachten","water_rest":"Wasser und Geborgenheit","family":"Eine vertraute Antwort","care_route":"Ein sicherer Versorgungsweg","edge_pair":"Zwei Arten in einer Landschaft","quiet_watch":"Ein ruhiger Blick bleibt","site_mark":"Einen Ort am Duft wiedererkennen","pack_walk":"Zwei gemeinsame Ruhepunkte","wildlife_cycle":"Der Tageslauf eines Tieres"}.get(encounter.task,"Dein nächster Schritt")
 	var task_card := card(v,task_name,encounter.hint)
 	if encounter.accepted:
 		var progress := ProgressBar.new()
@@ -1105,10 +1191,20 @@ func show_encounter() -> void:
 			task_card.add_child(label(("✓" if encounter.get("site_marked",false) else "○")+"  Hier den eigenen Duft setzen",17))
 		elif encounter.task=="quiet_watch":
 			task_card.add_child(label("%.1f / 12 aktive Sekunden\nHalte dasselbe ruhige Tier mit Abstand im Blick. Beobachten beginnt die Erfahrung; Wegsehen und Bewegung zählen nicht."%float(encounter.get("watch_seconds",0)),16))
+		elif encounter.task=="pack_walk":
+			for step in [["pack_first","Gemeinsam am ersten Ruhepunkt ankommen"],["pack_second","Danach zusammen zum zweiten Ruhepunkt gehen"]]:
+				task_card.add_child(label(("✓" if encounter.get(step[0],false) else "○")+"  "+step[1],17))
+			task_card.add_child(label("%.1f / 3 ruhige Sekunden · %s"%[float(encounter.get("joint_seconds",0)),"Der Elternwolf ist in deiner Nähe." if encounter.get("companion_ready",false) else "Warte, bis der Elternwolf neben dir ankommt."],16))
+			if not state.escort:task_card.add_child(button("Begleitung wieder aufnehmen",show_pack))
+		elif encounter.task=="wildlife_cycle":
+			var first := str(encounter.get("first_activity",""))
+			task_card.add_child(label(("✓  "+wildlife_activity_name(first)) if encounter.get("cycle_first",false) else "○  Eine ruhige Aktivität beobachten",17))
+			task_card.add_child(label(("✓" if encounter.get("cycle_second",false) else "○")+"  Dasselbe Tier bei einer anderen Aktivität sehen",17))
+			task_card.add_child(label("Jede Aktivität zählt nach drei ruhigen Sekunden am echten Ziel. Nahrung, Wasser und Deckung sind unterschiedliche Stationen.",16))
 	else:task_card.add_child(label("Neue Begegnung · Du bestimmst den ersten Schritt.",15))
 	if encounter.accepted and not encounter.done:
 		v.add_child(button("Den Weg in der Karte zeigen",func():guide_encounter();close_overlay()))
-		if encounter.task in ["observe","edge_pair","quiet_watch"] and not first_person:
+		if encounter.task in ["observe","edge_pair","quiet_watch","wildlife_cycle"] and not first_person:
 			v.add_child(button("In den Wolfsblick wechseln",func():
 				if state.camera_follow:switch_camera()
 				close_overlay();toggle_view()
@@ -1125,19 +1221,20 @@ func guide_encounter() -> void:
 		for obj in world.tracks if encounter.task=="tracks" else WolfWorldData.nature_sites(state.region):
 			var known: bool=state.found.has(obj.id) if encounter.task=="tracks" else state.sites.has(obj.site)
 			if not known:point=obj.p;break
-	if target==state.region and (encounter.task in ["observe","edge_pair","quiet_watch"] or (encounter.task=="family" and not encounter.get("greeted_family",false))):
+	if target==state.region and (encounter.task in ["observe","edge_pair","quiet_watch","wildlife_cycle"] or (encounter.task=="family" and not encounter.get("greeted_family",false))):
 		var nearest := INF
 		for animal in world.animals:
 			var matches: bool=animal.kind=="wolf" if encounter.task=="family" else WolfWorldData.species(animal.kind)==encounter.get("detail","Reh")
 			if not matches:continue
+			if encounter.get("watch_started",false) and WolfPackLife.animal_key(animal)!=str(encounter.get("watch_animal","")):continue
 			var distance: float=animal.p.distance_to(state.pos)
 			if distance<nearest:
 				nearest=distance
-				point=animal.p+Vector2(0,230) if encounter.task in ["observe","edge_pair","quiet_watch"] else animal.p+Vector2(30,0)
+				point=animal.p+Vector2(0,230) if encounter.task in ["observe","edge_pair","quiet_watch","wildlife_cycle"] else animal.p+Vector2(30,0)
 	set_waypoint(target,point)
 	guided_encounter_id=str(encounter.id)
 	guided_progress=int(encounter.current)
-	if encounter.task in ["observe","edge_pair","quiet_watch"]:notify("Nähere dich leise mit Abstand. Im Wolfsblick richtest du den Blick auf das Tier und wählst Beobachten.")
+	if encounter.task in ["observe","edge_pair","quiet_watch","wildlife_cycle"]:notify("Nähere dich leise mit Abstand. Im Wolfsblick richtest du den Blick auf das Tier und wählst Beobachten.")
 	elif encounter.task=="journey":notify("Gehe deinen eigenen Weg. Der Fortschritt zählt deine tatsächlich gegangenen Pfotenschritte.")
 	else:notify(encounter.hint)
 
@@ -1150,7 +1247,7 @@ func _refresh_encounter_guide() -> void:
 		guided_encounter_id=""
 		notify("Deine Begegnung ist erfüllt. Öffne Begegnungen, um die Erfahrung mitzunehmen.")
 		return
-	if int(encounter.current)!=guided_progress and encounter.task in ["tracks","sites","water_rest","family","care_route","edge_pair","site_mark"]:guide_encounter()
+	if int(encounter.current)!=guided_progress and encounter.task in ["tracks","sites","water_rest","family","care_route","edge_pair","site_mark","pack_walk","wildlife_cycle"]:guide_encounter()
 
 func show_intro() -> void:
 	var v := modal("Wolf · Wildnis & Rudel")
@@ -1384,20 +1481,56 @@ func mark_territory() -> void:
 		check_quests()
 	else:notify("Du erneuerst deinen vertrauten Duft an diesem Ort.")
 
-func show_map() -> void:
-	var v := modal("Wildnisatlas")
-	v.add_child(label("%d verbundene Gebiete · %d erforscht\n%d Naturorte · %s"%[WolfWorldData.REGIONS.size(),state.visited.size(),WolfWorldData.REGIONS.size()*WolfWorldData.nature_sites(0).size(),state.season_name()],16))
+func atlas_view_state() -> Dictionary:
+	if not is_instance_valid(map_panel):return {}
+	return {"local":map_panel.local_region,"selected":map_selected,"zoom":map_panel.magnification,"pan":map_panel.pan,"span":minf(map_panel.size.x,map_panel.size.y),"layers":map_panel.layers.duplicate(),"caption":map_selection.text}
+
+func _restore_atlas_view(view: WolfCartography,snapshot: Dictionary) -> void:
+	# Containers must finish layout before pixel-space pan can be transferred.
+	await get_tree().process_frame
+	if not is_instance_valid(view) or view!=map_panel or not is_instance_valid(overlay):return
+	if snapshot.is_empty():
+		view.center_on_player()
+		return
+	view.magnification=clampf(float(snapshot.get("zoom",1)),1,4)
+	var ratio := minf(view.size.x,view.size.y)/maxf(1,float(snapshot.get("span",380)))
+	view.pan=Vector2(snapshot.get("pan",Vector2.ZERO))*ratio
+	map_selection.text=str(snapshot.get("caption",""))
+	view.queue_redraw()
+
+func show_map(expanded: bool=false,snapshot: Dictionary={}) -> void:
+	atlas_expanded=expanded
+	var v := modal("Wildnisatlas",expanded)
+	if expanded:
+		var scroll: ScrollContainer=v.get_parent()
+		var stack: VBoxContainer=scroll.get_parent()
+		scroll.remove_child(v);stack.remove_child(scroll);scroll.queue_free()
+		stack.add_child(v)
+		v.size_flags_vertical=Control.SIZE_EXPAND_FILL
+		v.add_theme_constant_override("separation",8)
+	else:v.add_child(label("%d verbundene Gebiete · %d erforscht\n%d Naturorte · %s"%[WolfWorldData.REGIONS.size(),state.visited.size(),WolfWorldData.REGIONS.size()*WolfWorldData.nature_sites(0).size(),state.season_name()],16))
 	var tabs := HBoxContainer.new()
 	v.add_child(tabs)
 	var overview := button("Wildnis",func():map_panel.set_local(-1))
 	overview.size_flags_horizontal=Control.SIZE_EXPAND_FILL;tabs.add_child(overview)
 	var local := button("Gebiet",func():select_map_region(map_selected,true))
 	local.size_flags_horizontal=Control.SIZE_EXPAND_FILL;tabs.add_child(local)
-	map_selected=state.region
+	var expand := button("Liste" if expanded else "Große Karte",func():show_map(not atlas_expanded,atlas_view_state()))
+	expand.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	expand.add_theme_font_size_override("font_size",15)
+	tabs.add_child(expand)
+	map_selected=int(snapshot.get("selected",state.region))
 	map_panel=WolfCartography.new()
-	map_panel.game=self;map_panel.selected=state.region
+	map_panel.game=self;map_panel.selected=map_selected
+	if snapshot.has("layers"):map_panel.layers=snapshot.layers.duplicate()
 	v.add_child(map_panel)
-	map_selection=label("",17)
+	if snapshot.has("local"):map_panel.set_local(int(snapshot.local))
+	if expanded:
+		map_panel.custom_minimum_size.y=140
+		map_panel.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	map_places=null
+	map_selection=label("",14 if expanded else 17)
+	if expanded:map_selection.max_lines_visible=2
 	v.add_child(map_selection)
 	map_panel.region_selected.connect(func(index: int):
 		select_map_region(index)
@@ -1414,6 +1547,7 @@ func show_map() -> void:
 		if not nearest.is_empty():map_selection.text=nearest.title+"\n"+nearest.description+"\n"+navigation_summary()
 	)
 	map_selection.text=WolfWorldData.REGIONS[state.region].name+" · Dein Standort\nTippe ein Gebiet an; Gebiet zeigt die Detailkarte."
+	_restore_atlas_view.call_deferred(map_panel,snapshot)
 	var controls := HBoxContainer.new()
 	v.add_child(controls)
 	for item in [["−",func():map_panel.zoom_by(1.0/1.3)],["Mein Standort",func():map_panel.center_on_player();select_map_region(state.region)],["+",func():map_panel.zoom_by(1.3)]]:
@@ -1426,9 +1560,20 @@ func show_map() -> void:
 		toggle.toggle_mode=true;toggle.button_pressed=map_panel.layers[layer]
 		toggle.add_theme_font_size_override("font_size",14)
 		toggle.size_flags_horizontal=Control.SIZE_EXPAND_FILL;layers.add_child(toggle)
+		if expanded:toggle.custom_minimum_size.y=38
+	if expanded:
+		var goals := HBoxContainer.new()
+		v.add_child(goals)
+		for item in [["Zum Gebiet",func():set_waypoint(map_selected,Vector2(1600,1600))],["Ziel entfernen",func():state.waypoint_region=-1;_save_game();map_panel.queue_redraw();map_selection.text="Duftziel entfernt."]]:
+			var b := button(item[0],item[1]);b.custom_minimum_size.y=45
+			b.add_theme_font_size_override("font_size",15)
+			b.size_flags_horizontal=Control.SIZE_EXPAND_FILL;goals.add_child(b)
+		var resume := button("Weiter erkunden",close_overlay)
+		resume.custom_minimum_size.y=45;v.add_child(resume)
+		return
 	map_places=VBoxContainer.new();map_places.add_theme_constant_override("separation",8)
 	v.add_child(map_places)
-	refresh_map_places(state.region)
+	refresh_map_places(map_selected)
 	v.add_child(button("Zum gewählten Gebiet führen",func():set_waypoint(map_selected,Vector2(1600,1600));map_panel.queue_redraw()))
 	v.add_child(button("Duftziel entfernen",func():state.waypoint_region=-1;_save_game();map_panel.queue_redraw();map_selection.text="Duftziel entfernt."))
 	var search := LineEdit.new()
@@ -1520,6 +1665,7 @@ func _build_ambient() -> void:
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_APPLICATION_FOCUS_OUT or what==NOTIFICATION_APPLICATION_PAUSED or what==NOTIFICATION_WM_CLOSE_REQUEST:
 		app_idle=true
+		if state!=null:state.clear_encounter_presence()
 		if state!=null:_save_game()
 		if stick!=null:stick.reset()
 		looking_mouse=false

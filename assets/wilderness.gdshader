@@ -4,6 +4,8 @@ uniform vec4 base_color : source_color = vec4(0.4, 0.6, 0.3, 1.0);
 uniform int surface_kind = 0;
 uniform float wind_phase = 0.0;
 uniform float animation_amount = 1.0;
+uniform float forest_floor = 0.0;
+uniform vec4 litter_color : source_color = vec4(0.43, 0.36, 0.25, 1.0);
 varying vec3 world_point;
 
 // Polynomial hashing avoids the precision bands produced by large sine hashes
@@ -22,6 +24,14 @@ float noise_at(vec2 p) {
 }
 void vertex() {
     world_point = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    if (surface_kind == 4) {
+        // Low flora close to an eye-level camera bends below the muzzle;
+        // a clump directly underfoot should not fill the entire view.
+        float distance_to_camera = distance(world_point.xz, CAMERA_POSITION_WORLD.xz);
+        float clearance = mix(0.25, 1.0, smoothstep(0.45, 2.20, distance_to_camera));
+        VERTEX.y *= clearance;
+        VERTEX.xz *= mix(0.70, 1.0, clearance);
+    }
     if (surface_kind == 1 || surface_kind == 4) {
         float tip = surface_kind == 4 ? max(VERTEX.y, 0.0) : (VERTEX.y + 0.5);
         VERTEX.x += sin(wind_phase * 0.8 + world_point.z * 0.45) * 0.024 * animation_amount * tip;
@@ -40,6 +50,10 @@ void fragment() {
         float soil = smoothstep(0.45, 0.80, noise_at(world_point.xz * 0.08));
         colour = mix(colour, colour * vec3(1.13, 0.98, 0.85), soil * 0.36);
         if (surface_kind == 5) {
+			// Broad humus and moss patches share the existing low-frequency
+			// noise. They add woodland depth without extra scenery instances.
+			colour = mix(colour, litter_color.rgb * 0.94, (0.14 + soil * 0.22) * forest_floor);
+			colour *= mix(vec3(1.0), vec3(0.96, 0.94, 0.87), (1.0 - patch) * forest_floor);
             // Sparse painted leaf litter adds close soil scale without more
             // instances. Soft edges and derivative fade keep the horizon calm.
             vec2 cell = floor(world_point.xz * 1.8);
@@ -47,7 +61,8 @@ void fragment() {
             local = mix(local, local.yx, step(0.5, hash_at(cell + 4.7)));
             float leaf = 1.0 - smoothstep(0.045, 0.105, length(local * vec2(1.0, 2.8)));
             leaf *= step(0.64, hash_at(cell + 2.3)) * fine;
-            colour = mix(colour, colour * vec3(0.74, 0.82, 0.65), leaf * 0.42);
+            vec3 leaf_colour = mix(colour * vec3(0.74, 0.82, 0.65), litter_color.rgb, forest_floor);
+            colour = mix(colour, leaf_colour, leaf * 0.48);
         }
     } else if (surface_kind == 1 || surface_kind == 4) {
         colour *= 0.91 + 0.11 * noise_at(world_point.xz * 1.7 + world_point.y * 0.23);

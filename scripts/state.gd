@@ -175,21 +175,68 @@ func note_action(action: String,detail: String="") -> void:
 		if action=="site" and detail==active_encounter.site_id and pos.distance_to(active_encounter.target_pos)<150:active_encounter.site_checked=true
 		if action=="mark" and active_encounter.get("site_checked",false) and pos.distance_to(active_encounter.target_pos)<150:active_encounter.site_marked=true
 
+func clear_encounter_presence() -> void:
+	# Presence is a live measurement; the earned visit and observation time
+	# remain valid when a view, region or foreground session changes.
+	if active_encounter.is_empty():return
+	if active_encounter.task=="wildlife_cycle":active_encounter.current_activity=""
+	if active_encounter.task=="pack_walk":active_encounter.player_ready=false;active_encounter.companion_ready=false
+
 func note_wildlife_observation(species: String,animal: Dictionary,player_pos: Vector2,player_speed: float,quiet: bool) -> void:
-	if active_encounter.is_empty() or active_encounter.task!="quiet_watch":return
+	if active_encounter.is_empty() or active_encounter.task not in ["quiet_watch","wildlife_cycle"]:return
 	if not _valid_watch_candidate(species,animal,player_pos,player_speed,quiet):return
 	var identifier := WolfPackLife.animal_key(animal)
 	if identifier.is_empty():return
-	if str(active_encounter.get("watch_animal",""))!=identifier:active_encounter.watch_seconds=0.0
+	if str(active_encounter.get("watch_animal",""))!=identifier:
+		active_encounter.watch_seconds=0.0
+		active_encounter.cycle_first=false;active_encounter.cycle_second=false
+		active_encounter.first_activity="";active_encounter.activity_seconds=0.0
+		active_encounter.current_activity="";active_encounter.counted_activity=""
 	active_encounter.watch_animal=identifier
 	active_encounter.watch_started=true
 
 func tick_wildlife_observation(dt: float,species: String,animal: Dictionary,player_pos: Vector2,player_speed: float,quiet: bool) -> void:
-	if active_encounter.is_empty() or active_encounter.task!="quiet_watch" or not active_encounter.get("watch_started",false):return
-	if not is_finite(dt):return
+	if active_encounter.is_empty() or active_encounter.task not in ["quiet_watch","wildlife_cycle"]:return
+	if active_encounter.task=="wildlife_cycle":active_encounter.current_activity=""
+	if not active_encounter.get("watch_started",false) or not is_finite(dt):return
 	if not _valid_watch_candidate(species,animal,player_pos,player_speed,quiet):return
 	if WolfPackLife.animal_key(animal)!=str(active_encounter.get("watch_animal","")):return
-	active_encounter.watch_seconds=minf(12.0,float(active_encounter.get("watch_seconds",0))+clampf(dt,0,0.1))
+	if active_encounter.task=="quiet_watch":
+		active_encounter.watch_seconds=minf(12.0,float(active_encounter.get("watch_seconds",0))+clampf(dt,0,0.1))
+		return
+	var activity: String=animal.get("behavior","")
+	var poses := {"forage":["grasen","schnüffeln"],"drink":["trinken"],"shelter":["ruhen","lauschen"]}
+	if not poses.has(activity) or animal.get("mood","") not in poses[activity] or float(animal.get("speed",1))>1:return
+	if not animal.get("target_pos") is Vector2 or animal.p.distance_to(animal.target_pos)>=14:return
+	active_encounter.current_activity=activity
+	if active_encounter.get("cycle_second",false):return
+	if active_encounter.get("cycle_first",false) and activity==str(active_encounter.first_activity):return
+	if str(active_encounter.get("counted_activity",""))!=activity:active_encounter.activity_seconds=0.0
+	active_encounter.counted_activity=activity
+	active_encounter.activity_seconds=minf(3.0,float(active_encounter.get("activity_seconds",0))+clampf(dt,0,0.1))
+	if float(active_encounter.activity_seconds)>=2.9999:
+		if not active_encounter.get("cycle_first",false):
+			active_encounter.cycle_first=true
+			active_encounter.first_activity=activity
+			active_encounter.activity_seconds=0.0
+		else:active_encounter.cycle_second=true
+
+func tick_pack_walk(dt: float,animal: Dictionary,player_speed: float,clear_path: bool=true) -> void:
+	if active_encounter.is_empty() or active_encounter.task!="pack_walk":return
+	active_encounter.player_ready=false;active_encounter.companion_ready=false
+	if not is_finite(dt) or not is_finite(player_speed) or not escort or region!=int(active_encounter.region):return
+	if animal.is_empty() or animal.get("kind","")!="wolf" or animal.get("young",false) or not animal.get("p") is Vector2:return
+	if not animal.get("companion",false) and not (region==0 and animal.get("role","")=="Mutter"):return
+	var target: Vector2=active_encounter.second_pos if active_encounter.get("pack_first",false) else active_encounter.first_pos
+	active_encounter.player_ready=pos.distance_to(target)<125
+	active_encounter.companion_ready=clear_path and animal.p.distance_to(target)<200 and animal.p.distance_to(pos)<150
+	if not active_encounter.player_ready or not active_encounter.companion_ready or player_speed>1:return
+	active_encounter.joint_seconds=minf(3.0,float(active_encounter.get("joint_seconds",0))+clampf(dt,0,0.1))
+	if float(active_encounter.joint_seconds)>=2.9999:
+		if not active_encounter.get("pack_first",false):
+			active_encounter.pack_first=true;active_encounter.joint_seconds=0.0
+			clear_encounter_presence()
+		else:active_encounter.pack_second=true
 
 func _valid_watch_candidate(species: String,animal: Dictionary,player_pos: Vector2,player_speed: float,quiet: bool) -> bool:
 	if region!=int(active_encounter.region) or species!=str(active_encounter.get("detail","")) or animal.is_empty():return false
@@ -205,10 +252,15 @@ func _regional_count(items: Array[String],index: int) -> int:
 	return count
 
 func _preview_encounter() -> Dictionary:
-	var key := "%d:%d:%d:%d:%d:%d:%d:%d"%[region,day(),encounter_serial,found.size(),sites.size(),visited.size(),int(elapsed/10),int(food_cooldown>0)]
+	var key := "%d:%d:%d:%d:%d:%d:%d:%d:%d"%[region,day(),encounter_serial,found.size(),sites.size(),visited.size(),int(elapsed/10),int(food_cooldown>0),int(escort)]
 	if key==encounter_preview_key and not encounter_preview.is_empty():return encounter_preview.duplicate(true)
 	var result: Dictionary=WolfPackLife.encounter(region,day(),encounter_serial,hour())
 	if result.task=="care_route" and food_cooldown>0:result=_journey_encounter(result)
+	if result.task=="pack_walk" and not escort:
+		result.task="family";result.goal=2;result.target_region=0;result.target_pos=Vector2(1490,2110)
+		result.title="Vertraute Pfoten vor dem gemeinsamen Weg"
+		result.text="Vor einer gemeinsamen Runde suchst du den vertrauten Kontakt zur Familie. Ein kurzer Gruß und ein Ruf nahe der Höhle geben deinem Weg einen sicheren Anfang."
+		result.hint="Begrüße die Familie und heule nahe der Rudelhöhle. Im Rudelmenü kannst du danach die Begleitung aktivieren."
 	if result.task=="visit":
 		var target := -1
 		for neighbor in WolfWorldData.REGIONS[region].links.values():
@@ -229,7 +281,7 @@ func _preview_encounter() -> Dictionary:
 			for site in WolfWorldData.nature_sites(region):
 				if not sites.has(site.site):result.target_pos=site.p;break
 	if result.task=="water_rest":result.target_pos=WolfWorldData.water_bank(region)
-	if result.task in ["care_route","site_mark"]:result=_prepare_local_encounter(result)
+	if result.task in ["care_route","site_mark","pack_walk"]:result=_prepare_local_encounter(result)
 	# A serial, never a hash of current progress, defines the one-time reward.
 	result.id="%d:%d:%d"%[day(),region,encounter_serial]
 	encounter_preview_key=key
@@ -240,7 +292,12 @@ func _prepare_local_encounter(source: Dictionary) -> Dictionary:
 	var result := source.duplicate(true)
 	var origin: int=int(result.region)
 	var serial: int=int(str(result.id).split(":")[2])
-	if result.task=="site_mark":
+	if result.task=="pack_walk":
+		var places := WolfWorldData.nature_sites(origin)
+		result.first_pos=places[posmod(serial,WolfWorldData.SITES_PER_REGION)].p
+		result.second_pos=places[posmod(serial+1,WolfWorldData.SITES_PER_REGION)].p
+		result.target_pos=result.first_pos
+	elif result.task=="site_mark":
 		var site: Dictionary=WolfWorldData.nature_sites(origin)[posmod(serial,WolfWorldData.SITES_PER_REGION)]
 		result.site_id=site.site
 		result.target_pos=site.p
@@ -293,6 +350,19 @@ func encounter_status() -> Dictionary:
 		result.target_pos=result.rest_pos if result.get("care_feed",false) else result.food_pos if result.get("care_drink",false) else result.water_pos
 		if result.get("care_drink",false) and not result.get("care_feed",false) and food_cooldown>0:result.hint="Der Nahrungsplatz bleibt dein Ziel. In %d aktiven Sekunden kannst du wieder fressen; erkunde währenddessen ruhig die Umgebung."%ceili(food_cooldown)
 	if result.accepted and result.task=="edge_pair" and result.get("pair_first",false):result.detail=result.second_detail
+	if result.task=="pack_walk":
+		result.pack_first=bool(result.get("pack_first",false));result.pack_second=bool(result.get("pack_second",false))
+		result.joint_seconds=float(result.get("joint_seconds",0));result.player_ready=bool(result.get("player_ready",false));result.companion_ready=bool(result.get("companion_ready",false))
+		result.target_pos=result.second_pos if result.pack_first else result.first_pos
+		if region!=int(result.region) or not escort or pos.distance_to(result.target_pos)>=125:
+			result.player_ready=false;result.companion_ready=false
+		if result.accepted and not escort:result.hint="Aktiviere die Begleitung im Rudelmenü, dann setzt ihr den gemeinsamen Weg an diesem Duftziel fort."
+	if result.task in ["quiet_watch","wildlife_cycle"]:
+		result.watch_started=bool(result.get("watch_started",false));result.watch_animal=str(result.get("watch_animal",""))
+	if result.task=="wildlife_cycle":
+		result.cycle_first=bool(result.get("cycle_first",false));result.cycle_second=bool(result.get("cycle_second",false))
+		result.first_activity=str(result.get("first_activity",""));result.current_activity=str(result.get("current_activity",""));result.activity_seconds=float(result.get("activity_seconds",0))
+		if region!=int(result.region) or not result.watch_started:result.current_activity=""
 	return result
 
 func _encounter_current(encounter: Dictionary) -> int:
@@ -313,6 +383,8 @@ func _encounter_current(encounter: Dictionary) -> int:
 		"edge_pair":return int(encounter.get("pair_first",false))+int(encounter.get("pair_second",false))
 		"quiet_watch":return int(float(encounter.get("watch_seconds",0))+0.0001)
 		"site_mark":return int(encounter.get("site_checked",false))+int(encounter.get("site_marked",false))
+		"pack_walk":return int(encounter.get("pack_first",false))+int(encounter.get("pack_second",false))
+		"wildlife_cycle":return int(encounter.get("cycle_first",false))+int(encounter.get("cycle_second",false))
 	return 0
 
 func complete_encounter() -> bool:
@@ -489,7 +561,9 @@ func load_from(path: String = "") -> bool:
 func _save_encounter() -> Dictionary:
 	if active_encounter.is_empty():return {}
 	var result := active_encounter.duplicate(true)
-	for field in ["target_pos","water_pos","food_pos","rest_pos"]:
+	if result.task=="wildlife_cycle":result.current_activity=""
+	if result.task=="pack_walk":result.player_ready=false;result.companion_ready=false
+	for field in ["target_pos","water_pos","food_pos","rest_pos","first_pos","second_pos"]:
 		if result.get(field) is Vector2:
 			var point: Vector2=result[field]
 			result[field]=[point.x,point.y]
@@ -503,7 +577,7 @@ func _load_encounter(value: Variant) -> Dictionary:
 	for key in ["id","title","text","task","hint","skill"]:
 		if not value[key] is String or value[key].length()>6000:return {}
 	if not _valid_saved_string("completed_encounters",value.id):return {}
-	var tasks := {"tracks":[3,"nose"],"sites":[2,"nose"],"journey":[1200,"nose"],"visit":[1,"nose"],"observe":[1,"stealth"],"water_rest":[2,"pack"],"family":[2,"pack"],"care_route":[3,"pack"],"edge_pair":[2,"stealth"],"quiet_watch":[12,"stealth"],"site_mark":[2,"nose"]}
+	var tasks := {"tracks":[3,"nose"],"sites":[2,"nose"],"journey":[1200,"nose"],"visit":[1,"nose"],"observe":[1,"stealth"],"water_rest":[2,"pack"],"family":[2,"pack"],"care_route":[3,"pack"],"edge_pair":[2,"stealth"],"quiet_watch":[12,"stealth"],"site_mark":[2,"nose"],"pack_walk":[2,"pack"],"wildlife_cycle":[2,"stealth"]}
 	if not tasks.has(value.task):return {}
 	var origin := int(_safe_number(value.region,-1))
 	var target := int(_safe_number(value.target_region,-1))
@@ -514,17 +588,20 @@ func _load_encounter(value: Variant) -> Dictionary:
 		if not value.baseline.has(key):return {}
 	if not value.baseline.actions is Dictionary:return {}
 	if value.task=="visit" and not WolfWorldData.REGIONS[origin].links.values().has(target):return {}
-	if value.task in ["observe","edge_pair","quiet_watch"] and value.get("detail","") not in ["Reh","Hase","Fuchs"]:return {}
+	if value.task in ["observe","edge_pair","quiet_watch","wildlife_cycle"] and value.get("detail","") not in ["Reh","Hase","Fuchs"]:return {}
 	if value.task=="edge_pair" and (value.get("second_detail","") not in ["Reh","Hase","Fuchs"] or value.second_detail==value.detail):return {}
 	if value.task=="care_route":
 		for field in ["water_pos","food_pos","rest_pos"]:
+			if not _valid_point_array(value.get(field)):return {}
+	if value.task=="pack_walk":
+		for field in ["first_pos","second_pos"]:
 			if not _valid_point_array(value.get(field)):return {}
 	if value.task=="site_mark" and (not value.get("site_id") is String or not _valid_saved_string("sites",value.site_id) or not value.site_id.begins_with(str(origin)+":")):return {}
 	var result: Dictionary=value.duplicate(true)
 	result.region=origin
 	result.target_region=0 if value.task=="family" else target if value.task=="visit" else origin
 	result.target_pos=Vector2(float(value.target_pos[0]),float(value.target_pos[1])).clamp(Vector2(20,20),Vector2(3180,3180))
-	if value.task in ["care_route","site_mark"]:
+	if value.task in ["care_route","site_mark","pack_walk"]:
 		# Rebuild canonical real places rather than trusting a stale or edited
 		# coordinate to make the saved experience impossible.
 		result=_prepare_local_encounter(result)
@@ -540,7 +617,7 @@ func _load_encounter(value: Variant) -> Dictionary:
 	var baseline_actions := {}
 	for action in action_counts:baseline_actions[action]=clampi(int(_safe_number(baseline.actions.get(action),0)),0,int(action_counts[action]))
 	baseline.actions=baseline_actions
-	for flag in ["drank_after_start","rested_after_drink","greeted_family","family_howl","care_drink","care_feed","care_rest","pair_first","pair_second","site_checked","site_marked","watch_started"]:result[flag]=value.get(flag) if value.get(flag) is bool else false
+	for flag in ["drank_after_start","rested_after_drink","greeted_family","family_howl","care_drink","care_feed","care_rest","pair_first","pair_second","site_checked","site_marked","watch_started","pack_first","pack_second","cycle_first","cycle_second"]:result[flag]=value.get(flag) if value.get(flag) is bool else false
 	if not result.drank_after_start:result.rested_after_drink=false
 	if not result.care_drink:result.care_feed=false
 	if not result.care_feed:result.care_rest=false
@@ -549,6 +626,14 @@ func _load_encounter(value: Variant) -> Dictionary:
 	if not _valid_watch_identity(result.watch_animal):result.watch_animal=""
 	result.watch_seconds=clampf(_safe_number(value.get("watch_seconds"),0),0,12) if result.watch_started and not result.watch_animal.is_empty() else 0.0
 	if result.watch_animal.is_empty():result.watch_started=false
+	result.joint_seconds=clampf(_safe_number(value.get("joint_seconds"),0),0,3)
+	result.player_ready=false;result.companion_ready=false
+	if not result.pack_first:result.pack_second=false
+	for field in ["first_activity","counted_activity"]:result[field]=str(value.get(field,"")) if value.get(field) is String and value[field] in ["forage","drink","shelter"] else ""
+	result.current_activity=""
+	if not result.watch_started or result.first_activity.is_empty():result.cycle_first=false
+	if not result.cycle_first:result.cycle_second=false
+	result.activity_seconds=clampf(_safe_number(value.get("activity_seconds"),0),0,3) if result.watch_started and not result.counted_activity.is_empty() else 0.0
 	if completed_encounters.has(result.id):return {}
 	return result
 

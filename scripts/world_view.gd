@@ -82,7 +82,7 @@ func cone_mesh() -> CylinderMesh:
 	m.radial_segments=12
 	return m
 
-func add_shape(kind: String,p: Vector3,dimensions: Vector3,color: Color,rotation: float=0) -> void:
+func add_shape(kind: String,p: Vector3,dimensions: Vector3,color: Color,rotation: float=0,tilt: float=0) -> void:
 	# Spatial chunks let Godot cull entire groves instead of drawing every tree.
 	var chunk := Vector2i(floori(p.x/24.0),floori(p.z/24.0))
 	# Tint belongs to each instance, not the batch. Birch trunks and individual
@@ -91,6 +91,7 @@ func add_shape(kind: String,p: Vector3,dimensions: Vector3,color: Color,rotation
 	var center := Vector3(chunk.x*24.0+12,0,chunk.y*24.0+12)
 	if not batches.has(key):batches[key]={"kind":kind,"center":center,"transforms":[],"colors":[]}
 	var basis := Basis(Vector3.UP,rotation).scaled(dimensions)
+	if not is_zero_approx(tilt):basis=Basis(Vector3.UP,rotation)*Basis(Vector3.FORWARD,tilt)*Basis.from_scale(dimensions)
 	batches[key].transforms.append(Transform3D(basis,p-center))
 	batches[key].colors.append(color)
 
@@ -179,24 +180,25 @@ func build_understory(biome: String) -> void:
 	for i in range(game.world.decor.size()):
 		var d: Dictionary=game.world.decor[i]
 		var p: Vector2=d.p
-		if WolfWorldData.on_path(p,game.state.region,64) or WolfWorldData.water_blocked(p,game.state.region):continue
+		if WolfWorldData.on_path(p,game.state.region,48) or WolfWorldData.water_blocked(p,game.state.region):continue
 		if i%3==0 and biome in ["snow","alpine","coast"]:continue
-		var kind := "fern" if biome in ["forest","oak","ruins"] and i%9==0 else "reed" if biome=="marsh" and i%4==0 else "flower" if biome=="meadow" and i%7==0 else "grass"
+		var kind := "fern" if biome in ["forest","oak","ruins"] and (i%6==0 or d.variant==3 and sin(p.x*.006+p.y*.004)>.15) else "reed" if biome=="marsh" and i%4==0 else "flower" if biome in ["meadow","lake"] and i%7==0 else "grass"
 		if biome=="snow":kind="grass"
 		if game.state.season_name()=="Winter" and kind=="flower":kind="grass"
-		var colour := Color("#678448") if kind!="reed" else Color("#92935c")
+		var colour := Color("#557445") if kind=="fern" else Color("#92935c") if kind=="reed" else Color("#788951")
 		if biome in ["alpine","coast"]:colour=Color("#96976b")
-		var s: float=0.40+float(i%4)*0.065
-		if kind=="fern":s=0.64
+		var s: float=0.37+float(d.size)*.030
+		if kind=="fern":s=0.67+float(i%3)*.06
 		if kind=="reed":s=0.70
 		if biome=="snow":s*=0.65
-		add_shape(kind,world_pos(p),Vector3(s,s,s),seasonal_color(colour,true),float(i)*2.399)
+		colour=colour.lightened(float(i%5)*.014) if i%3 else colour.lerp(Color("#9b9163"),.12)
+		add_shape(kind,world_pos(p),Vector3(s,s*(.86+float(i%3)*.10),s),seasonal_color(colour,true),float(i)*2.399)
 
 func build_ground() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var ground := Color(WolfWorldData.REGIONS[game.state.region].ground)
-	ground=seasonal_color(ground.lerp(Color("#89947a"),0.24))
+	ground=seasonal_color(ground.lerp(Color("#89947a"),0.34))
 	for y in range(40):
 		for x in range(40):
 			for offset in [Vector2(0,0),Vector2(0,1),Vector2(1,1),Vector2(0,0),Vector2(1,1),Vector2(1,0)]:
@@ -291,22 +293,29 @@ func rebuild() -> void:
 		var s: float=obj.scale
 		match obj.kind:
 			"tree":
+				var character := sin(obj.p.x*.019+obj.p.y*.013)
 				var trunk := Color("#776044") if obj.variant!=2 else Color("#d2d0b8")
 				add_shape("trunk",p+Vector3(0,1.7*s,0),Vector3(0.48,3.4*s,0.48),trunk)
 				for root in range(3):
 					var angle := root*TAU/3.0+float(obj.p.x)*0.01
-					add_shape("stone",p+Vector3(cos(angle)*0.20,0.10,sin(angle)*0.20),Vector3(0.52,0.19,0.31)*s,trunk,angle)
+					if root==2 and obj.variant!=0:
+						# Reuse one of the original root instances as a visible
+						# branch. Spatial batches and the tree-instance budget stay.
+						add_shape("trunk",p+Vector3(cos(angle)*.28,2.65,sin(angle)*.28)*s,Vector3(.18,1.65,.18)*s,trunk,angle,.52)
+					else:add_shape("stone",p+Vector3(cos(angle)*0.24,0.08,sin(angle)*0.24),Vector3(0.64,0.16,0.29)*s,trunk,angle)
 				if obj.variant==0:
 					for i in range(5):
 						var color := seasonal_color(Color("#476a46").lightened(i*0.035),true)
-						add_shape("pine",p+Vector3(0,(2.0+i*0.8)*s,0),Vector3((1.8-i*0.25)*s,2.1*s,(1.8-i*0.25)*s),color,float(i)*0.6)
+						var width: float=(1.8-i*0.25)*s*(1.0+character*.085)
+						add_shape("pine",p+Vector3(character*.08,(2.0+i*0.8)*s,0),Vector3(width,2.1*s,width),color,float(i)*0.6+character)
 						if biome=="snow":add_shape("pine",p+Vector3(0,(2.38+i*0.8)*s,0),Vector3((1.45-i*0.23)*s,1.2*s,(1.45-i*0.23)*s),Color("#d5e5df"),float(i)*0.6)
 				else:
 					for i in range(4):
-						var angle := i*TAU/5
-						var leaf_colour := Color("#708d53") if obj.variant==1 else Color("#91a474")
-						add_shape("leaf",p+Vector3(cos(angle)*1.05,3.7+float(i%2)*0.55,sin(angle)*1.05)*s,Vector3(2.25,2.3,2.25)*s,seasonal_color(leaf_colour.lightened(i*0.016),true))
-					add_shape("leaf",p+Vector3(0,4.55*s,0),Vector3(2.3,2.3,2.3)*s,seasonal_color(Color("#9aaa70"),true))
+						var angle := i*TAU/4+character*.6
+						var leaf_colour := Color("#698754") if obj.variant==1 else Color("#8fa16c")
+						var width := 2.13+sin(i*1.7+character)*.17
+						add_shape("leaf",p+Vector3(cos(angle)*1.0,3.65+float(i%2)*0.55+character*.10,sin(angle)*1.0)*s,Vector3(width,2.20,width)*s,seasonal_color(leaf_colour.lightened(i*0.018),true),angle*.5)
+					add_shape("leaf",p+Vector3(character*.18,4.60*s,0),Vector3(2.15,2.35,2.15)*s,seasonal_color(Color("#8c9e69"),true),character)
 			"rock":
 				add_shape("stone",p+Vector3(0,0.45*s,0),Vector3(1.7,1.25,1.5)*s,Color("#959e8d") if biome!="snow" else Color("#cbdcdd"),float(obj.variant)*1.4)
 				add_shape("stone",p+Vector3(-0.21,0.81,0.08)*s,Vector3(1.03,0.22,0.82)*s,seasonal_color(Color("#7f8d59")) if biome!="snow" else Color("#e9f1ed"),float(obj.variant)*1.4)
@@ -446,7 +455,7 @@ func sync_camera() -> void:
 			var direction: Vector2=a.p.direction_to(a.target_pos)
 			look_angle=wrapf(atan2(-direction.x,-direction.y)-animal_nodes[i].rotation.y,-PI,PI)
 		fit_paws(animal_nodes[i])
-		animal_nodes[i].animate(a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),game.clock+a.phase,game.state.reduced_motion,attention,look_angle)
+		animal_nodes[i].animate(WolfAnimalModel.renderer_gait(a.get("gait",0.0),false),a.get("speed",0.0),a.get("mood","lauschen"),game.clock+a.phase,game.state.reduced_motion,attention,look_angle)
 	for id in track_nodes:
 		var known: bool=game.state.found.has(id)
 		track_nodes[id].visible=game.scent_time>0 or known
@@ -515,6 +524,10 @@ func nature_material(color: Color,surface: int) -> ShaderMaterial:
 	# Match the instanced palette rather than producing fluorescent soil.
 	m.set_shader_parameter("base_color",painted_colour(color) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else color)
 	m.set_shader_parameter("surface_kind",surface)
+	var biome: String=WolfWorldData.REGIONS[game.state.region].biome
+	m.set_shader_parameter("forest_floor",.85 if biome in ["forest","oak","pine","ruins"] else .20 if biome in ["marsh","river","lake"] else 0.0)
+	var litter := seasonal_color(Color("#917954"),true)
+	m.set_shader_parameter("litter_color",painted_colour(litter) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else litter)
 	m.set_shader_parameter("wind_phase",game.clock)
 	m.set_shader_parameter("animation_amount",0.0 if game.state.reduced_motion else 1.0)
 	scene_materials.append(m)

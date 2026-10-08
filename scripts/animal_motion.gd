@@ -116,6 +116,19 @@ func refuge_from(animal: Dictionary,threat: Vector2) -> Vector2:
 		if candidate.is_finite() and candidate.distance_to(threat)>position.distance_to(threat)+80:return candidate
 	return best
 
+func group_forage_target(animal: Dictionary,animals: Array) -> Vector2:
+	var original: Vector2=animal._ecology.forage
+	var closest := 450.0
+	var leader: Dictionary={}
+	for neighbor in animals:
+		if neighbor.kind!="deer" or float(neighbor.phase)>=float(animal.phase) or not neighbor.has("_ecology"):continue
+		var distance: float=animal.home.distance_to(neighbor.home)
+		if distance<closest:closest=distance;leader=neighbor
+	if leader.is_empty():return original
+	var offset: Vector2=leader.home.direction_to(animal.home)*110
+	var target: Vector2=leader._ecology.forage+offset
+	return target if segment_free(animal.home,target) else original
+
 func _node_id(cell: Vector2i) -> int:
 	return cell.x+cell.y*GRID
 

@@ -45,11 +45,11 @@ static func get_mesh(kind: String) -> Mesh:
 					var y := t-0.5
 					var p := Vector3.ZERO
 					if kind=="pine":
-						r=pow(1-t,0.78)*(0.90+0.10*sin(a*6+t*8))
-						y+=sin(a*6+t*11)*0.035*(1-t)
+						r=pow(1-t,0.75)*(0.87+0.10*sin(a*6+t*8)+0.045*cos(a*3-t*9))
+						y+=sin(a*6+t*11)*0.060*(1-t)
 					elif kind=="leaf":
-						r=pow(sin(t*PI),0.84)*(0.91+sin(a*5+t*13)*0.08)
-						y=cos(t*PI)*0.5+sin(a*3)*0.045*sin(t*PI)
+						r=pow(sin(t*PI),0.78)*(0.90+sin(a*5+t*11)*0.12+cos(a*3-t*7)*0.07)
+						y=cos(t*PI)*0.5+sin(a*3+t*4)*0.065*sin(t*PI)
 					elif kind in ["trunk","log"]:
 						r=0.5*(1-t*0.32)*(0.94+sin(a*7+t*5)*0.055)
 						if kind=="trunk":r*=1.0+pow(1.0-t,7)*0.56
@@ -147,17 +147,33 @@ static func build_footprint(st: SurfaceTool,kind: String) -> void:
 
 static func build_botanical(st: SurfaceTool,kind: String) -> void:
 	if kind=="fern":
-		for frond in range(6):
-			var angle := frond*TAU/6.0
+		for frond in range(7):
+			var angle := frond*TAU/7.0
 			var direction := Vector3(cos(angle),0,sin(angle))
 			var side := Vector3(-sin(angle),0,cos(angle))
 			for leaf in range(5):
 				var t := 0.12+float(leaf)*0.16
 				var root := direction*t+Vector3(0,sin(t*PI)*0.55,0)
-				var tip := direction*(t+0.19)+Vector3(0,sin((t+0.18)*PI)*0.55,0)
-				var width := (1-t)*0.20
+				var tip := direction*(t+0.16)+Vector3(0,sin((t+0.16)*PI)*0.55,0)
+				var width := (1-t)*0.12
 				for sign_value in [-1.0,1.0]:
-					triangle(st,root,root+side*width*sign_value+direction*0.08,tip,Color(0.89+t*0.08,0.99,0.84,1))
+					triangle(st,root,root+side*width*sign_value+direction*0.08,tip,Color(0.84+t*0.13,0.96,0.79+float(frond%2)*.06,1))
+		return
+	if kind=="grass":
+		# A curved fan covers more soil than isolated triangular spikes. Its
+		# entire clump is still one tiny shared mesh and one instanced draw.
+		for blade in range(9):
+			var angle := blade*2.399
+			var direction := Vector3(cos(angle),0,sin(angle))
+			var root := direction*(.12+float(blade%3)*.085)
+			var side := Vector3(-sin(angle),0,cos(angle))*.042
+			var height := .48+float(blade%4)*.075
+			var middle := root+direction*.09+Vector3(0,height*.58,0)
+			var tip := root+direction*.31+Vector3(0,height,0)
+			var colour := Color(.82+float(blade%3)*.045,.95,.75+float(blade%2)*.08,1)
+			triangle(st,root-side,root+side,middle+side*.60,colour.darkened(.045))
+			triangle(st,root-side,middle+side*.60,middle-side*.60,colour)
+			triangle(st,middle-side*.60,middle+side*.60,tip,colour.lightened(.045))
 		return
 	for blade in range(7 if kind!="flower" else 4):
 		var angle := blade*2.399

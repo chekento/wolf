@@ -5,6 +5,8 @@ extends Node3D
 # joint, so eyes, fur markings and toes do not each cost a separate draw call.
 static var material_cache: Dictionary = {}
 static var mesh_cache: Dictionary = {}
+const PLAYER_GAIT_DISTANCE := 22.0
+const ANIMAL_GAIT_DISTANCE := 18.0
 var torso: Node3D
 var neck: Node3D
 var head: Node3D
@@ -70,6 +72,16 @@ func piece(parent: Node3D,points: Array,radii: Array,color: Color,segments: int=
 				if dorsal:
 					c=c.lerp(color.darkened(0.20),smoothstep(-0.025,0.20,radial.y)*0.8)
 					if kind in ["wolf","fox"]:c=c.lerp(Color("#cfc9b6"),smoothstep(0.0,0.18,-radial.y)*0.5)
+					# Fur variation is painted into the existing joint surface. No
+					# transparent fur cards or extra draw calls are needed.
+					var fleck := sin(p.z*31.0+p.y*23.0)*sin(p.x*35.0-p.z*17.0)
+					c=c.lightened(maxf(0,fleck)*.045).darkened(maxf(0,-fleck)*.035)
+					if parent==head and kind in ["wolf","fox"]:
+						var mask := smoothstep(.015,.12,absf(p.x))*smoothstep(-.19,-.03,p.z)
+						c=c.lerp(Color("#67706b") if kind=="wolf" else Color("#8e593b"),mask*.32)
+					if parent==torso and kind=="deer":
+						var belly := smoothstep(.06,.25,-radial.y)
+						c=c.lerp(Color("#c6b592"),belly*.46)
 				st.set_color(c.srgb_to_linear().lerp(c,.22) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else c)
 				st.set_normal(normal)
 				st.add_vertex(p)
@@ -108,7 +120,7 @@ func build(species: String,young: bool=false) -> void:
 	var fox := kind=="fox"
 	var deer := kind=="deer"
 	var rabbit := kind=="rabbit"
-	var fur := Color("#8e9084") if kind=="wolf" else Color("#b8783f") if fox else Color("#a88356") if deer else Color("#9c8d77")
+	var fur := Color("#929795") if kind=="wolf" else Color("#b8783f") if fox else Color("#a88356") if deer else Color("#9c8d77")
 	var cream := Color("#d6d1bd") if not fox else Color("#e4d9bf")
 	body_scale=0.70 if rabbit else 0.82 if fox else 1.08 if deer else 1.0
 	if young:body_scale*=0.73
@@ -207,10 +219,14 @@ func build(species: String,young: bool=false) -> void:
 func stride_length() -> float:
 	return .90 if kind=="deer" else .53 if kind=="fox" else .42 if kind=="rabbit" else .65
 
+static func renderer_gait(gait: float,player: bool) -> float:
+	# NPCs and the player accumulate different distance units in gameplay.
+	return gait if player else gait*ANIMAL_GAIT_DISTANCE/PLAYER_GAIT_DISTANCE
+
 func cycle_phase(gait: float) -> float:
 	# Gameplay gait is real distance / 22. Match each anatomical stride to
 	# that distance, including the gradual size of a young player.
-	return gait*(22.0*.032*TAU)/(stride_length()*maxf(scale.x,.25))
+	return gait*(PLAYER_GAIT_DISTANCE*.032*TAU)/(stride_length()*maxf(scale.x,.25))
 
 func set_foot_heights(heights: Array[float]) -> void:
 	if heights.size()==4:foot_ground=heights

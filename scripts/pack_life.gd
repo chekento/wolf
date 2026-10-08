@@ -22,7 +22,9 @@ static func encounter(region: int,day_index: int,serial: int,hour: float=7.5) ->
 		{"title":"Drei sichere Plätze","text":"Wasser, ein zurückgelassener Nahrungsrest und trockene Deckung liegen auf verschiedenen Wegen. Du lernst sie in Ruhe kennen und kehrst danach geschützt zur Ruhe zurück.","task":"care_route","goal":3,"hint":"Trinke am gezeigten Ufer, friss danach am gewählten Nahrungsplatz und ruhe anschließend am gezeigten Ruheplatz.","skill":"pack","target_pos":WolfWorldData.water_bank(region)},
 		{"title":"Zwei Gäste am Ufer" if waterside else "Zwei Gäste am Waldsaum","text":"Verschiedene Tiere nutzen dieselbe Landschaft zu unterschiedlichen Zeiten. Du prüfst ihre Haltung aus genügend Abstand und lässt ihre Rückwege frei.","task":"edge_pair","detail":"Fuchs" if dusk else "Reh","second_detail":"Hase","goal":2,"hint":"Beobachte jetzt einen Fuchs und einen Hasen in diesem Gebiet." if dusk else "Beobachte jetzt ein Reh und einen Hasen in diesem Gebiet.","skill":"stealth","target_pos":Vector2(1760,1490)},
 		{"title":"Geduld im Abendwind" if dusk else "Ein ruhiger Blick","text":"Ein Wildtier hebt die Ohren und wendet sich wieder seinen eigenen Wegen zu. Du bleibst mit Abstand stehen, statt ihm nachzulaufen, und beobachtest seine ruhigen Bewegungen.","task":"quiet_watch","detail":"Fuchs" if dusk else "Reh","goal":12,"hint":"Wähle Beobachten für einen ruhigen Fuchs. Halte ihn danach 12 aktive Sekunden mit Abstand im Wolfsblick; bleibe ruhig." if dusk else "Wähle Beobachten für ein ruhiges Reh. Halte es danach 12 aktive Sekunden mit Abstand im Wolfsblick; bleibe ruhig.","skill":"stealth","target_pos":Vector2(1760,1490)},
-		{"title":"Ein vertrauter Rückweg","text":"Ein geschützter Naturort hat seinen eigenen Geruch. Du prüfst ihn erneut und hinterlässt dort deine Duftmarke. So wird aus einem einzelnen Besuch ein vertrauter Rückweg.","task":"site_mark","goal":2,"hint":"Prüfe den gezeigten Naturort mit Aktion und markiere danach dort deinen eigenen Duft.","skill":"nose","target_pos":Vector2(640,2500)}
+		{"title":"Ein vertrauter Rückweg","text":"Ein geschützter Naturort hat seinen eigenen Geruch. Du prüfst ihn erneut und hinterlässt dort deine Duftmarke. So wird aus einem einzelnen Besuch ein vertrauter Rückweg.","task":"site_mark","goal":2,"hint":"Prüfe den gezeigten Naturort mit Aktion und markiere danach dort deinen eigenen Duft.","skill":"nose","target_pos":Vector2(640,2500)},
+		{"title":"Zwei Wege mit vertrauten Pfoten","text":"Ein Elternwolf begleitet dich zu zwei kleinen Orten im Revier. Ihr geht wirklich gemeinsam hin, haltet kurz inne und prüft die Gerüche. Der erwachsene Wolf lässt dir genug Raum für eigene Schritte.","task":"pack_walk","goal":2,"hint":"Gehe mit aktivierter Begleitung nacheinander zu den zwei Duftzielen. Halte an jedem Ort drei aktive Sekunden ruhig, bis auch der Elternwolf bei dir ist.","skill":"pack","target_pos":Vector2(640,2500)},
+		{"title":"Ein Tier, verschiedene Wege","text":"Ein Wildtier frisst, prüft das Ufer oder zieht sich in die Deckung zurück. Du lässt es seine eigenen Wege gehen und beobachtest dasselbe Tier bei zwei verschiedenen ruhigen Tätigkeiten.","task":"wildlife_cycle","detail":"Fuchs" if dusk else "Reh","goal":2,"hint":"Beginne mit Beobachten. Halte dasselbe Tier bei zwei verschiedenen Tätigkeiten je drei aktive Sekunden ruhig im Blick: Nahrung, Trinken oder Ruhe in Deckung.","skill":"stealth","target_pos":Vector2(1760,1490)}
 	])
 	var thematic := {
 		"snow":{"title":"Spuren unter Schneekiefern","text":"Der Wind hat feinen Schnee über ältere Fährten getragen. Die frischeren Abdrücke sind noch scharf. Du prüfst die Kanten mit Nase und Blick und bleibst auf festem Boden."},
@@ -76,6 +78,48 @@ static func wildlife_profile(kind: String) -> Dictionary:
 		"rabbit":return {"notice":285.0,"quiet_flee":78.0,"loud_flee":175.0,"escape_speed":145.0,"recover":5.0}
 		"fox":return {"notice":330.0,"quiet_flee":65.0,"loud_flee":135.0,"escape_speed":112.0,"recover":4.0}
 	return {"notice":390.0,"quiet_flee":88.0,"loud_flee":195.0,"escape_speed":128.0,"recover":6.0}
+
+static func wildlife_activity(animal: Dictionary,hour: float,dt: float) -> Dictionary:
+	var ecology: Dictionary=animal._ecology
+	var kind: String=animal.kind
+	var phase: float=animal.get("phase",0)
+	var sleeping: bool=(kind=="fox" and hour>=7 and hour<17) or (kind=="rabbit" and not ((hour>=5 and hour<10) or (hour>=16 and hour<23)))
+	if sleeping:
+		animal._activity_sleeping=true
+		animal._activity_waited=0.0
+		return _activity_pose(animal,ecology.shelter,"shelter",true)
+	if animal.get("_activity_sleeping",false):
+		animal._activity_step=0
+		animal._activity_waited=0.0
+		animal._activity_sleeping=false
+	var stage := int(animal.get("_activity_step",posmod(floori(phase),4)))
+	var target: Vector2=ecology.get("group_forage",ecology.forage) if stage==0 else ecology.shelter if stage==1 else ecology.other_forage if stage==2 else ecology.water if ecology.has_water else ecology.shelter
+	var behavior := "shelter" if stage==1 or (stage==3 and not ecology.has_water) else "drink" if stage==3 else "forage"
+	var calmed: bool=float(animal.get("alarm",0))<=0 and animal.get("behavior","") in ["","forage","drink","shelter","social"]
+	var waited := float(animal.get("_activity_waited",0))
+	if calmed and animal.p.distance_to(target)<12:waited+=clampf(dt,0,0.1)
+	var durations: Array=[18.0,12.0,14.0,8.0] if kind=="deer" else [10.0,14.0,12.0,7.0] if kind=="rabbit" else [14.0,10.0,16.0,8.0]
+	if waited>=float(durations[stage])+fposmod(phase*2,4):
+		animal._activity_step=(stage+1)%4
+		animal._activity_waited=0.0
+		return wildlife_activity(animal,hour,0)
+	animal._activity_step=stage
+	animal._activity_waited=waited
+	return _activity_pose(animal,target,behavior,false)
+
+static func _activity_pose(animal: Dictionary,target: Vector2,behavior: String,sleeping: bool) -> Dictionary:
+	var arrived: bool=animal.p.distance_to(target)<12
+	return {"target":target,"behavior":behavior,"speed":0.0 if arrived else 24.0 if animal.kind=="fox" else 28.0,"mood":"wandern" if not arrived else "trinken" if behavior=="drink" else "ruhen" if behavior=="shelter" else "schnüffeln" if animal.kind=="fox" else "grasen","sleeping":sleeping}
+
+static func sibling_play(animal: Dictionary,partner: Dictionary,base: Vector2,now: float) -> Dictionary:
+	if animal.p.distance_to(base)>175:return {"target":base,"speed":38.0,"mood":"wandern","behavior":"routine"}
+	var turn := posmod(int(now/8),6)
+	var first: bool=partner.is_empty() or float(animal.phase)<float(partner.phase)
+	var running: bool=(first and turn in [1,4]) or (not first and turn in [2,5])
+	var offset := Vector2(-72,-38) if first else Vector2(76,34)
+	var target := base+offset if not running else base+Vector2(85,-60) if first else base+Vector2(-70,70)
+	if turn in [1,2] and not running and not partner.is_empty() and animal.p.distance_to(partner.p)>85:target=partner.p+offset.normalized()*60
+	return {"target":target,"speed":42.0 if running else 32.0,"mood":"spielen" if turn in [0,1,2,4,5] else "lauschen","behavior":"play" if turn!=3 else "routine"}
 
 static func animal_key(animal: Dictionary) -> String:
 	if animal.is_empty() or not animal.get("home") is Vector2:return ""
