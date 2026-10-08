@@ -102,8 +102,9 @@ func run() -> void:
 	classic.pos=classic.main_story_status().target_pos
 	parent=mother(classic)
 	classic.escort=false
+	parent.p=classic.pos+Vector2(300,0)
 	wait(classic,3,parent)
-	check(classic.main_story_status().seconds==0 and not classic.main_story_status().companion_ready,"shared arrival never counts with accompaniment disabled")
+	check(classic.main_story_status().seconds==0 and not classic.main_story_status().companion_ready,"a distant mother cannot fulfil the local cave meeting without real arrival")
 	classic.escort=true;parent.p=classic.pos+Vector2(250,0)
 	wait(classic,3,parent)
 	check(classic.main_story_status().seconds==0,"standing at the goal alone cannot pretend the mother has arrived")
@@ -132,6 +133,9 @@ func run() -> void:
 	check(not classic.advance_main_story() and classic.xp==before_xp+40,"repeated next-chapter activation cannot duplicate the reward")
 	check(classic.story_step==18 and classic.age_weeks()==before_age and classic.elapsed==before_elapsed,"campaign progress preserves optional stories and never fast-forwards natural age or the day")
 	check(classic.main_story_status().seconds==0 and classic.main_story_status().stage==0,"the new chapter starts with fresh timing rather than the previous stop")
+	classic.pos=classic.main_story_status().target_pos;classic.escort=false
+	parent=mother(classic);wait(classic,3,parent)
+	check(classic.main_story_status().seconds==0 and not classic.main_story_status().companion_ready,"later shared journeys still require an explicitly accepted escort")
 	check(fulfill(classic) and classic.main_story_status().action=="drink","the water chapter first requires an actual second shared arrival")
 	classic.region=1;classic.note_action("drink")
 	check(classic.main_story_status().stage==1,"drinking in another region cannot fulfil the home-pond objective")

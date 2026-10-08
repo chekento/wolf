@@ -155,6 +155,9 @@ func pack_routine(role: String="Mutter") -> Dictionary:
 func main_story_status() -> Dictionary:
 	return WolfMainStory.status(main_story_progress,region,pos,escort)
 
+func main_story_home_meeting_active() -> bool:
+	return WolfMainStory.home_meeting_active(main_story_progress,region,pos)
+
 func begin_main_story() -> bool:
 	if not WolfMainStory.begin(main_story_progress):return false
 	record("Hauptgeschichte beginnt · Der Kreis deiner Pfoten. Du lernst mit der Mutter Wasser, Deckung und den Weg zurück kennen.")

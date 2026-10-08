@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.0 · Aktionsanker, Höhlenmission und Rudelnähe
+
+- Wolfaktionsgrafiken werden um denselben Bodenanker gespiegelt; keine Verschiebung um eine ganze Atlasbreite.
+- Der erste Heimatstopp zählt tatsächliche ruhige Nähe zur Mutter vor dem erreichbaren Höhleneingang. Eine versteckte Escort-Option blockiert diesen lokalen Schritt nicht mehr. Spätere gemeinsame Reisen benötigen weiterhin Begleitung.
+- Kleiner einklappbarer Missionshinweis mit getrennten Toasts und erreichbaren vollständigen Details; keine überlappenden HUD-Texte.
+- Begrenzte friedliche Rudelinteraktionen und Körperabstand bei tatsächlichen Navigationsschritten; keine Teleportierung von Tieren.
+- Rudelwölfe gehen bei körperlich blockierter Bewegung kurz zur Seite. Gehaltener Stick zählt nicht als ruhige Missionszeit; neue Gebietsankünfte lassen beide Körper frei.
+- Bestehende Spielstände, bereits verdiente Missionsschritte, Offline-Spiel und allmähliches Altern bleiben erhalten.
+
 ## 0.9.0 — 2026-10-08
 
 - Sechs Arten eigener Naturreisen in jedem Gebiet, insgesamt 1536 regionale Angebote: Naturort und Duft, Trinkufer, konkrete Hasenfährte, ruhige Rehbeobachtung, zwei stille Naturorte und tatsächliche Rast am Schutzplatz.

@@ -20,6 +20,13 @@ func find_button(node: Node,prefix: String) -> Button:
 		if found!=null:return found
 	return null
 
+func has_label_text(node: Node,text: String) -> bool:
+	if not is_instance_valid(node):return false
+	if node is Label and node.text.contains(text):return true
+	for child in node.get_children():
+		if has_label_text(child,text):return true
+	return false
+
 func clean() -> void:
 	for path in [SAVE,SAVE+".pending",SAVE+".wildlife.json",SAVE+".wildlife.json.pending"]:
 		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)
@@ -86,9 +93,9 @@ func run() -> void:
 	if accept!=null:accept.pressed.emit()
 	check(nature_status(game).accepted and nature_status(game).id=="0:scent" and not is_instance_valid(game.overlay),"the actual menu accepts a nature journey beside the existing campaign and encounter and returns outdoors")
 	game._refresh_status()
-	check(game.quest_hint.text.contains(str(nature_status(game).objective)),"selecting the accepted nature guide shows its objective beside an unfinished main story")
+	check(game.quest_hint.text.begins_with("Naturreise · ") and not game.quest_hint.text.contains(str(nature_status(game).objective)) and game.state.waypoint_pos==nature_status(game).target_pos,"selecting the nature guide shows its compact identity and leads to the actual objective without duplicating long instructions")
 	game.guide_main_story();game._refresh_status()
-	check(game.quest_hint.text.contains(str(game.state.main_story_status().objective)),"explicitly choosing the main-story guide restores its objective")
+	check(game.quest_hint.text.begins_with("Hauptgeschichte · ") and not game.quest_hint.text.contains(str(game.state.main_story_status().objective)) and game.state.waypoint_pos==game.state.main_story_status().target_pos,"explicit main-story guidance restores its compact identity and real destination")
 	game.guide_nature_journey()
 	game.set_waypoint(3,Vector2(1660,1490))
 	game.mark_territory()
@@ -147,8 +154,14 @@ func run() -> void:
 	game.world_view.yaw=0;game.world_view.pitch=-.14;game.player_speed=0
 	game.guide_nature_journey();game._refresh_status()
 	check(game.observation_panel.visible and game.observation_title.text.begins_with("Naturreise · ") and game.observation_progress.max_value==4,"the chosen nature watch owns the live panel instead of the unfinished campaign's mother-arrival panel")
+	game.observation_details.pressed.emit();await process_frame;await process_frame
+	check(is_instance_valid(game.overlay) and has_label_text(game.overlay,str(nature_status(game).objective)),"the live nature panel details button opens the full currently selected nature objective")
+	game.close_overlay()
 	game.guide_main_story();game._refresh_status()
-	check(not game.observation_title.text.begins_with("Naturreise · ") and game.quest_hint.text.contains(str(game.state.main_story_status().objective)),"choosing main-story guidance returns both the objective and live panel to the campaign")
+	check(not game.observation_title.text.begins_with("Naturreise · ") and game.quest_hint.text.begins_with("Hauptgeschichte · ") and game.state.waypoint_pos==game.state.main_story_status().target_pos,"choosing main-story guidance returns both compact guidance and the live panel to the campaign")
+	game.observation_details.pressed.emit();await process_frame;await process_frame
+	check(is_instance_valid(game.overlay) and has_label_text(game.overlay,str(game.state.main_story_status().objective)),"the live campaign panel details button opens the full selected story objective")
+	game.close_overlay()
 	game.guide_nature_journey()
 	game._tick_nature_journey(.1)
 	check(nature_status(game).seconds==0,"looking alone cannot start a nature watch without the actual observe action")

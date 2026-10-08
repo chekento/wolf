@@ -9,11 +9,13 @@ var collision := WolfCollisionIndex.new()
 var navigation: AStar2D
 var habitat_objects: Array = []
 var water_points: Array[Vector2] = []
+var pack_route_count := 0
 
 func configure(index: int,objects: Array) -> void:
 	region=index
 	collision.build(objects)
 	navigation=null
+	pack_route_count=0
 	habitat_objects=objects.filter(func(object: Dictionary):return object.kind in ["bush","flowers","tree","rock"])
 	water_points.clear()
 	for object in objects:
@@ -210,3 +212,130 @@ func advance(animal: Dictionary,target: Vector2,speed: float,dt: float,now: floa
 		return position
 	animal._motion_path=path
 	return next
+
+static func body_radius(animal: Dictionary) -> float:
+	# The shoulder/trunk envelope in world units. Young wolves are smaller;
+	# head/tail gestures may approach, while their torsos cannot interpenetrate.
+	return 29.0 if animal.get("young",false) else 40.0
+
+static func _body_segment_clear(from: Vector2,to: Vector2,center: Vector2,radius: float) -> bool:
+	var delta := to-from
+	var length_squared := delta.length_squared()
+	var start := from.distance_squared_to(center)
+	var threshold := radius*radius
+	if length_squared < 0.0000001:return start >= threshold-0.001
+	var closest := clampf((center-from).dot(delta)/length_squared,0,1)
+	var swept := (from+delta*closest).distance_squared_to(center)
+	if start < threshold-0.001:
+		# Old caches/player entries can already contain touching bodies. Only
+		# a genuinely walked, monotonically separating step is permitted.
+		return to.distance_squared_to(center) > start+0.0001 and swept >= start-0.001
+	return swept >= threshold-0.001
+
+func body_step_free(from: Vector2,to: Vector2,animal: Dictionary,members: Array,player_pos: Vector2,player_radius: float=25.0) -> bool:
+	var radius := body_radius(animal)
+	if not _body_segment_clear(from,to,player_pos,radius+player_radius+3.0):return false
+	var examined := 0
+	for member in members:
+		if member == animal:continue
+		if examined >= 4:break
+		examined += 1
+		if not _body_segment_clear(from,to,member.p,radius+body_radius(member)+3.0):return false
+	return true
+
+func player_step_free(from: Vector2,to: Vector2,members: Array,player_radius: float=25.0) -> bool:
+	var examined := 0
+	for member in members:
+		if examined >= 4:break
+		examined += 1
+		if not _body_segment_clear(from,to,member.p,player_radius+body_radius(member)+3.0):return false
+	return true
+
+func _pack_connection(point: Vector2,animal: Dictionary,members: Array,player_pos: Vector2,player_radius: float) -> int:
+	var center := Vector2i(point/CELL)
+	var nearest := -1
+	var best := INF
+	for y in range(maxi(0,center.y-2),mini(GRID,center.y+3)):
+		for x in range(maxi(0,center.x-2),mini(GRID,center.x+3)):
+			var id := _node_id(Vector2i(x,y))
+			if not navigation.has_point(id) or navigation.is_point_disabled(id):continue
+			var node: Vector2 = navigation.get_point_position(id)
+			var distance := point.distance_squared_to(node)
+			if distance < best and segment_free(point,node) and body_step_free(point,node,animal,members,player_pos,player_radius):best=distance;nearest=id
+	return nearest
+
+func _pack_route(from: Vector2,to: Vector2,animal: Dictionary,members: Array,player_pos: Vector2,player_radius: float) -> PackedVector2Array:
+	if navigation == null:_build_navigation()
+	pack_route_count += 1
+	var blockers: Array = [{"p":player_pos,"radius":body_radius(animal)+player_radius+15.0}]
+	for member in members:
+		if member != animal:blockers.append({"p":member.p,"radius":body_radius(animal)+body_radius(member)+15.0})
+	var disabled: Array[int] = []
+	# Temporarily reserve just the few cells touching these four live bodies.
+	# The static regional graph is restored before returning, including failure.
+	for blocker in blockers:
+		var center: Vector2 = blocker.p
+		var radius: float = blocker.radius
+		var lo := Vector2i((center-Vector2.ONE*radius)/CELL)
+		var hi := Vector2i((center+Vector2.ONE*radius)/CELL)
+		for y in range(maxi(0,lo.y),mini(GRID,hi.y+1)):
+			for x in range(maxi(0,lo.x),mini(GRID,hi.x+1)):
+				var id := _node_id(Vector2i(x,y))
+				if navigation.has_point(id) and not navigation.is_point_disabled(id) and navigation.get_point_position(id).distance_squared_to(center) < radius*radius:
+					navigation.set_point_disabled(id,true);disabled.append(id)
+	var start := _pack_connection(from,animal,members,player_pos,player_radius)
+	var end := _pack_connection(to,animal,members,player_pos,player_radius)
+	var path := PackedVector2Array()
+	if start >= 0 and end >= 0:
+		path = navigation.get_point_path(start,end)
+		if not path.is_empty():path.append(to)
+	for id in disabled:navigation.set_point_disabled(id,false)
+	return path
+
+func advance_pack(animal: Dictionary,target: Vector2,speed: float,dt: float,now: float,members: Array,player_pos: Vector2,player_radius: float=25.0) -> Vector2:
+	var position: Vector2 = animal.p
+	if dt <= 0 or not walkable(position):return position
+	var overlapping := not body_step_free(position,position,animal,members,player_pos,player_radius)
+	var walking_speed := maxf(speed,34.0) if overlapping else speed
+	if walking_speed <= 0:return position
+	var path: PackedVector2Array = animal.get("_motion_path",PackedVector2Array())
+	# A sleeping sibling can occupy a *static* AStar waypoint. It is not a
+	# destination to reach through its body. Discard only blocked intermediate
+	# marks when a later one is still connected by actual free terrain.
+	if path.size() > 1 and not body_step_free(path[0],path[0],animal,members,player_pos,player_radius):
+		var bypassed := false
+		for index in range(1,mini(11,path.size())):
+			if not body_step_free(path[index],path[index],animal,members,player_pos,player_radius) or not segment_free(position,path[index]):continue
+			for unused in range(index):path.remove_at(0)
+			animal._motion_path = path
+			bypassed = true
+			break
+		if not bypassed and now >= float(animal.get("_pack_replan_at",-1)):
+			var detour := _pack_route(position,target,animal,members,player_pos,player_radius)
+			animal._pack_replan_at = now+1.0
+			if not detour.is_empty():
+				animal._motion_path = detour;animal._motion_goal = target;animal._motion_time = now
+	var previous_goal: Vector2 = animal.get("_motion_goal",Vector2(INF,INF))
+	if previous_goal.is_finite() and previous_goal.distance_to(target) > 8 and now-float(animal.get("_motion_time",-100)) > 0.35:animal._motion_goal = Vector2(INF,INF)
+	var next := advance(animal,target,walking_speed,dt,now)
+	if next.distance_squared_to(position) > 0.0001 and body_step_free(position,next,animal,members,player_pos,player_radius):return next
+	if not overlapping and next.distance_squared_to(position) <= 0.0001:return position
+	var direction := position.direction_to(next) if next.distance_squared_to(position) > 0.0001 else position.direction_to(target)
+	if overlapping:
+		var away := Vector2.ZERO
+		var radius := body_radius(animal)
+		if position.distance_to(player_pos) < radius+player_radius+5.0:away += player_pos.direction_to(position)
+		for member in members:
+			if member != animal and position.distance_to(member.p) < radius+body_radius(member)+5.0:away += member.p.direction_to(position)
+		if away.length_squared() > 0.001:direction = away.normalized()
+		elif direction.length_squared() < 0.001:direction = Vector2.from_angle(float(animal.get("phase",0))+0.7)
+	if direction.length_squared() < 0.001:return position
+	var step := walking_speed*minf(dt,0.10)
+	# Consistently keep to the right around a neighbour. Opposing walkers
+	# therefore choose opposite sides rather than repeatedly vetoing each other.
+	# This is a bounded local detour; the shared static path stays intact.
+	var turns: Array = [0.0,0.38,0.78,1.20,1.58,2.1,2.65,PI,-0.38,-0.78,-1.20,-1.58,-2.1]
+	for angle in turns:
+		var candidate: Vector2 = position+direction.rotated(float(angle))*step
+		if segment_free(position,candidate) and body_step_free(position,candidate,animal,members,player_pos,player_radius):return candidate
+	return position

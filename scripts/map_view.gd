@@ -279,7 +279,8 @@ func _sprite(index: int,p: Vector2,dimensions: Vector2,tint: Color=Color.WHITE,f
 	if texture==null:return
 	var rect := Rect2(p-dimensions*0.5,dimensions)
 	if flip:
-		rect.position.x+=dimensions.x
+		# CanvasItem treats a negative width as a texture flip, while keeping
+		# the rectangle's origin. Moving that origin would offset the sprite.
 		rect.size.x=-dimensions.x
 	draw_texture_rect(texture,rect,false,tint)
 
@@ -453,6 +454,14 @@ static func blend_animal_pose(previous: Dictionary,current: Dictionary,dt: float
 	for key in ["head_angle","tilt"]:pose[key]=lerp_angle(previous[key],current[key],weight)
 	return pose
 
+static func action_sprite_transform(anchor: Vector2,mirrored: bool) -> Transform2D:
+	# Mirror about the animal anchor, not the right edge of its atlas cell.
+	# The destination rectangle stays positive and centered for every mood.
+	return Transform2D(0.0,anchor).scaled_local(Vector2(-1.0 if mirrored else 1.0,1.0))
+
+static func action_sprite_rect(dimensions: Vector2) -> Rect2:
+	return Rect2(-dimensions*.5,dimensions)
+
 func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen",attention: float=0.0,animation_key: String="player") -> void:
 	gait=WolfAnimalModel.renderer_gait(gait,player)
 	_shadow(p+Vector2(0,18),29 if kind!="rabbit" else 17)
@@ -487,9 +496,12 @@ func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bo
 		if special<0 and absf(facing.y)>absf(facing.x):walk_size=Vector2(108,133)*(1.25 if not young else 1.0)
 		if player:walk_size*=game.state.growth()/0.72
 		walk_size*=pose.breath_scale
-		var rect := Rect2(p+Vector2(0,-14+bob)-walk_size*0.5,walk_size)
-		if special>=0 and facing.x>0:rect.position.x+=rect.size.x;rect.size.x=-rect.size.x
-		draw_texture_rect(texture,rect,false)
+		var camera_base: Vector2=get_viewport_rect().size*Vector2(.5,.48)-game.state.pos*zoom
+		var camera := Transform2D(0.0,camera_base).scaled_local(Vector2.ONE*zoom)
+		var anchor := p+Vector2(0,-14+bob)
+		draw_set_transform_matrix(camera*action_sprite_transform(anchor,special>=0 and facing.x>0))
+		draw_texture_rect(texture,action_sprite_rect(walk_size),false)
+		draw_set_transform_matrix(camera)
 	else:
 		var row := 0 if kind=="deer" else 1 if kind=="rabbit" else 2
 		var texture := WolfAtlas.wildlife(row,pose.frame)

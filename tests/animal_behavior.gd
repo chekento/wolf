@@ -117,8 +117,14 @@ func run() -> void:
 	game._sync_companion()
 	var companions: Array=game.world.animals.filter(func(a:Dictionary):return a.get("companion",false))
 	check(companions.size()==1 and game.can_walk(companions[0].p) and companions[0].p.y<=3180,"a northward region arrival creates one companion on valid nearby ground inside the boundary")
+	var entry_navigation: WolfAnimalMotion=game.world._animal_motion
+	check(companions.size()==1 and entry_navigation.body_step_free(companions[0].p,companions[0].p,companions[0],WolfPackInteractions.cohort(game.world.animals),game.state.pos,40.0*game.state.growth()),"the first region-entry frame leaves the pup and mother's real bodies separate")
 	game._sync_companion()
 	check(game.world.animals.filter(func(a:Dictionary):return a.get("companion",false)).size()==1,"companion synchronization never duplicates a parent")
+	game.state.elapsed=WolfState.DAY_SECONDS*100
+	game._sync_companion()
+	companions=game.world.animals.filter(func(a:Dictionary):return a.get("companion",false))
+	check(companions.size()==1 and entry_navigation.body_step_free(companions[0].p,companions[0].p,companions[0],WolfPackInteractions.cohort(game.world.animals),game.state.pos,40.0*game.state.growth()),"a grown wolf also enters with a nearby mother on free ground and no torso overlap")
 	game.set_process(false)
 	game.sound.stream_paused=false;game.ambient.stream_paused=false
 	await create_timer(0.2).timeout

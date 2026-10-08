@@ -18,7 +18,7 @@ static func chapters() -> Array[Dictionary]:
 	_chapters=[
 		{"id":"circle","title":"1 · Ein Geruch, der bleibt","summary":"Von vertrauter Nähe zum ersten gemeinsamen Aufbruch.","text":"Du bist noch ein junger Wolf. Feuchte Erde, warmes Fell und Kiefernharz mischen sich vor der Höhle. Die Mutter prüft den Wind. Heute kannst du lernen, wie Wasser, Deckung und vertraute Gerüche deine Heimat zusammenhalten.","ending":"Ein Stupser, dann ruhige Pfoten neben der Mutter. Die Höhle bleibt der Mittelpunkt deiner ersten Wege.","skill":"pack","stages":[
 			{"action":"greet","region":0,"p":Vector2(1430,2260),"radius":400.0,"objective":"Begrüße die Mutter in deiner Heimat mit Aktion."},
-			{"action":"joint","region":0,"p":den,"radius":125.0,"seconds":3.0,"objective":"Nimm im Rudelmenü die Begleitung auf. Warte vor der Höhle drei ruhige Sekunden gemeinsam mit der Mutter."}
+			{"action":"joint","region":0,"p":Vector2(1580,2320),"radius":260.0,"seconds":3.0,"home_meeting":true,"requires_escort":false,"meeting_center":Vector2(1580,2180),"objective":"Bleib nahe dem Höhleneingang ruhig stehen. Die Mutter kommt zu dir; lauscht drei aktive Sekunden gemeinsam."}
 		]},
 		{"id":"water","title":"2 · Das Wasser unter Wurzeln","summary":"Ein erreichbares Ufer wird Teil deines vertrauten Kreises.","text":"Ein feuchter Geruch zieht zwischen den Stämmen hindurch. Deine Mutter folgt mit Abstand. An der trockenen Uferkante erkennst du: Wasser gehört zum Alltag, aber feste Pfoten und ein sicherer Rückweg gehören dazu.","ending":"Der Durst ist gestillt. Du behältst nicht nur den Wassergeschmack, sondern auch den trockenen Zugang im Gedächtnis.","skill":"nose","stages":[
 			{"action":"joint","region":0,"p":WolfWorldData.water_bank(0),"radius":125.0,"seconds":3.0,"objective":"Erreiche das trockene Ufer am Heimatteich. Warte drei Sekunden, bis die Mutter neben dir steht."},
@@ -92,10 +92,13 @@ static func status(progress: Dictionary,region: int,pos: Vector2,escort: bool) -
 	var ready := started and not done and stage==stages.size()
 	var goal: Dictionary=stages[mini(stage,stages.size()-1)]
 	var live_region: bool=region==int(goal.region) and pos.is_finite()
-	var player_ready: bool=live_region and progress.get("player_ready",false)
-	var companion_ready: bool=player_ready and escort and progress.get("companion_ready",false)
+	var player_in_zone: bool=live_region and _player_at_goal(goal,pos)
+	var requires_escort: bool=goal.get("requires_escort",true)
+	var home_meeting: bool=started and not ready and not done and goal.get("home_meeting",false)
+	var player_ready: bool=player_in_zone and progress.get("player_ready",false)
+	var companion_ready: bool=player_ready and (escort or not requires_escort) and progress.get("companion_ready",false)
 	var seconds_required := float(goal.get("seconds",0))
-	return {"started":started,"chapter":chapter,"stage":stage,"title":"Der Kreis deiner Pfoten" if done else scene.title,"text":scene.ending if ready or done else scene.text,"chapter_summary":scene.summary,"objective":"Der erste Kreis ist geschlossen. Erkunde die Wildnis und erlebe weitere Rudelgeschichten." if done else "Dieses Kapitel ist erlebt. Öffne die Hauptgeschichte, um weiterzugehen." if ready else goal.objective,"progress":"8 / 8 Kapitel" if done else "%d / %d Schritte"%[stage,stages.size()],"current":stages.size() if done else stage,"required":stages.size(),"ready":ready,"done":done,"target_region":int(goal.region),"target_pos":goal.p,"action":"" if ready or done else goal.action,"chapters_count":all.size(),"chapter_titles":_chapter_titles,"stage_titles":scene.stage_titles,"stage_actions":scene.stage_actions,"track_id":goal.get("track_id","") if not ready and not done else "","site_id":goal.get("site_id","") if not ready and not done else "","species":goal.get("species","") if not ready and not done else "","seconds":minf(seconds_required,float(progress.get("seconds",0))) if started and not ready and not done else 0.0,"seconds_required":seconds_required if started and not ready and not done else 0.0,"player_ready":player_ready if started and not ready and not done else false,"companion_ready":companion_ready if started and not ready and not done else false,"watch_ready":live_region and progress.get("watch_ready",false) if started and not ready and not done else false,"watch_started":progress.get("watch_started",false) if started and not ready and not done else false,"watch_animal":str(progress.get("watch_animal","")) if started and not ready and not done else ""}
+	return {"started":started,"chapter":chapter,"stage":stage,"title":"Der Kreis deiner Pfoten" if done else scene.title,"text":scene.ending if ready or done else scene.text,"chapter_summary":scene.summary,"objective":"Der erste Kreis ist geschlossen. Erkunde die Wildnis und erlebe weitere Rudelgeschichten." if done else "Dieses Kapitel ist erlebt. Öffne die Hauptgeschichte, um weiterzugehen." if ready else goal.objective,"progress":"8 / 8 Kapitel" if done else "%d / %d Schritte"%[stage,stages.size()],"current":stages.size() if done else stage,"required":stages.size(),"ready":ready,"done":done,"target_region":int(goal.region),"target_pos":goal.p,"action":"" if ready or done else goal.action,"chapters_count":all.size(),"chapter_titles":_chapter_titles,"stage_titles":scene.stage_titles,"stage_actions":scene.stage_actions,"track_id":goal.get("track_id","") if not ready and not done else "","site_id":goal.get("site_id","") if not ready and not done else "","species":goal.get("species","") if not ready and not done else "","seconds":minf(seconds_required,float(progress.get("seconds",0))) if started and not ready and not done else 0.0,"seconds_required":seconds_required if started and not ready and not done else 0.0,"home_meeting":home_meeting,"requires_escort":requires_escort if started and not ready and not done else false,"player_in_zone":player_in_zone if started and not ready and not done else false,"player_ready":player_ready if started and not ready and not done else false,"companion_ready":companion_ready if started and not ready and not done else false,"watch_ready":live_region and progress.get("watch_ready",false) if started and not ready and not done else false,"watch_started":progress.get("watch_started",false) if started and not ready and not done else false,"watch_animal":str(progress.get("watch_animal","")) if started and not ready and not done else ""}
 
 static func advance(progress: Dictionary) -> bool:
 	if not progress.get("started",false):return false
@@ -146,9 +149,11 @@ static func tick(progress: Dictionary,dt: float,region: int,pos: Vector2,escort:
 		if not progress.watch_ready or not progress.get("watch_started",false):return false
 		if WolfPackLife.animal_key(watch_animal)!=str(progress.get("watch_animal","")):progress.watch_ready=false;return false
 	else:
-		progress.player_ready=pos.distance_to(goal.p)<float(goal.radius) and player_speed>=0 and player_speed<=1
+		progress.player_ready=_player_at_goal(goal,pos) and player_speed>=0 and player_speed<=1
 		if goal.action=="rest_wait" and player_mood!="ruhen":progress.player_ready=false
-		progress.companion_ready=escort and parent_path_clear and _parent(parent,region) and parent.p.distance_to(pos)<150 and parent.p.distance_to(goal.p)<220 and _number(parent.get("speed",0),INF)<=1
+		var escort_allowed: bool=escort or not goal.get("requires_escort",true)
+		var parent_at_goal: bool=_parent(parent,region) and (parent.p.distance_to(goal.meeting_center)<300 if goal.get("home_meeting",false) else parent.p.distance_to(goal.p)<220)
+		progress.companion_ready=escort_allowed and parent_path_clear and parent_at_goal and parent.p.distance_to(pos)<150 and _number(parent.get("speed",0),INF)<=1
 		if not progress.player_ready or not progress.companion_ready:return false
 	progress.seconds=minf(float(goal.seconds),float(progress.get("seconds",0))+amount)
 	if float(progress.seconds)+0.0001>=float(goal.seconds):
@@ -158,6 +163,15 @@ static func tick(progress: Dictionary,dt: float,region: int,pos: Vector2,escort:
 
 static func clear_live(progress: Dictionary) -> void:
 	progress.player_ready=false;progress.companion_ready=false;progress.watch_ready=false
+
+static func home_meeting_active(progress: Dictionary,region: int,pos: Vector2) -> bool:
+	var goal := current_stage(progress)
+	return not goal.is_empty() and goal.get("home_meeting",false) and region==0 and pos.is_finite() and _player_at_goal(goal,pos)
+
+static func _player_at_goal(goal: Dictionary,pos: Vector2) -> bool:
+	if not pos.is_finite():return false
+	var center: Vector2=goal.meeting_center if goal.get("home_meeting",false) else goal.p
+	return pos.distance_to(center)<float(goal.radius)
 
 static func _reset_stage(progress: Dictionary) -> void:
 	progress.seconds=0.0;progress.watch_started=false;progress.watch_animal=""

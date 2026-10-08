@@ -11,6 +11,7 @@ var location_hint: Label
 var stats: Label
 var quest_hint: Label
 var toast: Label
+var toast_lane: Control
 var mode_button: Button
 var sprint_button: Button
 var overlay: Control
@@ -66,6 +67,13 @@ var observation_panel: PanelContainer
 var observation_title: Label
 var observation_hint: Label
 var observation_progress: ProgressBar
+var observation_summary: Label
+var observation_fold: Button
+var observation_details: Button
+var mission_hud_expanded := false
+var hud_action_controls: Array[Button]=[]
+var hud_bottom_controls: Array[Button]=[]
+var hud_layout_width_mode := -1
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
 
 
@@ -257,6 +265,7 @@ func _build_ui() -> void:
 	camera_button.hide()
 	shortcuts.add_child(camera_button)
 	quest_hint=label("",13)
+	quest_hint.max_lines_visible=2;quest_hint.clip_text=true;quest_hint.custom_minimum_size.y=20
 	stack.add_child(quest_hint)
 	stats=label("",12)
 	stats.hide()
@@ -272,26 +281,59 @@ func _build_ui() -> void:
 	ui.add_child(observation_panel)
 	observation_panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 	observation_panel.offset_left=28;observation_panel.offset_right=-28
-	observation_panel.offset_top=-422;observation_panel.offset_bottom=-325
+	observation_panel.offset_top=-406;observation_panel.offset_bottom=-328
 	observation_panel.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	observation_panel.add_theme_stylebox_override("panel",panel_style(Color(0.08,0.19,0.15,0.92),16))
 	var observation_stack := VBoxContainer.new()
 	observation_stack.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	observation_stack.add_theme_constant_override("separation",3)
 	observation_panel.add_child(observation_stack)
-	observation_title=label("",17);observation_stack.add_child(observation_title)
-	observation_hint=label("",14);observation_stack.add_child(observation_hint)
+	var observation_row := HBoxContainer.new()
+	observation_row.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	observation_stack.add_child(observation_row)
+	observation_title=label("",14)
+	observation_title.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	observation_title.max_lines_visible=1;observation_title.clip_text=true;observation_title.custom_minimum_size.y=20
+	observation_row.add_child(observation_title)
+	observation_fold=button("⌄",func():
+		mission_hud_expanded=not mission_hud_expanded
+		_layout_mission_hud()
+	)
+	observation_fold.custom_minimum_size=Vector2(34,30)
+	observation_fold.add_theme_font_size_override("font_size",14)
+	observation_fold.tooltip_text="Kurze Missionshinweise öffnen oder einklappen"
+	observation_row.add_child(observation_fold)
+	observation_details=button("?",_show_hud_mission_details)
+	observation_details.custom_minimum_size=Vector2(34,30)
+	observation_details.add_theme_font_size_override("font_size",14)
+	observation_details.tooltip_text="Die ganze Aufgabe und ihre Bedingungen lesen"
+	observation_row.add_child(observation_details)
+	for control in [observation_fold,observation_details]:
+		for key in ["normal","hover","pressed"]:
+			var style := panel_style(Color("#284c43"),10)
+			style.content_margin_top=2;style.content_margin_bottom=2
+			style.content_margin_left=6;style.content_margin_right=6
+			control.add_theme_stylebox_override(key,style)
+	observation_summary=label("",13);observation_summary.max_lines_visible=1
+	observation_summary.clip_text=true;observation_summary.custom_minimum_size.y=18;observation_stack.add_child(observation_summary)
+	observation_hint=label("",13);observation_hint.custom_minimum_size.y=44;observation_hint.max_lines_visible=3;observation_hint.clip_text=false;observation_hint.hide();observation_stack.add_child(observation_hint)
 	observation_progress=ProgressBar.new()
 	observation_progress.custom_minimum_size.y=7
 	observation_progress.show_percentage=false
 	observation_progress.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	observation_stack.add_child(observation_progress)
+	observation_panel.minimum_size_changed.connect(func():_fit_mission_panel.call_deferred())
 	observation_panel.hide()
+	toast_lane=Control.new()
+	toast_lane.clip_contents=true;toast_lane.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	ui.add_child(toast_lane)
+	toast_lane.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	toast_lane.offset_left=30;toast_lane.offset_right=-30
+	toast_lane.offset_top=-316;toast_lane.offset_bottom=-246
 	toast=label("",16)
-	ui.add_child(toast)
-	toast.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	toast.offset_left=30;toast.offset_right=-30
-	toast.offset_top=-315;toast.offset_bottom=-246
+	toast_lane.add_child(toast)
+	toast.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	toast.max_lines_visible=3;toast.clip_text=false
 	toast.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	toast.add_theme_color_override("font_shadow_color",Color("#102b23"))
 	toast.add_theme_constant_override("shadow_outline_size",6)
@@ -313,6 +355,7 @@ func _build_ui() -> void:
 		var b := button(item[0],item[1])
 		b.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 		actions.add_child(b)
+		hud_action_controls.append(b)
 		if item[0]=="Aktion":action_button=b
 		if item[0]=="Geschichte":story_button=b
 	var bottom := HBoxContainer.new()
@@ -330,7 +373,9 @@ func _build_ui() -> void:
 	sneak_button=button("Leise",func():pass)
 	sneak_button.toggle_mode=true
 	bottom.add_child(sneak_button)
-	bottom.add_child(button("Karte",show_map))
+	var atlas_button := button("Karte",show_map)
+	bottom.add_child(atlas_button)
+	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button]
 	set_hud_compact(state.compact_hud,false)
 
 func set_hud_compact(compact: bool,persist: bool=true) -> void:
@@ -345,6 +390,7 @@ func set_hud_compact(compact: bool,persist: bool=true) -> void:
 
 func _fit_header() -> void:
 	if is_instance_valid(header):header.size=Vector2(header.size.x,header.get_combined_minimum_size().y)
+	if is_instance_valid(look_area):look_area.offset_top=header.position.y+header.size.y+10
 
 func _process(dt: float) -> void:
 	if app_idle or is_instance_valid(overlay):return
@@ -416,10 +462,12 @@ func can_walk(p: Vector2) -> bool:
 func move_wolf(delta: Vector2) -> void:
 	# Axis separation permits sliding around trees without cutting through them.
 	var before := state.pos
+	var members := WolfPackInteractions.cohort(world.animals)
+	var navigation: WolfAnimalMotion=world.get("_animal_motion")
 	var p := state.pos+Vector2(delta.x,0)
-	if can_walk(p):state.pos=p
+	if can_walk(p) and (navigation==null or navigation.player_step_free(state.pos,p,members,40.0*state.growth())):state.pos=p
 	p=state.pos+Vector2(0,delta.y)
-	if can_walk(p):state.pos=p
+	if can_walk(p) and (navigation==null or navigation.player_step_free(state.pos,p,members,40.0*state.growth())):state.pos=p
 	state.distance_walked+=state.pos.distance_to(before)
 	var direction := WolfWorldData.exit_at(state.pos,state.region)
 	if direction!="":
@@ -456,10 +504,18 @@ func _sync_companion() -> void:
 	var navigation: WolfAnimalMotion=world._animal_motion
 	# New region entries put the parent just behind the arriving wolf, inside
 	# a real free area. An existing animal is never moved to catch the player.
-	var p := navigation.nearest_free(state.pos-state.facing*70+Vector2(25,20),160)
-	if not p.is_finite():p=state.pos
-	if not navigation.walkable(p):return
-	world.animals.append({"kind":"wolf","p":p,"home":p,"phase":0.0,"facing":state.facing,"young":false,"role":"Mutter","companion":true,"mood":"begleiten","speed":0.0,"gait":0.0})
+	var parent := {"kind":"wolf","phase":0.0,"facing":state.facing,"young":false,"role":"Mutter","companion":true,"mood":"begleiten","speed":0.0,"gait":0.0}
+	var members := WolfPackInteractions.cohort(world.animals)
+	var candidates: Array[Vector2]=[navigation.nearest_free(state.pos-state.facing*70+Vector2(25,20),160)]
+	for radius in [100.0,140.0,180.0]:
+		for angle in [0.0,.6,-.6,1.2,-1.2,PI/2,-PI/2,PI]:
+			candidates.append(state.pos-state.facing.rotated(angle)*radius)
+	for p in candidates:
+		if not p.is_finite() or not navigation.walkable(p) or not navigation.segment_free(state.pos,p):continue
+		if not navigation.body_step_free(p,p,parent,members,state.pos,40.0*state.growth()):continue
+		parent.p=p;parent.home=p
+		world.animals.append(parent)
+		return
 
 func _update_animals(dt: float) -> void:
 	# A missing or disabled escort must not retain yesterday's live proximity.
@@ -469,6 +525,11 @@ func _update_animals(dt: float) -> void:
 		motion.configure(state.region,world.objects)
 		world._animal_motion=motion
 	var navigation: WolfAnimalMotion=world._animal_motion
+	var pack_members := WolfPackInteractions.cohort(world.animals)
+	var player_radius := 40.0*state.growth()
+	var meeting := state.main_story_home_meeting_active()
+	var meeting_goal := WolfMainStory.current_stage(state.main_story_progress)
+	var pack_context := {"region":state.region,"hour":state.hour(),"now":clock,"elapsed":state.elapsed,"escort":state.escort,"player_pos":state.pos,"player_facing":state.facing,"player_speed":player_speed,"player_mood":player_mood,"signal":state.pack_signal,"player_radius":player_radius,"meeting":meeting,"meeting_center":meeting_goal.get("meeting_center",Vector2(INF,INF)) if meeting else Vector2(INF,INF),"meeting_radius":300.0,"howling":action_timer>0 and player_mood=="heulen"}
 	for member in world.animals:
 		if member.kind!="wolf" and not member.has("_ecology"):member._ecology=navigation.ecology_targets(member)
 	for member in world.animals:
@@ -520,45 +581,14 @@ func _update_animals(dt: float) -> void:
 					target=a.p;speed=0;mood="lauschen";a.behavior="alert"
 			if mood=="lauschen" and distance<float(profile.notice):a.facing=a.p.direction_to(state.pos)
 		else:
-			a.attention=0.0
-			a.behavior="routine"
-			var accompanying: bool=a.get("companion",false) or (state.escort and a.get("role","")=="Mutter")
-			if accompanying:
-				target=state.pos-state.facing*110+Vector2(30,25)
-				if not navigation.walkable(target) or not navigation.segment_free(target,state.pos):target=state.pos
-				# An adult can catch a running pup by walking/running the whole
-				# route; there is no distance threshold that relocates it.
-				speed=220.0 if distance>500 else 175.0 if distance>340 else 125.0 if distance>200 else 70.0
-				mood="begleiten"
-				if distance<125 and navigation.segment_free(a.p,state.pos):
-					target=a.p;speed=0;mood="ruhen" if player_mood=="ruhen" else "lauschen"
-			elif state.region==0:
-				var routine: Dictionary=state.pack_routine(a.get("role","Mutter"))
-				target=routine.target;speed=routine.speed;mood=routine.mood
-				if a.get("young",false):
-					if float(a.phase)>3:target+=Vector2(45,35)
-					if mood=="spielen":
-						var partner: Dictionary={}
-						for sibling in world.animals:
-							if sibling.kind=="wolf" and sibling.get("young",false) and float(sibling.phase)!=float(a.phase):partner=sibling;break
-						var play := WolfPackLife.sibling_play(a,partner,target,clock)
-						target=play.target;speed=play.speed;mood=play.mood;a.behavior=play.behavior
-				var free_target: Vector2=navigation.nearest_free(target)
-				if free_target.is_finite():target=free_target
-				if mood=="ruhen":
-					if a.p.distance_to(target)>14:mood="wandern"
-					else:speed=0
-			var greeting_signal: Dictionary=state.pack_signal
-			if not greeting_signal.is_empty() and greeting_signal.action=="greet" and int(greeting_signal.region)==state.region and state.elapsed-float(greeting_signal.at)<4 and distance<145:
-				var event := "%d:%d"%[int(greeting_signal.region),int(greeting_signal.serial)]
-				if event!=str(a.get("_greet_seen","")):a._greet_seen=event;a._friendly_until=clock+4.0
-			if clock<float(a.get("_friendly_until",-1)) and distance<180 and player_speed<=35:
-				target=state.pos+state.facing*45;speed=32;mood="begrüßen";a.behavior="greet"
-				if distance<80:target=a.p;speed=0;a.facing=a.p.direction_to(state.pos)
-			if action_timer>0 and player_mood=="heulen" and distance<500:target=a.p;speed=0;mood="heulen"
-		a.target_pos=state.pos if a.get("behavior","") in ["alert","greet"] else target
+			var social := WolfPackInteractions.plan(a,pack_members,navigation,pack_context)
+			target=social.target;speed=social.speed;mood=social.mood
+			a.attention=social.attention;a.behavior=social.behavior
+			a.target_pos=social.look_target
+			if speed<=1 and a.p.distance_squared_to(social.look_target)>.01:a.facing=a.p.direction_to(social.look_target)
+		if a.kind!="wolf":a.target_pos=state.pos if a.get("behavior","")=="alert" else target
 		var purposeful: bool=a.kind=="wolf" or a.p.distance_to(target)>260 or a.get("behavior","") in ["flee","recover","shelter","drink"]
-		var next: Vector2=navigation.advance(a,target,speed,dt,clock,purposeful)
+		var next: Vector2=navigation.advance_pack(a,target,speed,dt,clock,pack_members,state.pos,player_radius) if a.kind=="wolf" else navigation.advance(a,target,speed,dt,clock,purposeful)
 		var moved: float=next.distance_to(a.p)
 		if moved>0.01:a.facing=(next-a.p).normalized()
 		a.speed=moved/maxf(dt,0.0001)
@@ -770,11 +800,15 @@ func observation_candidate(for_main_story: bool=false,for_nature_journey: bool=f
 		if diff.length()<closest:nearest=a;closest=diff.length()
 	return nearest
 
+func _quiet_player_speed() -> float:
+	# Pressing toward a blocked body is movement intent, not quiet listening.
+	return maxf(player_speed,2.0) if player_mood=="laufen" else player_speed
+
 func _tick_wildlife_observation(dt: float) -> void:
 	if state.active_encounter.is_empty() or state.active_encounter.task not in ["quiet_watch","wildlife_cycle"]:return
 	var animal := observation_candidate() if first_person else {}
 	var species := WolfWorldData.species(animal.kind) if not animal.is_empty() else ""
-	state.tick_wildlife_observation(minf(dt,0.1),species,animal,state.pos,player_speed,sneak_button.button_pressed or player_speed<1)
+	state.tick_wildlife_observation(minf(dt,0.1),species,animal,state.pos,_quiet_player_speed(),sneak_button.button_pressed or player_speed<1)
 
 func observe() -> bool:
 	var story := state.main_story_status()
@@ -886,8 +920,8 @@ func _refresh_status() -> void:
 			if not route.is_empty():quest_hint.text+="\nÜbergang nach "+WolfWorldData.REGIONS[route[0]].name
 	var journey := state.nature_journey_status()
 	var prefer_journey: bool=journey.accepted and guided_main_story.is_empty()
-	if story.started and not story.done:quest_hint.text=story.objective+" · "+story.progress
-	if prefer_journey:quest_hint.text=journey.objective+" · "+journey.progress
+	if story.started and not story.done:quest_hint.text="Hauptgeschichte · "+story.progress
+	if prefer_journey:quest_hint.text="Naturreise · "+journey.progress
 	_refresh_observation_hud()
 	if prefer_journey:
 		_refresh_main_story_presence_hud()
@@ -895,6 +929,7 @@ func _refresh_status() -> void:
 	else:
 		_refresh_nature_journey_hud()
 		_refresh_main_story_presence_hud()
+	_layout_mission_hud()
 
 func wildlife_activity_name(activity: String) -> String:
 	return {"forage":"Nahrung suchen","drink":"Trinken","shelter":"Geschützt ruhen","roaming":"Unterwegs","wandern":"Unterwegs","lauschen":"Lauschen","fliehen":"Aufgeschreckt","fressen":"Fressen","grasen":"Grasen","schnüffeln":"Duft prüfen","trinken":"Trinken","ruhen":"Ruhen","laufen":"Unterwegs"}.get(activity,"Lauschen")
@@ -1074,10 +1109,15 @@ func close_overlay(resume_audio: bool=true) -> void:
 	look_pointer=-1
 	looking_mouse=false
 	stick.reset()
-	if resume_audio:_sync_audio()
+	if resume_audio:
+		toast.show()
+		_refresh_status()
+		_sync_audio()
 
 func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 	close_overlay(false)
+	observation_panel.hide()
+	toast.hide()
 	stick.reset()
 	overlay=ColorRect.new()
 	overlay.color=Color(0.025,0.08,0.06,0.98)
@@ -1185,7 +1225,7 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.9.0 · Naturreisen",13))
+	v.add_child(label("Wolf 0.10.0 · Vertraute Wege",13))
 
 func show_travel_help() -> void:
 	var v := modal("Nase & sichere Wege")
@@ -1793,7 +1833,7 @@ func _tick_main_story(dt: float) -> void:
 		var navigation: WolfAnimalMotion=world._animal_motion
 		clear=navigation.segment_free(parent.p,state.pos)
 	var watched := observation_candidate(true) if first_person and story.action=="watch" else {}
-	state.tick_main_story(minf(dt,.1),parent,clear,player_speed,watched,not watched.is_empty(),sneak_button.button_pressed or player_speed<1,player_mood)
+	state.tick_main_story(minf(dt,.1),parent,clear,_quiet_player_speed(),watched,not watched.is_empty(),sneak_button.button_pressed or player_speed<1,player_mood)
 	var updated := state.main_story_status()
 	var key := "%d:%d"%[updated.chapter,updated.stage]
 	if updated.ready and main_story_ready_notice!=key:
@@ -1844,7 +1884,7 @@ func show_main_story() -> void:
 		var objective_text: String=str(story.objective)+"\n"+str(story.progress)
 		if float(story.seconds_required)>0:objective_text+="\n%.1f / %.0f aktive Sekunden"%[story.seconds,story.seconds_required]
 		card(v,"Dein nächster Schritt",objective_text)
-		if story.action in ["joint","rest_wait"]:card(v,"Gemeinsam ankommen","Nimm die Mutter im Rudelmenü mit. Sie geht selbst durch die Wildnis. Warte am Ziel mit ruhigen Pfoten, bis sie wirklich neben dir angekommen ist.")
+		if story.action in ["joint","rest_wait"]:card(v,"Gemeinsam ankommen","Bleib vor der Höhle ruhig stehen. Deine Mutter kommt selbst zu dir. Ihr lauscht gemeinsam, sobald sie wirklich neben dir angekommen ist." if story.get("home_meeting",false) else "Nimm die Mutter im Rudelmenü mit. Sie geht selbst durch die Wildnis. Warte am Ziel mit ruhigen Pfoten, bis sie wirklich neben dir angekommen ist.")
 		if story.action=="watch":card(v,"Ein ruhiger Blick","Wechsle in 3D. Nähere dich leise auf Abstand und wähle Beobachten. Halte dasselbe ruhige Reh vier aktive Sekunden ohne Bäume oder Felsen im Blick.")
 		v.add_child(button("Duftziel auf der Karte zeigen",func():guide_main_story();close_overlay()))
 		v.add_child(button("Meine Familie & Begleitung",show_pack))
@@ -1865,14 +1905,14 @@ func _refresh_main_story_presence_hud() -> void:
 	observation_panel.show();observation_progress.show()
 	observation_progress.max_value=maxf(1,float(story.seconds_required))
 	observation_progress.value=float(story.seconds)
-	observation_title.text=str(story.objective)
+	observation_title.text="Ruhiger Blick" if story.action=="watch" else "Geschützte Ruhe" if story.action=="rest_wait" else "Gemeinsam ankommen"
 	if story.action=="watch":
 		if not first_person:observation_hint.text="Wechsle in 3D, um das Reh wirklich im Blick zu halten."
 		elif not story.watch_started:observation_hint.text="Nähere dich leise und wähle Beobachten."
 		elif not story.watch_ready:observation_hint.text="Halte dasselbe ruhige Reh mit freier Sicht und Abstand im Blick."
 		else:observation_hint.text="Ruhiger Blick · %.1f / %.0f Sekunden"%[story.seconds,story.seconds_required]
 	elif not story.player_ready:observation_hint.text="Folge dem Duftziel und halte am Ziel ruhig an."
-	elif not story.companion_ready:observation_hint.text="Warte auf deine Mutter. Im Rudelmenü kannst du sie mitnehmen."
+	elif not story.companion_ready:observation_hint.text="Bleib ruhig vor der Höhle. Deine Mutter kommt zu dir." if story.get("home_meeting",false) else "Warte auf deine Mutter. Im Rudelmenü kannst du sie mitnehmen."
 	elif story.action=="rest_wait" and player_mood!="ruhen":observation_hint.text="Wähle Ruhen im Schutz der Höhle."
 	else:observation_hint.text="Gemeinsam lauschen · %.1f / %.0f Sekunden"%[story.seconds,story.seconds_required]
 
@@ -1929,7 +1969,7 @@ func _tick_nature_journey(dt: float) -> void:
 	var goal := state.nature_journey_status()
 	if not goal.accepted or goal.ready:return
 	var animal := observation_candidate(false,true) if first_person and goal.action=="watch" else {}
-	state.tick_nature_journey(minf(dt,.1),player_speed,animal,not animal.is_empty(),sneak_button.button_pressed or player_speed<1,player_mood)
+	state.tick_nature_journey(minf(dt,.1),_quiet_player_speed(),animal,not animal.is_empty(),sneak_button.button_pressed or player_speed<1,player_mood)
 	var updated := state.nature_journey_status()
 	if updated.ready and nature_journey_ready_notice!=updated.id:
 		nature_journey_ready_notice=updated.id;_save_game()
@@ -1981,7 +2021,7 @@ func _refresh_nature_journey_hud() -> void:
 	if not goal.accepted or goal.ready or is_instance_valid(overlay) or goal.action not in ["watch","rest_wait"]:return
 	observation_panel.show();observation_progress.show()
 	observation_progress.max_value=maxf(1,float(goal.seconds_required));observation_progress.value=goal.seconds
-	observation_title.text="Naturreise · "+str(goal.title)
+	observation_title.text="Naturreise · Reh beobachten" if goal.action=="watch" else "Naturreise · Geschützte Ruhe"
 	if goal.action=="watch":
 		if not first_person:observation_hint.text="Wechsle in 3D und beobachte ein ruhiges Reh."
 		elif not goal.watch_started:observation_hint.text="Mit ruhigen Pfoten und Abstand: wähle Beobachten."
@@ -1989,3 +2029,58 @@ func _refresh_nature_journey_hud() -> void:
 		else:observation_hint.text="Ruhiger Blick · %.1f / %.0f Sekunden"%[goal.seconds,goal.seconds_required]
 	elif not goal.player_ready:observation_hint.text="Bleib im geschützten Rastplatz ruhig liegen."
 	else:observation_hint.text="Geschützte Ruhe · %.1f / %.0f Sekunden"%[goal.seconds,goal.seconds_required]
+
+# Keep the passive HUD small; only its two explicit buttons receive touches.
+func _layout_mission_hud() -> void:
+	if not is_instance_valid(observation_panel):return
+	observation_hint.visible=mission_hud_expanded
+	observation_fold.text="⌃" if mission_hud_expanded else "⌄"
+	var hint := observation_hint.text
+	var status := "Ruhige Pfoten"
+	if hint.contains("3D"):status="3D-Blick öffnen"
+	elif hint.contains("Beobachten"):status="Beobachten wählen"
+	elif hint.contains("aufgeschreckt"):status="Tier braucht Ruhe"
+	elif hint.contains("Mutter") or hint.contains("Elternwolf"):
+		status="Auf die Mutter warten" if state.main_story_status().get("home_meeting",false) else "Auf Begleitung warten"
+	elif hint.contains("Duftziel") or hint.contains("Ruhepunkt"):status="Zum Duftziel gehen"
+	elif hint.contains("Bleib stehen"):status="Still stehen bleiben"
+	elif hint.contains("dasselbe") or hint.contains("freie Sicht"):status="Dasselbe Tier im Blick"
+	elif hint.contains("Ruhen") or hint.contains("liegen"):status="Geschützt liegen bleiben"
+	observation_summary.text=("%.1f / %.0f s · "%[observation_progress.value,observation_progress.max_value] if observation_progress.visible else "")+status
+	var constrained := ui.size.y<760 and observation_panel.visible
+	header_details.visible=not state.compact_hud and not constrained
+	compact_needs.visible=state.compact_hud or constrained
+	header.queue_sort();_fit_header.call_deferred()
+	observation_hint.max_lines_visible=2 if ui.size.y<720 else 3
+	observation_hint.custom_minimum_size.y=0
+	var height := clampf(observation_panel.get_combined_minimum_size().y,86,154) if mission_hud_expanded else 86.0
+	observation_panel.offset_bottom=-328
+	observation_panel.offset_top=-328-height
+	# Toast has its own fixed, clipped three-line lane above the movement controls.
+	toast_lane.offset_top=-316;toast_lane.offset_bottom=-246
+	var narrow := ui.size.x<440
+	if is_instance_valid(stick):stick.custom_minimum_size.x=minf(144,ui.size.x*.25)
+	if hud_layout_width_mode!=int(narrow):
+		hud_layout_width_mode=int(narrow)
+		for control in hud_action_controls+hud_bottom_controls:
+			control.add_theme_font_size_override("font_size",14 if narrow else 17)
+			for key in ["normal","hover","pressed"]:
+				var style: StyleBoxFlat=control.get_theme_stylebox(key).duplicate()
+				style.content_margin_left=9 if narrow else 16
+				style.content_margin_right=9 if narrow else 16
+				control.add_theme_stylebox_override(key,style)
+	observation_panel.queue_sort()
+	_fit_mission_panel.call_deferred()
+
+func _fit_mission_panel() -> void:
+	if not is_instance_valid(observation_panel):return
+	var height := clampf(observation_panel.get_combined_minimum_size().y,86,154) if mission_hud_expanded else 86.0
+	observation_panel.offset_bottom=-328
+	observation_panel.offset_top=-328-height
+
+func _show_hud_mission_details() -> void:
+	var journey := state.nature_journey_status()
+	var story := state.main_story_status()
+	if journey.accepted and guided_main_story.is_empty():show_nature_journeys()
+	elif story.started and not story.done:show_main_story()
+	else:show_encounter()
