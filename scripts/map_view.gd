@@ -4,6 +4,27 @@ extends Node2D
 var game: Node
 var zoom := 0.72
 var bounds: Rect2
+var ground_region := -1
+var ground_patches: Array[Dictionary]=[]
+
+func seasonal_color(color: Color,foliage: bool=false) -> Color:
+	var season: String=game.state.season_name()
+	if season=="Herbst" and foliage:return color.lerp(Color("#d2b68a"),0.34)
+	if season=="Winter":return color.lerp(Color("#d4e1dc"),0.38 if not foliage else 0.27)
+	if season=="Sommer":return color.darkened(0.035)
+	return color
+
+func _ground_texture(ground: Color) -> void:
+	if ground_region!=game.state.region:
+		ground_region=game.state.region
+		ground_patches.clear()
+		var rng := RandomNumberGenerator.new()
+		rng.seed=WolfWorldData.REGIONS[game.state.region].seed+923
+		for i in range(80):ground_patches.append({"p":Vector2(rng.randf_range(0,3200),rng.randf_range(0,3200)),"r":rng.randf_range(90,250),"light":i%2==0})
+	for patch in ground_patches:
+		if not bounds.grow(patch.r).has_point(patch.p):continue
+		var colour := ground.lightened(0.08) if patch.light else ground.darkened(0.08)
+		for ring in range(3):draw_circle(patch.p,patch.r*(1.0-float(ring)*0.20),Color(colour,0.075))
 
 func _draw() -> void:
 	if game==null:return
@@ -13,13 +34,14 @@ func _draw() -> void:
 	bounds=Rect2(game.state.pos-size/(2*zoom),size/zoom).grow(220)
 	draw_set_transform(center-game.state.pos*zoom,0,Vector2.ONE*zoom)
 	var biome: String=WolfWorldData.REGIONS[game.state.region].biome
-	var ground := Color(WolfWorldData.REGIONS[game.state.region].ground)
+	var ground := seasonal_color(Color(WolfWorldData.REGIONS[game.state.region].ground).lerp(Color("#8d9872"),0.08))
 	draw_rect(Rect2(Vector2.ZERO,WolfWorldData.SIZE),ground)
+	_ground_texture(ground)
 	for d in game.world.decor:
 		if not bounds.has_point(d.p):continue
 		var p: Vector2=d.p
 		var r: float=d.size
-		var grass := Color("#567d24") if biome!="snow" else Color("#b2cbd5")
+		var grass := seasonal_color(Color("#5b7b3f"),true) if biome!="snow" else Color("#b2cbd5")
 		match d.variant:
 			0,1:draw_circle(p,r*2,Color(ground.darkened(0.1),0.30))
 			2,3:
@@ -34,6 +56,11 @@ func _draw() -> void:
 		draw_polyline(points,ground.darkened(0.14),92,true)
 		draw_polyline(points,Color("#afaa70") if biome!="snow" else Color("#ebf3f0"),64,true)
 		draw_polyline(points,Color("#beba83") if biome!="snow" else Color("#f8fcfa"),36,true)
+	# Broken leaf shadows echo the illustrated crowns without hiding pathways.
+	for obj in game.world.objects:
+		if obj.kind!="tree" or not bounds.has_point(obj.p):continue
+		draw_circle(obj.p+Vector2(24,35),53*obj.scale,Color(0.16,0.26,0.12,0.045))
+		draw_circle(obj.p+Vector2(-12,55),33*obj.scale,Color(0.16,0.26,0.12,0.035))
 	if biome=="river":
 		var river := PackedVector2Array()
 		for i in range(65):river.append(Vector2(WolfWorldData.river_x(i*50),i*50))
@@ -114,7 +141,9 @@ func _sprite(index: int,p: Vector2,dimensions: Vector2,tint: Color=Color.WHITE,f
 	draw_texture_rect(texture,rect,false,tint)
 
 func _shadow(p: Vector2,width: float) -> void:
-	draw_set_transform(p,0,Vector2(1,0.42))
+	var viewport_size := get_viewport_rect().size
+	var base: Vector2=Vector2(viewport_size.x*0.5,viewport_size.y*0.48)-game.state.pos*zoom
+	draw_set_transform(base+p*zoom,0,Vector2(zoom,zoom*0.42))
 	draw_circle(Vector2.ZERO,width,Color(0.09,0.19,0.1,0.19))
 	var size := get_viewport_rect().size
 	draw_set_transform(Vector2(size.x*0.5,size.y*0.48)-game.state.pos*zoom,0,Vector2.ONE*zoom)
@@ -126,18 +155,26 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 	match obj.kind:
 		"tree":
 			_shadow(p+Vector2(9,8),52*s)
-			_sprite(obj.variant,p+Vector2(sin(game.clock*0.7+p.y*0.02)*1.8,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else Color.WHITE)
+			var sway := 0.0 if game.state.reduced_motion else sin(game.clock*0.7+p.y*0.02)*1.8
+			_sprite(obj.variant,p+Vector2(sway,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else seasonal_color(Color.WHITE,true))
 			if snow:
 				for i in range(3):
 					draw_line(p+Vector2(-30+i*8,-120+i*33)*s,p+Vector2(27-i*6,-111+i*30)*s,Color("#f0f8f5"),7*s)
 		"rock":
 			_shadow(p,37*s)
 			_sprite(4,p+Vector2(0,-13),Vector2(102,95)*s,Color("#d4e5ec") if snow else Color.WHITE)
-		"bush":_sprite(3,p+Vector2(0,-15),Vector2(88,74)*s)
+		"bush":_sprite(3,p+Vector2(0,-15),Vector2(88,74)*s,seasonal_color(Color.WHITE,true))
 		"flowers":_sprite(6,p,Vector2(70,63)*s,Color("#e3ebef") if snow else Color.WHITE)
 		"den":
+			if obj.get("variant",0)==1:
+				_shadow(p+Vector2(0,7),34*s)
+				draw_line(p+Vector2(-33,-5)*s,p+Vector2(32,9)*s,Color("#8b744e"),16*s,true)
+				draw_circle(p+Vector2(32,9)*s,8*s,Color("#bc9968"))
+				draw_arc(p+Vector2(32,9)*s,4*s,0,TAU,12,Color("#8b744e"),1)
+				_sprite(3,p+Vector2(-16,4)*s,Vector2(53,38)*s)
+				return
 			_shadow(p,75)
-			_sprite(7,p+Vector2(0,-35),Vector2(224,204))
+			_sprite(7,p+Vector2(0,-35)*s,Vector2(224,204)*s)
 		"water":
 			if obj.variant==1:return
 			var r := 190*s
@@ -168,9 +205,18 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 			_sprite(4,p,Vector2(95,80))
 			draw_arc(p+Vector2(0,-8),12,0,TAU,20,Color("#ddce8c"),2)
 		"discovery":
-			_sprite(6,p,Vector2(115,100))
-			draw_arc(p,55+sin(game.clock*2)*4,0,TAU,40,Color(0.98,0.83,0.42,0.5),2)
-			for i in range(4):draw_circle(p+Vector2(cos(game.clock+i*1.6),sin(game.clock+i*1.6))*45,3,Color("#fff2b2"))
+			if obj.variant==1:
+				draw_line(p+Vector2(-40,-3),p+Vector2(35,13),Color("#9f8254"),20,true)
+				draw_circle(p+Vector2(35,13),10,Color("#c1a171"))
+				_sprite(3,p+Vector2(-15,8),Vector2(60,48))
+			elif obj.variant==2:
+				for i in range(4):_sprite(6,p+Vector2(sin(i*2.4)*25,cos(i*2.4)*22),Vector2(48,46))
+			else:
+				_sprite(4,p+Vector2(0,-3),Vector2(95,76))
+				_sprite(6,p+Vector2(24,13),Vector2(45,40))
+			var found: bool=game.state.sites.has(obj.site)
+			var pulse := 0.0 if game.state.reduced_motion else sin(game.clock*1.5)*2
+			draw_arc(p,50+pulse,0,TAU,40,Color(0.65,0.76,0.49,0.32) if found else Color(0.94,0.83,0.55,0.45),1.5)
 		"ruin":
 			for i in range(3):
 				_sprite(4,p+Vector2(0,-i*30),Vector2(88,72),Color("#b4bc9a"))

@@ -1,93 +1,88 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-**0.3.0 · Die lebendige Wildnis** — ein naturbezogenes Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Deine Heimat erschließt du über Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege.
+**0.4.0 · Pfade der Wildnis** — ein offline spielbares Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege erschließen deine Heimat.
 
-Eine frei begehbare **2D-Draufsicht** verbindet sich mit einer **überall zuschaltbaren echten 3D-Sicht in Wolfshöhe**. Beide Ansichten verwenden dieselben Objekte, Tierpositionen und Spuren. Die Comic-Grafik orientiert sich an KoSchs Stilvorlagen und dem Wolf-Simulator: natürliche Tiere, Rudelleben, langsame Entwicklung und zusammenhängende Geschichten.
+Frei begehbare **2D-Draufsicht**, **echter 3D-Wolfsblick** und eine neue **3D-Folgekamera** teilen Landschaften, Tierpositionen und Spuren. Eigene Comic-Grafik und Tiermodelle verbinden sich mit friedlichen Rudelgeschichten und langsamer natürlicher Entwicklung.
 
 ## Spielen & Download
 
-- **Android 7+ / ARM64:** [aktueller Build auf GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml). Nach erfolgreichem Lauf das Artefakt herunterladen, ZIP öffnen und `Wolf-0.3.0-debug.apk` installieren. Die geprüfte APK wird zusätzlich direkt im Chat als Download ausgegeben.
-- **Computer:** `project.godot` mit Godot **4.5.1** öffnen und starten. Der Compatibility-Renderer benötigt keine weiteren Bibliotheken.
-- **Browser:** Web-Artefakt entpacken und im Web-Ordner einen HTTP-Server starten: `python3 -m http.server 8000`. Danach `http://localhost:8000` öffnen.
+- **Android 7+ / ARM64:** Die geprüfte, signierte `Wolf-0.4.0-debug.apk` wird direkt im Chat bereitgestellt. [GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml) erstellt zusätzlich Android- und Web-Artefakte. Debug-Builds mit lokalem Spielstand und ohne Internetberechtigung.
+- **Computer:** `project.godot` mit Godot **4.5.1** öffnen und starten.
+- **Browser:** Web-Artefakt entpacken, im Web-Ordner `python3 -m http.server 8000` starten und `http://localhost:8000` öffnen.
 
-Die App benötigt keine Internetberechtigung. Der Spielstand liegt lokal. Das ist eine Debug-APK zum Testen.
+**Installation gegenüber 0.3.0:** Der frühere lokale Debug-Schlüssel war nicht mehr verfügbar. Die im Chat ausgegebene 0.4.0 verwendet einen neuen, dauerhaft gesicherten Schlüssel. Android erlaubt damit kein direktes Update über 0.3.0. Einen vorhandenen Spielstand vor jeder Deinstallation sichern; siehe [Installationshinweise](docs/android-install.md). Spätere lokal ausgelieferte Builds sollen denselben neuen Schlüssel verwenden. Actions-Builds erhalten einen eigenen temporären Debug-Schlüssel.
 
 ## Echte Spielaufnahmen
 
-| Draufsicht | Wolfsblick |
+| Draufsicht | Neue Folgekamera |
 |---|---|
-| ![Draufsicht](docs/top-down.png) | ![Wolfsblick](docs/wolfs-eye.png) |
+| ![Draufsicht](docs/top-down.png) | ![Folgekamera](docs/follow-camera.png) |
 
-| Rudelgeschichte | Gebietsdetailkarte |
+| Menü | Wildnisatlas |
 |---|---|
-| ![Rudelgeschichte](docs/story.png) | ![Gebietsdetailkarte](docs/region-map.png) |
+| ![Menü](docs/menu.png) | ![Wildnisatlas](docs/world-map.png) |
 
 Die Bilder zeigen das laufende Godot-Spiel unter Linux mit Software-Rendering.
 
-## Eine deutlich größere Welt
+## 256 verbundene Gebiete
 
-**64 verbundene Gebiete im 8×8-Verbund**, jeweils 3200×3200 Welteinheiten. Die Gesamtfläche ist **viermal so groß wie in 0.2.0** und **64-mal so groß wie in 0.1.0**. Alle Gebiete sind über ihre Kartenränder erreichbar. Die IDs und lokalen Koordinaten der bisherigen 16 Gebiete bleiben erhalten.
+Die Welt umfasst **16×16 Gebiete** mit jeweils 3200×3200 Welteinheiten: **vierfache Fläche gegenüber 0.3.0**, sechzehnfache gegenüber 0.2.0. Die bisherigen 64 Gebiets-IDs und lokalen Koordinaten bleiben erhalten; die ursprüngliche Heimat liegt weiter in der Mitte.
 
-Die ursprüngliche Heimat liegt in der Mitte. Darüber und darum erstrecken sich Frostküste, Tundra, Tannenpässe, Nebel- und Wurzelwälder, Biberteich, Weidenbach, Sonnengrat und weitere Landschaften. **192 Naturorte** verteilen sich auf Wälder, Schnee, Berge, Küste, Moor und Wiesen. Flüsse haben Übergänge; eine Sandbank hält den neuen Zugang zur Dünenküste begehbar.
+**1536 benannte Naturorte**, sechs pro Gebiet, liegen in Wald, Schnee, Bergen, Küste, Moor und Wiesen. Jedes Gebiet enthält Nahrung, Wasser und geschützte Ruheplätze. Wegeprüfungen kontrollieren tatsächliche Zugänge zu Naturorten, Ressourcen, Wegsteinen und Fährten. Fünfzehn Wildtiere pro Gebiet und die Familie in der Heimat bewegen sich durch die Landschaft.
 
-Der **Wildnisatlas** lässt sich ziehen und mit zwei Fingern oder den Tasten vergrößern. Die Detailkarte zeigt tatsächliche Bäume, Wasser, Höhlen und benannte Naturorte. Tippe ein Gebiet oder einen Punkt als **Duftziel** an: die Karte zeigt eine Gebietsroute und der Kompass führt zum nächsten Übergang. Die Karte teleportiert deinen Wolf nicht. Unerkundete Gebiete sind gedämpft; Gebietsnamen können in den Einstellungen eingeblendet werden.
+Der **Wildnisatlas** zeigt Landschaftssymbole, Höhenlinien, Gewässer, Kompass und Maßstab. Ziehen, Aufziehen und Gebietssuche erleichtern die Orientierung. Die Detailkarte zeigt tatsächliche Vegetation, Wasser, Höhlen, Naturorte und Tierpositionen. Antippen setzt ein **Duftziel**; Route und Kompass führen zu den nächsten Übergängen. Unerkundete Gebiete bleiben gedämpft. Kein Karten-Teleport.
 
 ## Rudelleben & Erlebnisse
 
-- **Neun zusammenhängende Kapitel** mit kleinen natürlichen Entscheidungen. Kapitel werden durch echte Erlebnisse wie Trinken, Fährtenlesen, Rudelkontakt und Tierbeobachtung freigeschaltet.
-- Begrüßen, Heulen, gemeinsames Erkunden, Spiel- und Ruheverhalten. Ab **Bindung 48** kann die Mutter dich auch in andere Gebiete begleiten.
-- **26 Erlebnisse**, verfolgbares Ziel, Erfahrung und Ränge; Nase, leise Pfoten und Rudelerfahrung entwickeln sich mit deinen Handlungen.
-- Reh-, Hasen- und Fuchsspuren mit unterscheidbaren Trittsiegeln. Fährten führen zu den Aufenthaltsorten der Tiere. Schnüffeln macht sie sichtbar; eine geübtere Nase verlängert die Anzeige.
-- Rehe, Hasen und Füchse wandern, lauschen und fliehen bei zu naher Annäherung. Leises Gehen und Abstand helfen bei der Beobachtung. In 3D braucht die Beobachtung einen freien Blick auf das Tier.
-- Nahrung, Wasser, Kraft und Rudelbindung; geschützte Ruheplätze und Duftmarken.
-- **Ein Spieltag dauert 60 Minuten aktiver Spielzeit.** Menüs pausieren die Welt. Ruhen überspringt keine Tage. Alter und Körpergröße nehmen langsam mit vergangenen Tagen zu.
-- Naturtagebuch mit bis zu 300 Einträgen und Filtern; ein kleiner Tier- und Fährtenführer.
+- **18 zusammenhängende Kapitel** mit natürlichen Entscheidungen und Freigaben durch tatsächliche Erlebnisse.
+- **40 Erlebnisse** und wiederholbare regionale **Wildnisbegegnungen**: neue Fährten, Naturorte, eigene Wege, Nachbargebiete, Tierbeobachtung, Trinken und Ruhen oder vertraute Rudelrufe. Alte Handlungen erfüllen keine neu angenommene Aufgabe. Belohnungen lassen sich einmal abholen.
+- Fünf Tagesroutinen für Mutter, Vater und Geschwister. Begrüßen, Heulen, Erkunden, Spielen und Ruhen stärken die Bindung. Ab Bindung 48 kann die Mutter dich über Gebietsgrenzen begleiten.
+- Reh-, Hasen- und Fuchsspuren mit unterscheidbaren Trittsiegeln. Schnüffeln macht sie sichtbar; eine geübte Nase verlängert die Anzeige.
+- Tiere wandern, lauschen und fliehen bei zu naher Annäherung. Beobachten in 3D benötigt Abstand, Blickrichtung und freie Sicht.
+- Nahrung, Wasser, Kraft, Rudelbindung, Duftmarken und Naturtagebuch mit Filtern.
+- **Ein Spieltag dauert 60 Minuten aktiver Spielzeit.** Menüs und App-Hintergrund pausieren die Entwicklung. Ruhen überspringt keine Tage. Alter und Körpergröße wachsen allmählich; Jahreszeiten wechseln nach jeweils 30 Spieltagen.
 
-## Grafik, Modelle & Animation
+## Grafik & Animation
 
-Die Draufsicht nutzt neue Comic-Laufsequenzen für Wolf, Reh, Hase und Fuchs. Der Wolf zeigt zusätzlich Schnüffeln, Heulen, eingerolltes Ruhen und einen Spielbogen. Fußspuren bleiben kurz im Boden sichtbar.
+Eigene 3D-Tiermodelle unterscheiden Wolf, Reh, Hase und Fuchs durch Körperbau, Schnauze, Ohren, Fell und Gliedmaßen. Bewegliche Knie, Kopf, Ohren, Kiefer und Schwanz verbinden sich mit weich überblendeten Lauf-, Ruhe-, Spiel-, Schnüffel- und Heulposen. Die Folgekamera zeigt den eigenen wachsenden Wolf und verkürzt ihren Abstand bei Hindernissen.
 
-Die 3D-Tiere bestehen aus eigenen farbigen Meshes mit beweglichen Beinen, Knien, Kopf, Ohren und Schwanz. Laufanimationen folgen der zurückgelegten Strecke; Ruhe-, Spiel-, Schnüffel- und Heulposen reagieren auf das Verhalten. Eigene Baum- und Felsmeshes, Bodenoberflächen, sanfte Hügel, durchgehende Pfade, Schatten und Licht nach Tageszeit ergänzen die Wildnis. Schnee, Regen und Nebel werden in beiden Ansichten dargestellt.
+Gräser, Farne, Schilf, Blumen, liegendes Holz und zusätzliche Naturortmodelle verdichten die Landschaft. Jahreszeitliche Farben, bewegtes Wasser, eigener Himmel mit Wolken, Mond und Sternen sowie mehrschichtiger Regen, Schnee und Nebel ergänzen die Wildnis. Die Draufsicht verwendet Comic-Laufsequenzen, Aktionsposen und Bodenschatten.
 
-Die 3D-Welt wird während der Draufsicht erst beim Umschalten aufgebaut. Neue Menüs mit lesbaren Karten, Familienansicht, einklappbarer Kopfleiste und kontextabhängiger Aktion halten den Bildschirm übersichtlich. Naturklang, Wetter, ruhige Animationen und Draufsichtzoom sind einstellbar.
-
-Grafikherkunft, Prompts und Schriftlizenz: [docs/art-assets.md](docs/art-assets.md).
+Illustrierte Menüs, Familienroutinen, Begegnungsfortschritt, Karten und Tierwissen sind scroll- und touchfähig. Naturklang, Wetter, ruhige Animationen, weiche 3D-Kanten und Kartenansicht sind einstellbar. [Grafikherkunft und Schriftlizenz](docs/art-assets.md).
 
 ## Steuerung
 
 | Aktion | Android | Computer |
 |---|---|---|
-| Bewegen in alle Richtungen | Pfotenstick | WASD / Pfeile |
-| 3D umsehen | Über die Landschaft wischen | Maus ziehen / I J K L |
+| Bewegen | Pfotenstick | WASD / Pfeile |
+| 3D umsehen | Landschaft wischen | Maus ziehen / I J K L |
 | Ansicht wechseln | 3D / 2D | V |
+| 3D-Kamera wechseln | Wolfsblick / Folgekamera | Schaltfläche |
 | Schnüffeln | Schnüffeln | F |
 | Spur, Wasser, Tier, Naturort | Kontextaktion | E |
 | Heulen | Heulen | H |
-| Ruhen nahe einer Höhle | Aktion / Menü | R |
+| Ruhen nahe einem Schutzplatz | Aktion / Menü | R |
 | Trab | Trab umschalten | Umschalt halten |
-| Leise gehen | Leise umschalten | Schaltfläche |
-| Rudelgeschichte | Geschichte | Schaltfläche |
-| Karte | Karte / Minikarte antippen | M |
-| Menü / zurück | ☰ / × | Escape |
+| Karte | Karte / Minikarte | M |
+| Menü / zurück | ☰ / × / Android-Zurück | Escape |
 
-## Spielstände & Prüfungen
+## Spielstände & Entwicklung
 
-Automatisches Speichern alle 20 Sekunden, beim Gebietswechsel und beim Wechsel in den Hintergrund. Spielstandformat 3 übernimmt die Fortschritte aus 0.1.0 und 0.2.0; Gebiets-IDs bleiben stabil. Tiere und Positionen besuchter Gebiete werden während einer Sitzung beibehalten, beim App-Neustart wird die Tierwelt neu aufgebaut.
+Spielstandformat 4 übernimmt Fortschritte aus 0.1–0.3. Automatisches Speichern erfolgt alle 20 Sekunden, beim Gebietswechsel und beim Wechsel in den Hintergrund. Der Hauptspielstand wird atomar ersetzt. Begegnungen und tatsächliche Aktionszähler werden mitgespeichert. Ein begrenzter Sitzungscache und kompakte Tierpositionen erhalten besuchte Tierwelten über Cache-Verdrängung und App-Neustarts.
 
 ```sh
 godot --headless --editor --import --quit
 godot --headless --script tests/smoke.gd
+godot --headless --script tests/gameplay_expansion.gd
+godot --headless --script tests/graphics_expansion.gd
+godot --headless --script tests/ui_expansion.gd
 mkdir -p builds/web
-godot --headless --export-debug Android builds/Wolf-0.3.0-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.4.0-debug.apk
 godot --headless --export-release Web builds/web/index.html
 ```
 
-Die Prüfungen decken alle 64 Gebiete, gegenseitige Übergänge, begehbare Ankunftsorte, Wasserzugänge, Sichtlinien, Story-Freigaben, langsames Altern, Begleitung ohne doppelte Elternwölfe, Gelenkposen, Karteninput, Menüs und Spielstandübernahme ab. Test- und Aufnahme-Skripte verwenden eigene Spielstanddateien.
+Android: Godot-4.5.1-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1`, `platforms;android-35`. Package `cloud.kosch.wolf`, ARM64, minSdk 24, targetSdk 35. Private Signierschlüssel bleiben außerhalb des Repositorys. [Entwicklungsübergabe](docs/development-handoff.md) und [Prüfbericht](docs/validation-0.4.0.md) beschreiben den tatsächlich geprüften Stand.
 
-Android-Export: passende Godot-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1` und `platforms;android-35`. Private Signierschlüssel bleiben außerhalb des Repositorys.
-
-## Entwicklungsstand
-
-Spielbarer Prototyp, technisch geprüfte und signierte APK. Noch kein Test auf einem physischen Android-Gerät. Die Darstellung und Animationen wurden im laufenden Linux-Spiel geprüft. Noch kein vollständiger Lebenszyklus mit Partnersuche, eigener Nachwuchspflege, kooperativer Jagd oder dynamischen Jahreszeiten; Verhalten, Bedürfnisse und Fährten sind spielerisch vereinfacht. Der Web-Export wird vom Build-Workflow erstellt; diese Version wurde lokal als Android-APK geprüft.
+Spielbarer Prototyp. Noch kein Test auf einem physischen Android-Gerät und noch kein vollständiger Lebenszyklus mit Partnersuche, eigener Nachwuchspflege oder kooperativer Jagd. Bedürfnisse und Tierverhalten bleiben spielerisch vereinfacht.
 
 Idee und Ausrichtung: **KoSch / Kolja Werner Schumann**.

@@ -2,6 +2,8 @@ class_name WolfState
 extends RefCounted
 
 const DAY_SECONDS := 3600.0
+const SEASON_DAYS := 30
+const ENCOUNTER_ACTIONS := ["drink","rest","howl","greet","feed"]
 const SAVE_PATH := "user://wolf_save_v1.json"
 static var save_path := SAVE_PATH
 var region := 0
@@ -39,7 +41,17 @@ var sound_enabled := true
 var reduced_motion := false
 var weather_enabled := true
 var map_reveal := false
+var camera_follow := false
+var smooth_edges := true
 var pawsteps: Array[Dictionary] = []
+var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"feed":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
+var active_encounter: Dictionary = {}
+var completed_encounters: Array[String] = []
+var encounter_serial := 0
+var encounter_preview_key := ""
+var encounter_preview: Dictionary = {}
+var routine_seen: Array[String] = []
+
 
 
 func tick(dt: float, moving: bool, sprint: bool) -> void:
@@ -48,6 +60,8 @@ func tick(dt: float, moving: bool, sprint: bool) -> void:
 	hunger = maxf(0,hunger-dt*0.01)
 	energy = clampf(energy + dt*(-0.8 if sprint and moving else -0.025 if moving else 0.16),0,100)
 	food_cooldown=maxf(0,food_cooldown-dt)
+	var routine: Dictionary=pack_routine()
+	if region==0 and not routine_seen.has(routine.label):routine_seen.append(routine.label)
 
 func level() -> int:
 	return 1+int(xp/100)
@@ -71,7 +85,7 @@ func quests() -> Array[Dictionary]:
 		{"id":"trail12","name":"Die Nase lernt dazu","hint":"Lies zwölf Spuren entlang der Fährten.","done":found.size()>=12,"progress":"%d/12"%mini(found.size(),12)},
 		{"id":"secret1","name":"Eine verborgene Lichtung","hint":"Finde die goldene Entdeckung südwestlich in einem Gebiet.","done":discoveries.size()>=1,"progress":"%d/1"%mini(discoveries.size(),1)},
 		{"id":"snow","name":"Pfoten im Schnee","hint":"Erreiche Frostgrat oder Schneekiefern im Norden.","done":biome_count("snow")>=1,"progress":"%d/1"%mini(biome_count("snow"),1)},
-		{"id":"river","name":"Das Lied des Wassers","hint":"Erkunde Flussauen und Wasserfalltal.","done":biome_count("river")>=2,"progress":"%d/2"%biome_count("river")},
+		{"id":"river","name":"Das Lied des Wassers","hint":"Erkunde Flussauen und Wasserfalltal.","done":biome_count("river")>=2,"progress":"%d/2"%mini(biome_count("river"),2)},
 		{"id":"fox","name":"Roter Schatten","hint":"Beobachte einen Fuchs aus dem Wolfsblick.","done":observations.has("Fuchs"),"progress":"1/1" if observations.has("Fuchs") else "0/1"},
 		{"id":"ruins","name":"Steine voller Geschichten","hint":"Finde die Moosruinen westlich des Startgebiets.","done":visited.has(10),"progress":"1/1" if visited.has(10) else "0/1"},
 		{"id":"coast","name":"Ein neuer Horizont","hint":"Erkunde die Dünenküste im Südwesten.","done":visited.has(12),"progress":"1/1" if visited.has(12) else "0/1"},
@@ -79,18 +93,177 @@ func quests() -> Array[Dictionary]:
 		{"id":"mark","name":"Mein Weg durch die Wildnis","hint":"Markiere deinen Duft in sechs verschiedenen Gebieten.","done":marked.size()>=6,"progress":"%d/6"%mini(marked.size(),6)},
 		{"id":"trail40","name":"Fährtenkundige Pfoten","hint":"Lies vierzig unterschiedliche Spuren.","done":found.size()>=40,"progress":"%d/40"%mini(found.size(),40)},
 		{"id":"explore16","name":"Die große Wildnis","hint":"Erkunde sechzehn verbundene Gebiete.","done":visited.size()>=16,"progress":"%d/16"%mini(visited.size(),16)},
-		{"id":"stones16","name":"Das Gedächtnis der Landschaft","hint":"Präge dir in jedem Gebiet einen Wegstein ein.","done":landmarks.size()>=16,"progress":"%d/16"%mini(landmarks.size(),16)}
+		{"id":"stones16","name":"Das Gedächtnis der Landschaft","hint":"Präge dir Wegsteine in sechzehn unterschiedlichen Gebieten ein.","done":landmarks.size()>=16,"progress":"%d/16"%mini(landmarks.size(),16)}
 	]
 
 	result.append_array([
-		{"id":"explore64","name":"Wildnis ohne Ende","hint":"Erkunde alle 64 Gebiete. Deine Übersicht merkt sich den Weg.","done":visited.size()>=64,"progress":"%d/64"%visited.size()},
+		{"id":"explore64","name":"Wege durch die große Wildnis","hint":"Erkunde 64 der 256 Gebiete. Deine Übersicht merkt sich den Weg.","done":visited.size()>=64,"progress":"%d/64"%mini(visited.size(),64)},
 		{"id":"sites24","name":"Eine Heimat aus Gerüchen","hint":"Lerne 24 verschiedene Naturorte kennen.","done":sites.size()>=24,"progress":"%d/24"%mini(sites.size(),24)},
 		{"id":"story3","name":"Die Geschichte deiner Pfoten","hint":"Erlebe drei Kapitel im Menü Rudelgeschichte.","done":story_step>=3,"progress":"%d/3"%mini(story_step,3)},
 		{"id":"escort","name":"Gemeinsam unterwegs","hint":"Begrüße die Familie; ab Bindung 48 kann ein Elternwolf dich begleiten.","done":escort,"progress":"1/1" if escort else "0/1"},
 		{"id":"nose50","name":"Eine erfahrene Nase","hint":"Lies Fährten und erlebe Rudelgeschichten.","done":skills.nose>=50,"progress":"%d/50"%mini(skills.nose,50)},
 		{"id":"days2","name":"Die Wildnis schläft nie","hint":"Lebe zwei Tage in der Wildnis. Menüs pausieren die Zeit.","done":elapsed>=DAY_SECONDS*2,"progress":"%d/2"%mini(int(elapsed/DAY_SECONDS),2)}
 	])
+	result.append_array([
+		{"id":"explore256","name":"Vier Horizonte","hint":"Erkunde alle 256 miteinander verbundenen Gebiete.","done":visited.size()>=WolfWorldData.REGIONS.size(),"progress":"%d/%d"%[visited.size(),WolfWorldData.REGIONS.size()]},
+		{"id":"district5","name":"Fünf Landschaften einer Heimat","hint":"Erreiche das Rudelrevier, den hohen Norden, die Südauen, die Westküste und die östlichen Höhen.","done":districts_visited().size()>=5,"progress":"%d/5"%districts_visited().size()},
+		{"id":"biomes12","name":"Die Düfte der Landschaft","hint":"Erkunde alle zwölf Landschaftsarten: Wald, Kiefern, Eichen, Wiese, Schnee, Höhen, Fluss, See, Küste, Moor, Ruinen und Dorfrand.","done":biomes_visited().size()>=12,"progress":"%d/12"%biomes_visited().size()},
+		{"id":"sites72","name":"Viele kleine Erinnerungen","hint":"Entdecke 72 unterschiedliche Naturorte.","done":sites.size()>=72,"progress":"%d/72"%mini(sites.size(),72)},
+		{"id":"sites256","name":"Das Gedächtnis deiner Nase","hint":"Lerne 256 Naturorte in der großen Wildnis kennen.","done":sites.size()>=256,"progress":"%d/256"%mini(sites.size(),256)},
+		{"id":"encounter1","name":"Ein eigener Weg","hint":"Nimm eine Wildnisbegegnung an und erfülle ihre Aufgabe.","done":completed_encounters.size()>=1,"progress":"%d/1"%mini(completed_encounters.size(),1)},
+		{"id":"encounters8","name":"Die Wildnis erzählt weiter","hint":"Erlebe acht vollständige Wildnisbegegnungen.","done":completed_encounters.size()>=8,"progress":"%d/8"%mini(completed_encounters.size(),8)},
+		{"id":"encounters24","name":"Vertraut mit der Wildnis","hint":"Erlebe 24 vollständige Begegnungen. Alte Aktionen erfüllen keine neue Aufgabe.","done":completed_encounters.size()>=24,"progress":"%d/24"%mini(completed_encounters.size(),24)},
+		{"id":"routine","name":"Der Rhythmus des Rudels","hint":"Besuche die Familie zu fünf Tagesphasen. Die Zeit vergeht nur beim Spielen.","done":routine_seen.size()>=5,"progress":"%d/5"%routine_seen.size()},
+		{"id":"pack10","name":"Vertraute Nähe","hint":"Begrüße deine Familie zehnmal mit ruhigen Abständen.","done":int(action_counts.greet)>=10,"progress":"%d/10"%mini(int(action_counts.greet),10)},
+		{"id":"care","name":"Wasser, Nahrung und Ruhe","hint":"Trinke, friss und ruhe jeweils dreimal an sicheren Plätzen.","done":int(action_counts.drink)>=3 and int(action_counts.feed)>=3 and int(action_counts.rest)>=3,"progress":"%d/9"%[mini(int(action_counts.drink),3)+mini(int(action_counts.feed),3)+mini(int(action_counts.rest),3)]},
+		{"id":"story18","name":"Eine wachsende Rudelgeschichte","hint":"Erlebe alle achtzehn Kapitel; deine tatsächlichen Wege öffnen neue Geschichten.","done":story_step>=18,"progress":"%d/18"%mini(story_step,18)},
+		{"id":"walk50000","name":"Wege unter deinen Pfoten","hint":"Lege 50.000 Weltschritte zurück. Nur selbst gegangene Strecken zählen.","done":distance_walked>=50000,"progress":"%d/50.000"%mini(int(distance_walked),50000)},
+		{"id":"mark32","name":"Vertraute Rückwege","hint":"Markiere deinen Geruch in 32 unterschiedlichen Gebieten.","done":marked.size()>=32,"progress":"%d/32"%mini(marked.size(),32)}
+	])
 	return result
+
+func day() -> int:
+	return 1+int(elapsed/DAY_SECONDS)
+
+func season_name() -> String:
+	return ["Frühjahr","Sommer","Herbst","Winter"][int(elapsed/(DAY_SECONDS*SEASON_DAYS))%4]
+
+func season_progress() -> float:
+	return fposmod(elapsed/(DAY_SECONDS*SEASON_DAYS),1.0)
+
+func districts_visited() -> Array[String]:
+	var result: Array[String]=[]
+	for index in visited:
+		var district: String=WolfWorldData.REGIONS[index].district
+		if not result.has(district):result.append(district)
+	return result
+
+func biomes_visited() -> Array[String]:
+	var result: Array[String]=[]
+	for index in visited:
+		var biome: String=WolfWorldData.REGIONS[index].biome
+		if not result.has(biome):result.append(biome)
+	return result
+
+func pack_routine(role: String="Mutter") -> Dictionary:
+	return WolfPackLife.routine(hour(),role)
+
+func note_action(action: String,detail: String="") -> void:
+	var key := action+":"+detail if action=="observe" else action
+	if not action_counts.has(key):return
+	action_counts[key]=mini(100000000,int(action_counts[key])+1)
+	if active_encounter.is_empty():return
+	if active_encounter.task=="water_rest" and region==int(active_encounter.region):
+		if action=="drink":active_encounter.drank_after_start=true
+		if action=="rest" and active_encounter.get("drank_after_start",false):active_encounter.rested_after_drink=true
+	if active_encounter.task=="family" and region==0:
+		if action=="greet":active_encounter.greeted_family=true
+		if action=="howl" and pos.distance_to(Vector2(1600,2240))<460:active_encounter.family_howl=true
+
+func _regional_count(items: Array[String],index: int) -> int:
+	var count := 0
+	for item in items:
+		if item.begins_with(str(index)+":"):count+=1
+	return count
+
+func _preview_encounter() -> Dictionary:
+	var key := "%d:%d:%d:%d:%d:%d:%d"%[region,day(),encounter_serial,found.size(),sites.size(),visited.size(),int(elapsed/10)]
+	if key==encounter_preview_key and not encounter_preview.is_empty():return encounter_preview.duplicate(true)
+	var result: Dictionary=WolfPackLife.encounter(region,day(),encounter_serial)
+	if result.task=="visit":
+		var target := -1
+		for neighbor in WolfWorldData.REGIONS[region].links.values():
+			if not visited.has(int(neighbor)):target=int(neighbor);break
+		if target>=0:result.target_region=target
+		else:result=_journey_encounter(result)
+	if result.task=="tracks":
+		var remaining := maxi(0,27-_regional_count(found,region))
+		if remaining<3:result=_journey_encounter(result)
+		else:
+			var data := WolfWorldData.generate(region)
+			for track in data.tracks:
+				if not found.has(track.id):result.target_pos=track.p;break
+	if result.task=="sites":
+		var remaining := maxi(0,WolfWorldData.SITES_PER_REGION-_regional_count(sites,region))
+		if remaining<2:result=_journey_encounter(result)
+		else:
+			for site in WolfWorldData.nature_sites(region):
+				if not sites.has(site.site):result.target_pos=site.p;break
+	if result.task=="water_rest":result.target_pos=WolfWorldData.water_bank(region)
+	# A serial, never a hash of current progress, defines the one-time reward.
+	result.id="%d:%d:%d"%[day(),region,encounter_serial]
+	encounter_preview_key=key
+	encounter_preview=result.duplicate(true)
+	return result
+
+func _journey_encounter(source: Dictionary) -> Dictionary:
+	var result := source.duplicate(true)
+	result.task="journey"
+	result.title="Ein weiterer sicherer Wechsel"
+	result.text="Die näheren Orte kennst du bereits. Du prüfst nun den Wind und gehst einen weiteren Abschnitt deines Reviers. Jeder selbst gegangene Weg hilft dir, die Landschaft wiederzuerkennen."
+	result.hint="Gehe weitere 1.200 Weltschritte entlang deiner Wege."
+	result.goal=1200
+	result.skill="nose"
+	result.target_region=region
+	result.target_pos=Vector2(1600,1600)
+	return result
+
+func begin_encounter() -> bool:
+	if not active_encounter.is_empty():return false
+	active_encounter=_preview_encounter()
+	active_encounter.baseline={"found":_regional_count(found,region),"sites":_regional_count(sites,region),"walk":distance_walked,"actions":action_counts.duplicate(true)}
+	active_encounter.started=elapsed
+	record("Wildnisbegegnung · "+active_encounter.title+" · "+active_encounter.hint)
+	return true
+
+func encounter_status() -> Dictionary:
+	var result: Dictionary=_preview_encounter() if active_encounter.is_empty() else active_encounter.duplicate(true)
+	result.accepted=not active_encounter.is_empty()
+	result.current=_encounter_current(active_encounter) if result.accepted else 0
+	result.done=bool(result.accepted) and int(result.current)>=int(result.goal)
+	result.progress="%d/%d"%[mini(int(result.current),int(result.goal)),int(result.goal)]
+	if result.accepted and result.task=="water_rest":
+		if active_encounter.get("drank_after_start",false):
+			result.target_pos=Vector2(2450,970) if int(result.region)!=0 else Vector2(1480,2050)
+	if result.accepted and result.task=="family" and active_encounter.get("greeted_family",false):
+		result.target_region=0
+		result.target_pos=Vector2(1580,2025)
+	return result
+
+func _encounter_current(encounter: Dictionary) -> int:
+	if encounter.is_empty() or not encounter.get("baseline") is Dictionary:return 0
+	var baseline: Dictionary=encounter.baseline
+	var actions: Dictionary=baseline.get("actions",{})
+	match str(encounter.task):
+		"tracks":return maxi(0,_regional_count(found,int(encounter.region))-int(baseline.found))
+		"sites":return maxi(0,_regional_count(sites,int(encounter.region))-int(baseline.sites))
+		"journey":return maxi(0,int(distance_walked-float(baseline.walk)))
+		"visit":return 1 if visited.has(int(encounter.target_region)) else 0
+		"observe":
+			var key := "observe:"+str(encounter.get("detail","Reh"))
+			return maxi(0,int(action_counts.get(key,0))-int(actions.get(key,0)))
+		"water_rest":return int(encounter.get("drank_after_start",false))+int(encounter.get("rested_after_drink",false))
+		"family":return int(encounter.get("greeted_family",false))+int(encounter.get("family_howl",false))
+	return 0
+
+func complete_encounter() -> bool:
+	if active_encounter.is_empty():return false
+	var status: Dictionary=encounter_status()
+	if not status.done or completed_encounters.has(str(status.id)):return false
+	completed_encounters.append(str(status.id))
+	xp+=int(status.reward)
+	var skill: String=str(status.skill)
+	skills[skill]=mini(100,int(skills[skill])+3)
+	if skill=="pack":bond=minf(100,bond+2)
+	record("Wildnisbegegnung abgeschlossen · "+status.title+" · Du hast den Weg selbst erlebt.")
+	encounter_serial+=1
+	active_encounter={}
+	return true
+
+func abandon_encounter() -> void:
+	if active_encounter.is_empty():return
+	encounter_serial+=1
+	active_encounter={}
 
 func hour() -> float:
 	return fposmod(7.5+elapsed/DAY_SECONDS*24,24)
@@ -111,7 +284,7 @@ func growth() -> float:
 func weather() -> String:
 	if not weather_enabled:return "klar"
 	var biome: String=WolfWorldData.REGIONS[region].biome
-	if biome=="snow":return "Schnee"
+	if biome=="snow" or (season_name()=="Winter" and biome not in ["coast","marsh","village"] and int(elapsed/540)%4!=0):return "Schnee"
 	if int(elapsed/540)%4==2:return "Regen"
 	if biome=="marsh" or (hour()<8 and hour()>4):return "Nebel"
 	return "klar"
@@ -126,7 +299,17 @@ func story_scenes() -> Array[Dictionary]:
 		{"title":"6 · Ein Reh im Wolfsblick","text":"Die Ohren des Rehs bewegen sich. Es sieht nicht nur nach vorn. Du hältst still, bis seine Aufmerksamkeit zurück zum Gras wandert. Nähe allein macht keine Jagd; Geduld und das Rudel gehören dazu.","ready":observations.has("Reh"),"gate":"Beobachte ein Reh mit Aktion aus der 3D-Sicht bei genügend Abstand.","choices":[["In der Deckung warten","stealth","Du erkennst, wann das Reh wieder aufmerksam wird."],["Zum Elternwolf zurückkehren","pack","Du suchst Sicherheit und Orientierung beim Rudel."]]},
 		{"title":"7 · Gerüche der Heimat","text":"Ein alter Schlafplatz, eine geschützte Wurzel und ein stilles Ufer. Manche Orte riechen nach Ruhe, andere nach Tieren, die vor dir hier waren. Deine Welt wächst mit jedem Weg, den du selbst gehst.","ready":sites.size()>=3,"gate":"Entdecke drei Naturorte; die Gebietskarte hilft dir dabei.","choices":[["Die Düfte genau einprägen","nose","Du erkennst vertraute Orte später leichter wieder."],["Einen geschützten Platz wählen","stealth","Du lernst, wo du ungesehen ruhen kannst."]]},
 		{"title":"8 · Unter dem Abendhimmel","text":"Das Licht zwischen den Kiefern wird warm. Ferne Rufe kommen aus dem Tal. Du hebst die Nase in den Wind. Die Nähe deiner Familie fühlt sich vertraut an, doch die Wildnis reicht weiter, als dein Blick sie erfassen kann.","ready":visited.size()>=8 and bond>=50,"gate":"Erkunde acht Gebiete und stärke deine Rudelbindung auf 50.","choices":[["Mit dem Rudel zum Rückweg ansetzen","pack","Eure Düfte führen euch in Richtung der Höhle."],["Eine letzte Spur lesen","nose","Du schaust und riechst, bevor du weitergehst."]]},
-		{"title":"9 · Die ruhende Familie","text":"Die Mutter liegt nahe der Höhle. Dein Geschwister rollt sich in ihre Nähe. Dein Atem wird langsam, die Ohren entspannen sich. Heute hast du neue Gerüche gelernt. Dein Körper wächst in kleinen Schritten, während die Tage vergehen.","ready":rested and region==0,"gate":"Kehre zur Rudelhöhle zurück und ruhe in ihrer geschützten Nähe.","choices":[["Neben der Familie ruhen","pack","Vertraute Wärme und Gerüche begleiten deinen Schlaf."],["Vor dem Ruhen noch lauschen","stealth","Du nimmst die ruhigen Geräusche deiner Heimat wahr."]]}
+		{"title":"9 · Die ruhende Familie","text":"Die Mutter liegt nahe der Höhle. Dein Geschwister rollt sich in ihre Nähe. Dein Atem wird langsam, die Ohren entspannen sich. Heute hast du neue Gerüche gelernt. Dein Körper wächst in kleinen Schritten, während die Tage vergehen.","ready":rested and region==0,"gate":"Kehre zur Rudelhöhle zurück und ruhe in ihrer geschützten Nähe.","choices":[["Neben der Familie ruhen","pack","Vertraute Wärme und Gerüche begleiten deinen Schlaf."],["Vor dem Ruhen noch lauschen","stealth","Du nimmst die ruhigen Geräusche deiner Heimat wahr."]]},
+		{"title":"10 · Eine eigene Entscheidung","text":"Du hast einen Weg nicht nur gesehen, sondern selbst erlebt. Eine frische Spur, ein stilles Ufer oder eine vertraute Antwort ist nun Teil deiner Erinnerung. Deine Nase und deine Ohren werden mit jedem kleinen Erlebnis sicherer.","ready":completed_encounters.size()>=1,"gate":"Nimm eine Wildnisbegegnung an und erfülle ihre tatsächliche Aufgabe.","choices":[["Den neuen Geruch einprägen","nose","Du merkst dir, was du auf deinem eigenen Weg gelernt hast."],["Die Nähe der Familie suchen","pack","Du teilst die vertraute Umgebung mit dem Rudel."]]},
+		{"title":"11 · Der geschützte Platz","text":"Eine Mulde hält den Wind ab. Trockene Blätter tragen den schwachen Duft anderer Tiere. Du prüfst den Boden, bevor du dich niederlässt. Nicht jeder ruhige Ort ist sicher; die Richtung des Winds und ein freier Rückweg gehören dazu.","ready":sites.size()>=6 and int(action_counts.rest)>=2,"gate":"Entdecke sechs Naturorte und ruhe zweimal an geschützten Plätzen.","choices":[["Boden und Wind genau prüfen","stealth","Du wählst deine Deckung mit mehr Geduld."],["Die Gerüche der Mulde vergleichen","nose","Du unterscheidest alte Spuren von frischem Wildgeruch."]]},
+		{"title":"12 · Neben der Mutter","text":"Der erwachsene Wolf geht mit ruhigen Schritten vor dir. Manchmal bleibt er stehen, hebt die Nase und wartet. Du musst nicht dicht auf seinen Fersen bleiben. Ein vertrauter Geruch und ein kurzer Blick reichen, um wieder Richtung zu finden.","ready":escort and pack_contacts>=2,"gate":"Begrüße die Familie zweimal und erkunde mit der Mutter als Begleitung.","choices":[["Mit Abstand ihrem Wechsel folgen","pack","Du lernst, wie das Rudel seine Wege zusammenhält."],["Ihre Pausen beobachten","stealth","Du hältst inne, bevor du einen offenen Abschnitt betrittst."]]},
+		{"title":"13 · Drei Arten von Aufmerksamkeit","text":"Ein Reh hebt den Kopf, ein Hase hält sich dicht am Boden, und ein Fuchs lauscht mit gedrehten Ohren. Sie bemerken ihre Umgebung auf unterschiedliche Weise. Ruhige Pfoten und genügend Abstand lassen dir Zeit, ihr Verhalten zu erkennen.","ready":observations.has("Reh") and observations.has("Hase") and observations.has("Fuchs"),"gate":"Beobachte Reh, Hase und Fuchs aus genügend Abstand im Wolfsblick.","choices":[["Ihre Aufmerksamkeit vergleichen","stealth","Du erkennst kleine Zeichen, bevor ein Tier flieht."],["Die Düfte den Tieren zuordnen","nose","Bewegung und Geruch ergeben für dich ein deutlicheres Bild."]]},
+		{"title":"14 · Jenseits vertrauter Kronen","text":"Die Nadeln werden von breiten Blättern abgelöst; später trägt der Wind feuchte Erde aus einem Tal. Deine Heimat besteht aus vielen kleinen Landschaften. Du hältst die sicheren Übergänge im Gedächtnis und prüfst neue Wege mit Geduld.","ready":visited.size()>=12 and biomes_visited().size()>=5,"gate":"Erkunde zwölf Gebiete und fünf unterschiedliche Landschaftsarten.","choices":[["Die Übergänge beschnüffeln","nose","Du erkennst, wo ein vertrauter Weg in eine andere Landschaft führt."],["Am Rand der Deckung bleiben","stealth","Du passt deinen Abstand an offenere Flächen an."]]},
+		{"title":"15 · Ein Rückweg aus Gerüchen","text":"An einer alten Stelle trifft dein eigener Geruch auf den des Rudels. Duftmarken sind kein Schild; sie sind Teil der Verständigung zwischen Wölfen. Du prüfst die Umgebung und merkst dir den Weg zurück zu vertrauter Nähe.","ready":marked.size()>=6 and completed_encounters.size()>=3,"gate":"Setze Duftmarken in sechs Gebieten und erfülle drei Wildnisbegegnungen.","choices":[["Vertraute Rudelgerüche prüfen","pack","Du erkennst die Verbindung zwischen Nähe und gemeinsam genutzten Wegen."],["Die Richtung des Rückwegs einprägen","nose","Du hältst Geruch und Landschaft zusammen in deiner Erinnerung."]]},
+		{"title":"16 · Wasser, Schnee und stilles Gras","text":"Ein Bach trägt Gerüche fort. Schnee bewahrt scharfe Abdrücke, bis der Wind sie verwischt. Im langen Gras zeigt ein gebogener Halm nur kurz, dass jemand hier war. Jede Landschaft verändert, was deine Nase und deine Augen finden können.","ready":sites.size()>=24 and biome_count("river")>=2 and biome_count("snow")>=1,"gate":"Lerne 24 Naturorte, zwei Flussgebiete und ein Schneegebiet kennen.","choices":[["Fährten an den Boden anpassen","nose","Du beachtest, wie Wasser, Schnee und Gras den Geruch verändern."],["Die sichere Deckung jeder Landschaft suchen","stealth","Du prüfst zuerst den festen Boden und einen freien Rückweg."]]},
+		{"title":"17 · Die weite Wildnis","text":"Ferne Höhen und neue Auen liegen hinter deinen ersten Wegen. Du bist noch ein junger Wolf. Erfahrung wächst in kleinen Begegnungen; der Körper folgt langsamer, Tag für Tag. Vertraute Gerüche tragen dich auch dort, wo der Wald anders klingt.","ready":visited.size()>=32 and int(skills.nose)>=60,"gate":"Erkunde 32 Gebiete und entwickle deine Nase auf 60.","choices":[["Einen neuen Wechsel ruhig prüfen","nose","Du gehst mit der Geduld deiner bisherigen Erfahrungen."],["Die Verbindung zum Rudel halten","pack","Trotz neuer Wege suchst du immer wieder vertraute Nähe."]]},
+		{"title":"18 · Die Heimat bleibt lebendig","text":"Du kehrst an die Höhle zurück. Die Familie ruht, lauscht und prüft den Wind wie an deinem ersten Tag. Doch deine Erinnerung enthält jetzt viele eigene Wege. Morgen werden neue Gerüche kommen. Du wächst weiter, ohne dass die Zeit einen Sprung macht.","ready":region==0 and pack_contacts>=8 and rested and completed_encounters.size()>=8,"gate":"Erlebe acht Begegnungen, begrüße deine Familie achtmal und kehre zum Ruhen an die Rudelhöhle zurück.","choices":[["Nahe bei der Familie ruhen","pack","Vertraute Körperwärme und Gerüche begleiten deinen nächsten ruhigen Moment."],["Vor dem Ruhen dem Wald lauschen","stealth","Du hörst die Umgebung und lässt deine Pfoten still werden."]]}
+
 	]
 
 func choose_story(choice: int) -> bool:
@@ -148,52 +331,162 @@ func record(message: String) -> void:
 
 func save_to(path: String = "") -> bool:
 	if path.is_empty():path=save_path
-	var file := FileAccess.open(path,FileAccess.WRITE)
-	if file==null: return false
-	file.store_string(JSON.stringify({"version":3,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal}))
+	# A killed Android process must not erase the previous valid save halfway
+	# through an autosave. Commit only a fully flushed temporary JSON file.
+	var pending_path := path+".pending"
+	var file := FileAccess.open(pending_path,FileAccess.WRITE)
+	if file==null:return false
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen}))
+	file.flush()
+	var write_ok := file.get_error()==OK
+	file.close()
+	if not write_ok:
+		DirAccess.remove_absolute(pending_path)
+		return false
+	if DirAccess.rename_absolute(pending_path,path)!=OK:
+		DirAccess.remove_absolute(pending_path)
+		return false
 	return true
 
 func load_from(path: String = "") -> bool:
 	if path.is_empty():path=save_path
 	if not FileAccess.file_exists(path):return false
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if not data is Dictionary or int(data.get("version",0)) not in [1,2,3]:return false
-	if not data.get("pos") is Array or data.pos.size()!=2:return false
-	region=clampi(int(data.get("region",0)),0,WolfWorldData.REGIONS.size()-1)
+	if not data is Dictionary:return false
+	var version := int(_safe_number(data.get("version"),0))
+	if version not in [1,2,3,4]:return false
+	if not _valid_point_array(data.get("pos")):return false
+	region=clampi(int(_safe_number(data.get("region"),0)),0,WolfWorldData.REGIONS.size()-1)
 	pos=Vector2(clampf(float(data.pos[0]),20,3180),clampf(float(data.pos[1]),20,3180))
+	facing=Vector2.UP
 	var f = data.get("facing",[0,-1])
-	if f is Array and f.size()==2:facing=Vector2(float(f[0]),float(f[1])).normalized()
-	for key in ["hunger","thirst","energy","bond"]: set(key,clampf(float(data.get(key,80)),0,100))
-	elapsed=maxf(0,float(data.get("elapsed",0)))
-	food_cooldown=maxf(0,float(data.get("food_cooldown",0)))
-	for key in ["found","observations","journal","completed","sites","story_choices"]:
+	if _valid_point_array(f):
+		var direction := Vector2(float(f[0]),float(f[1]))
+		if direction.length_squared()>0.001:facing=direction.normalized()
+	for key in ["hunger","thirst","energy","bond"]:set(key,clampf(_safe_number(data.get(key),80),0,100))
+	elapsed=maxf(0,_safe_number(data.get("elapsed"),0))
+	food_cooldown=maxf(0,_safe_number(data.get("food_cooldown"),0))
+	for key in ["found","observations","journal","completed","sites","story_choices","completed_encounters","routine_seen"]:
 		var arr: Array[String]=[]
 		if data.get(key) is Array:
 			for value in data[key]:
-				if value is String:arr.append(value)
+				if not value is String or not _valid_saved_string(key,value):continue
+				if key in ["journal","story_choices"] or not arr.has(value):arr.append(value)
+		if key=="journal" and arr.size()>300:arr.resize(300)
+		if key=="story_choices" and arr.size()>story_scenes().size():arr.resize(story_scenes().size())
 		set(key,arr)
 	for key in ["visited","landmarks","discoveries","marked"]:
 		var arr: Array[int]=[]
 		if data.get(key) is Array:
 			for value in data[key]:
-				if int(value)>=0 and int(value)<WolfWorldData.REGIONS.size() and not arr.has(int(value)):arr.append(int(value))
+				var index := int(_safe_number(value,-1))
+				if index>=0 and index<WolfWorldData.REGIONS.size() and not arr.has(index):arr.append(index)
 		set(key,arr)
-	if int(data.version)==1:pos*=2.0
-	xp=maxi(0,int(data.get("xp",completed.size()*25)))
-	pack_contacts=maxi(0,int(data.get("pack_contacts",0)))
-	distance_walked=maxf(0,float(data.get("distance_walked",0)))
+	if version==1:pos=(pos*2.0).clamp(Vector2(20,20),Vector2(3180,3180))
+	xp=maxi(0,int(_safe_number(data.get("xp"),completed.size()*25)))
+	pack_contacts=maxi(0,int(_safe_number(data.get("pack_contacts"),0)))
+	distance_walked=maxf(0,_safe_number(data.get("distance_walked"),0))
 	if not visited.has(region):visited.append(region)
-	story_step=clampi(int(data.get("story_step",0)),0,story_scenes().size())
-	if data.get("skills") is Dictionary:
-		for skill in skills:skills[skill]=clampi(int(data.skills.get(skill,0)),0,100)
+	story_step=clampi(int(_safe_number(data.get("story_step"),0)),0,story_scenes().size())
+	var saved_skills: Dictionary=data.get("skills") if data.get("skills") is Dictionary else {}
+	for skill in skills:skills[skill]=clampi(int(_safe_number(saved_skills.get(skill),0)),0,100)
 	escort=bool(data.get("escort",false))
-	waypoint_region=clampi(int(data.get("waypoint_region",-1)),-1,WolfWorldData.REGIONS.size()-1)
+	waypoint_region=clampi(int(_safe_number(data.get("waypoint_region"),-1)),-1,WolfWorldData.REGIONS.size()-1)
+	waypoint_pos=Vector2.ZERO
 	var waypoint=data.get("waypoint_pos",[0,0])
-	if waypoint is Array and waypoint.size()==2:waypoint_pos=Vector2(float(waypoint[0]),float(waypoint[1])).clamp(Vector2.ZERO,WolfWorldData.SIZE)
+	if _valid_point_array(waypoint):waypoint_pos=Vector2(float(waypoint[0]),float(waypoint[1])).clamp(Vector2.ZERO,WolfWorldData.SIZE)
+	else:waypoint_region=-1
 	tracked_quest=str(data.get("tracked_quest",""))
 	for preference in ["sound_enabled","reduced_motion","weather_enabled"]:set(preference,bool(data.get(preference,true if preference!="reduced_motion" else false)))
 	map_reveal=bool(data.get("map_reveal",false))
+	camera_follow=data.camera_follow if data.get("camera_follow") is bool else false
+	smooth_edges=data.smooth_edges if data.get("smooth_edges") is bool else true
 	drank=bool(data.get("drank",false))
 	rested=bool(data.get("rested",false))
 	howled=bool(data.get("howled",false))
+	var saved_actions: Dictionary=data.get("action_counts") if data.get("action_counts") is Dictionary else {}
+	for key in action_counts:action_counts[key]=clampi(int(_safe_number(saved_actions.get(key),0)),0,100000000)
+	encounter_serial=maxi(completed_encounters.size(),int(_safe_number(data.get("encounter_serial"),completed_encounters.size())))
+	for identifier in completed_encounters:encounter_serial=maxi(encounter_serial,int(identifier.split(":")[2])+1)
+	active_encounter=_load_encounter(data.get("active_encounter",{}))
+	if not active_encounter.is_empty():encounter_serial=maxi(encounter_serial,int(str(active_encounter.id).split(":")[2]))
+	encounter_preview_key=""
+	encounter_preview={}
 	return true
+
+
+func _save_encounter() -> Dictionary:
+	if active_encounter.is_empty():return {}
+	var result := active_encounter.duplicate(true)
+	var point: Vector2=result.target_pos
+	result.target_pos=[point.x,point.y]
+	return result
+
+func _load_encounter(value: Variant) -> Dictionary:
+	if not value is Dictionary or value.is_empty():return {}
+	var required := ["id","title","text","task","hint","skill","goal","reward","region","target_region","target_pos","baseline"]
+	for key in required:
+		if not value.has(key):return {}
+	for key in ["id","title","text","task","hint","skill"]:
+		if not value[key] is String or value[key].length()>6000:return {}
+	if not _valid_saved_string("completed_encounters",value.id):return {}
+	var tasks := {"tracks":[3,"nose"],"sites":[2,"nose"],"journey":[1200,"nose"],"visit":[1,"nose"],"observe":[1,"stealth"],"water_rest":[2,"pack"],"family":[2,"pack"]}
+	if not tasks.has(value.task):return {}
+	var origin := int(_safe_number(value.region,-1))
+	var target := int(_safe_number(value.target_region,-1))
+	if origin<0 or origin>=WolfWorldData.REGIONS.size() or target<0 or target>=WolfWorldData.REGIONS.size():return {}
+	if int(value.id.split(":")[1])!=origin:return {}
+	if not _valid_point_array(value.target_pos) or not value.baseline is Dictionary:return {}
+	for key in ["found","sites","walk","actions"]:
+		if not value.baseline.has(key):return {}
+	if not value.baseline.actions is Dictionary:return {}
+	if value.task=="visit" and not WolfWorldData.REGIONS[origin].links.values().has(target):return {}
+	if value.task=="observe" and value.get("detail","") not in ["Reh","Hase","Fuchs"]:return {}
+	var result: Dictionary=value.duplicate(true)
+	result.region=origin
+	result.target_region=0 if value.task=="family" else target if value.task=="visit" else origin
+	result.target_pos=Vector2(float(value.target_pos[0]),float(value.target_pos[1])).clamp(Vector2(20,20),Vector2(3180,3180))
+	result.goal=int(tasks[value.task][0])
+	result.skill=str(tasks[value.task][1])
+	result.reward=18
+	var baseline: Dictionary=result.baseline
+	baseline.found=clampi(int(_safe_number(baseline.found,0)),0,_regional_count(found,origin))
+	baseline.sites=clampi(int(_safe_number(baseline.sites,0)),0,_regional_count(sites,origin))
+	baseline.walk=clampf(_safe_number(baseline.walk,0),0,distance_walked)
+	if value.task=="tracks" and int(baseline.found)>24:return {}
+	if value.task=="sites" and int(baseline.sites)>WolfWorldData.SITES_PER_REGION-2:return {}
+	var baseline_actions := {}
+	for action in action_counts:baseline_actions[action]=clampi(int(_safe_number(baseline.actions.get(action),0)),0,int(action_counts[action]))
+	baseline.actions=baseline_actions
+	for flag in ["drank_after_start","rested_after_drink","greeted_family","family_howl"]:result[flag]=value.get(flag) if value.get(flag) is bool else false
+	if not result.drank_after_start:result.rested_after_drink=false
+	if completed_encounters.has(result.id):return {}
+	return result
+
+func _safe_number(value: Variant,fallback: float) -> float:
+	if value is int or value is float:
+		var number := float(value)
+		return number if is_finite(number) else fallback
+	return fallback
+
+func _valid_point_array(value: Variant) -> bool:
+	if not value is Array or value.size()!=2:return false
+	for component in value:
+		if not (component is int or component is float) or not is_finite(float(component)):return false
+	return true
+
+
+func _valid_saved_string(key: String,value: String) -> bool:
+	if key=="observations":return value in ["Reh","Hase","Fuchs"]
+	if key in ["found","sites"]:
+		var parts := value.split(":")
+		if parts.size()!=2 or not parts[0].is_valid_int() or not parts[1].is_valid_int():return false
+		return int(parts[0])>=0 and int(parts[0])<WolfWorldData.REGIONS.size() and int(parts[1])>=0 and int(parts[1])<(27 if key=="found" else WolfWorldData.SITES_PER_REGION)
+	if key=="completed_encounters":
+		var parts := value.split(":")
+		if parts.size()!=3:return false
+		for part in parts:
+			if not part.is_valid_int():return false
+		return int(parts[0])>=1 and int(parts[1])>=0 and int(parts[1])<WolfWorldData.REGIONS.size() and int(parts[2])>=0
+	if key=="routine_seen":return value in ["Morgendliche Geruchsrunde","Erkunden und Bewegungen üben","Ruhe in der Deckung","Abendliche Wege","Nacht nahe der Höhle"]
+	return value.length()<=6000

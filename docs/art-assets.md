@@ -17,3 +17,13 @@ Die Dateien in `docs/` sind echte Aufnahmen des laufenden Spiels. Die 3D-Modelle
 - `assets/fonts/DejaVuSerif.ttf`: DejaVu Serif; Lizenz und Herkunft in `assets/fonts/LICENSE.txt`.
 
 Die Bilder in `docs/` sind Aufnahmen des Godot-Spiels unter Linux mit Software-Rendering. Keine Konzeptbilder werden als Spielaufnahmen ausgegeben.
+
+## Erweiterung 0.4.0
+
+- Eigene anatomische Mesh-Modelle mit zusätzlichen Fellpartien, Schnauzen, Augen, Pfoten und beweglichen Knien; Arten teilen zusammengefasste Meshes und Materialien zur Laufzeit.
+- Eigene Geometrien für Farne, Gräser, Schilf, Blumen, Holz und Landschaftsorte. Keine externen Modellpakete.
+- `assets/wild-sky.gdshader`: eigener Tageshimmel mit Wolken, Sternen und Mond; `assets/wilderness.gdshader`: eigene saisonale Boden- und Wasseroberflächen.
+- `scripts/menu_art.gd`: prozedural gezeichnete Wald- und Flussillustrationen mit dem vorhandenen originalen Wolfporträt.
+- `scripts/cartography.gd`: gezeichnete Kartenflächen, Höhenlinien, Vegetationszeichen, Kompass und Maßstab aus tatsächlichen Weltdaten.
+
+Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellungen entstehen aus eigenem Code und Modellgeometrie.

@@ -1,31 +1,107 @@
 class_name WolfForestMesh
 extends RefCounted
 
+# Small original botanical meshes, shared by MultiMeshes in every region.
 static var cache: Dictionary = {}
+
+static func triangle(st: SurfaceTool,a: Vector3,b: Vector3,c: Vector3,color: Color) -> void:
+	for p in [a,b,c]:
+		st.set_color(color)
+		st.add_vertex(p)
 
 static func get_mesh(kind: String) -> Mesh:
 	if cache.has(kind):return cache[kind]
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var segments := 12
-	var rows := 9 if kind=="pine" else 7
-	for j in range(rows):
-		for i in range(segments):
-			for coord in [Vector2i(j,i),Vector2i(j+1,i),Vector2i(j+1,i+1),Vector2i(j,i),Vector2i(j+1,i+1),Vector2i(j,i+1)]:
-				var a := float(coord.y)/segments*TAU
-				var t := float(coord.x)/rows
-				var r := 1.0
-				var y := t-0.5
-				if kind=="pine":
-					r=pow(1-t,0.65)*(0.87+0.13*sin(a*5+t*12))
-					y+=sin(a*5+t*15)*0.025*(1-t)
-				elif kind=="leaf":
-					r=sin(t*PI)*(0.91+sin(a*4+t*14)*0.09)
-					y=cos(t*PI)*0.5
-				elif kind=="trunk":r=0.5*(1-t*0.3)*(0.94+sin(a*5+t*9)*0.06)
-				else:r=sin(t*PI)*(0.87+sin(a*3+t*8)*0.13);y=cos(t*PI)*0.5
-				st.add_vertex(Vector3(cos(a)*r,y,sin(a)*r))
+	if kind.begins_with("track_"):
+		build_footprint(st,kind)
+	elif kind in ["grass","fern","reed","flower"]:
+		build_botanical(st,kind)
+	else:
+		var segments := 14 if kind in ["leaf","pine"] else 12
+		var rows := 10 if kind=="pine" else 8
+		for j in range(rows):
+			for i in range(segments):
+				for coord in [Vector2i(j,i),Vector2i(j+1,i),Vector2i(j+1,i+1),Vector2i(j,i),Vector2i(j+1,i+1),Vector2i(j,i+1)]:
+					var a := float(coord.y)/segments*TAU
+					var t := float(coord.x)/rows
+					var r := 1.0
+					var y := t-0.5
+					var p := Vector3.ZERO
+					if kind=="pine":
+						r=pow(1-t,0.78)*(0.90+0.10*sin(a*6+t*8))
+						y+=sin(a*6+t*11)*0.035*(1-t)
+					elif kind=="leaf":
+						r=pow(sin(t*PI),0.84)*(0.91+sin(a*5+t*13)*0.08)
+						y=cos(t*PI)*0.5+sin(a*3)*0.045*sin(t*PI)
+					elif kind in ["trunk","log"]:
+						r=0.5*(1-t*0.32)*(0.94+sin(a*7+t*5)*0.055)
+						if kind=="trunk":r*=1.0+pow(1.0-t,7)*0.56
+					elif kind=="ridge":
+						r=pow(1-t,0.92)*(0.77+sin(a*3)*0.14+cos(a*7+t*6)*0.07)
+						y=t-0.5
+					else:
+						r=sin(t*PI)*(0.83+sin(a*3+t*8)*0.14)
+						y=cos(t*PI)*0.5
+					p=Vector3(cos(a)*r,y,sin(a)*r)
+					if kind=="log":p=Vector3(p.x,p.z,y)
+					if kind=="leaf":p.x+=sin(t*PI)*0.075
+					var shade := 0.91+sin(a*3+t*7)*0.045+0.09*t
+					st.set_color(Color(shade,shade,shade,1))
+					st.add_vertex(p)
+	st.index()
 	st.generate_normals()
 	var mesh := st.commit()
 	cache[kind]=mesh
 	return mesh
+
+static func footprint_pad(st: SurfaceTool,center: Vector2,radii: Vector2) -> void:
+	for i in range(12):
+		var a := float(i)/12.0*TAU
+		var b := float(i+1)/12.0*TAU
+		triangle(st,Vector3(center.x,0,center.y),Vector3(center.x+cos(b)*radii.x,0,center.y+sin(b)*radii.y),Vector3(center.x+cos(a)*radii.x,0,center.y+sin(a)*radii.y),Color.WHITE)
+
+static func build_footprint(st: SurfaceTool,kind: String) -> void:
+	for side in [-1,1]:
+		var p := Vector2(side*.22,side*.13)
+		if kind=="track_deer":
+			for hoof in [-1,1]:footprint_pad(st,p+Vector2(hoof*.034,0),Vector2(.026,.095))
+		elif kind=="track_rabbit":
+			footprint_pad(st,Vector2(side*.18,-.13),Vector2(.045,.13))
+			footprint_pad(st,Vector2(side*.10,.18+side*.05),Vector2(.038,.052))
+		else:
+			footprint_pad(st,p,Vector2(.079,.062))
+			for toe in range(4):footprint_pad(st,p+Vector2((toe-1.5)*.052,-.073 if toe in [0,3] else -.104),Vector2(.026,.033))
+
+static func build_botanical(st: SurfaceTool,kind: String) -> void:
+	if kind=="fern":
+		for frond in range(6):
+			var angle := frond*TAU/6.0
+			var direction := Vector3(cos(angle),0,sin(angle))
+			var side := Vector3(-sin(angle),0,cos(angle))
+			for leaf in range(5):
+				var t := 0.12+float(leaf)*0.16
+				var root := direction*t+Vector3(0,sin(t*PI)*0.55,0)
+				var tip := direction*(t+0.19)+Vector3(0,sin((t+0.18)*PI)*0.55,0)
+				var width := (1-t)*0.20
+				for sign_value in [-1.0,1.0]:
+					triangle(st,root,root+side*width*sign_value+direction*0.08,tip,Color(0.89+t*0.08,0.99,0.84,1))
+		return
+	for blade in range(7 if kind!="flower" else 4):
+		var angle := blade*2.399
+		var radius := 0.20 if kind=="reed" else 0.35
+		var root := Vector3(cos(angle)*radius,0,sin(angle)*radius)
+		var height := 0.55+sin(blade*1.3)*0.13 if kind=="grass" else 1.2+sin(blade*1.2)*0.2 if kind=="reed" else 0.7
+		var side := Vector3(-sin(angle),0,cos(angle))*(0.027 if kind=="reed" else 0.06)
+		var bend := Vector3(cos(angle)*0.19,height,sin(angle)*0.19)
+		triangle(st,root-side,root+side,root+bend,Color(0.89,0.98,0.82,1))
+		if kind=="flower":
+			var centre := root+bend
+			for petal in range(5):
+				var a := petal*TAU/5.0
+				var b := (petal+0.65)*TAU/5.0
+				triangle(st,centre,centre+Vector3(cos(a)*0.09,0.022,sin(a)*0.09),centre+Vector3(cos(b)*0.09,0.018,sin(b)*0.09),Color("#f5dec3") if blade%2==0 else Color("#ded1ed"))
+		elif kind=="reed":
+			var tip := root+bend
+			var offset := side*1.8
+			triangle(st,tip-offset,tip+offset,tip+Vector3(0,0.21,0),Color("#978263"))

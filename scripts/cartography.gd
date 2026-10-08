@@ -15,6 +15,8 @@ var dragged := false
 var mouse_down := false
 var touches: Dictionary = {}
 var pinch_length := 0.0
+var region_data: Dictionary = {}
+var loaded_region := -1
 
 func _ready() -> void:
 	custom_minimum_size=Vector2(0,380)
@@ -27,14 +29,15 @@ func _ready() -> void:
 func center_on_player() -> void:
 	if game==null:return
 	if local_region>=0:
+		if local_region!=game.state.region:set_local(game.state.region)
 		pan=(Vector2(1600,1600)-game.state.pos)*local_scale()
 	else:
 		var coord: Vector2i=WolfWorldData.REGIONS[game.state.region].coord
-		pan=(Vector2(4,4)-Vector2(coord)-Vector2(0.5,0.5))*cell_size()
+		pan=(Vector2.ONE*WolfWorldData.GRID_SIZE*0.5-Vector2(coord)-Vector2(0.5,0.5))*cell_size()
 	queue_redraw()
 
 func cell_size() -> float:
-	return minf(size.x,size.y)/8.0*magnification
+	return minf(size.x,size.y)/float(WolfWorldData.GRID_SIZE)*magnification
 
 func local_scale() -> float:
 	return minf(size.x,size.y)/3200.0*magnification
@@ -47,6 +50,8 @@ func zoom_by(factor: float) -> void:
 
 func set_local(region: int) -> void:
 	local_region=region
+	loaded_region=-1
+	region_data={}
 	magnification=1
 	pan=Vector2.ZERO
 	queue_redraw()
@@ -96,7 +101,7 @@ func _select(p: Vector2) -> void:
 		var point := (p-size*0.5-pan)/local_scale()+Vector2(1600,1600)
 		if Rect2(Vector2.ZERO,WolfWorldData.SIZE).has_point(point):place_selected.emit(local_region,point)
 	else:
-		var c := (p-size*0.5-pan)/cell_size()+Vector2(4,4)
+		var c := (p-size*0.5-pan)/cell_size()+Vector2.ONE*WolfWorldData.GRID_SIZE*0.5
 		var index := WolfWorldData.index_at(Vector2i(floori(c.x),floori(c.y)))
 		if index>=0:selected=index;region_selected.emit(index);queue_redraw()
 
@@ -105,13 +110,34 @@ func _draw() -> void:
 	draw_style_box(game.panel_style(Color("#d5c9a6"),14),Rect2(Vector2.ZERO,size))
 	if local_region>=0:_local()
 	else:_world()
-	draw_string(ThemeDB.fallback_font,Vector2(size.x-32,26),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color("#243e34"))
-	draw_line(Vector2(size.x-27,34),Vector2(size.x-27,48),Color("#243e34"),2)
+	_compass(Vector2(size.x-30,36))
+	draw_rect(Rect2(8,size.y-30,195,21),Color(0.89,0.85,0.69,0.88))
 	draw_string(ThemeDB.fallback_font,Vector2(12,size.y-12),"Ziehen · Aufziehen · Tippen",HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#253e36"))
+	draw_rect(Rect2(3,3,size.x-6,size.y-6),Color("#657857"),false,1.5)
+	_scale_bar()
+
+func _compass(p: Vector2) -> void:
+	var ink := Color("#2d4c3d")
+	draw_circle(p,22,Color(0.88,0.86,0.68,0.9))
+	draw_arc(p,20,0,TAU,32,ink,1,true)
+	draw_colored_polygon(PackedVector2Array([p+Vector2(0,-15),p+Vector2(-5,5),p+Vector2(0,1)]),ink)
+	draw_colored_polygon(PackedVector2Array([p+Vector2(0,15),p+Vector2(5,-5),p+Vector2(0,-1)]),ink.lightened(0.4))
+	draw_string(ThemeDB.fallback_font,p+Vector2(-5,-23),"N",HORIZONTAL_ALIGNMENT_LEFT,-1,12,ink)
+
+func _scale_bar() -> void:
+	var ink := Color("#365140")
+	var length := 800*local_scale() if local_region>=0 else cell_size()*2
+	if length>size.x*0.38:length*=0.5
+	var p := Vector2(size.x-15-length,size.y-18)
+	draw_rect(Rect2(p-Vector2(6,16),Vector2(length+12,24)),Color(0.89,0.85,0.69,0.86))
+	draw_line(p,p+Vector2(length,0),ink,2)
+	for x in [0.0,length]:draw_line(p+Vector2(x,-4),p+Vector2(x,3),ink,1)
+	var text := "%d Schritte"%int(length/local_scale()/25) if local_region>=0 else "%d Gebiete"%roundi(length/cell_size())
+	draw_string(ThemeDB.fallback_font,p+Vector2(0,-6),text,HORIZONTAL_ALIGNMENT_CENTER,length,10,ink)
 
 func _world() -> void:
 	var cell := cell_size()
-	var origin := size*0.5+pan-Vector2(4,4)*cell
+	var origin := size*0.5+pan-Vector2.ONE*WolfWorldData.GRID_SIZE*0.5*cell
 	for index in range(WolfWorldData.REGIONS.size()):
 		var region: Dictionary=WolfWorldData.REGIONS[index]
 		var p: Vector2=origin+Vector2(region.coord)*cell
@@ -119,14 +145,18 @@ func _world() -> void:
 		if not rect.intersects(Rect2(Vector2.ZERO,size)):continue
 		var known: bool=game.state.visited.has(index) or game.state.map_reveal
 		var c := Color(region.ground)
-		draw_rect(rect,c.lerp(Color("#9d9e82"),0.7) if not known else c)
+		var paper := c.lerp(Color("#ded5ae"),0.30)
+		draw_rect(rect,paper.lerp(Color("#aaa98d"),0.60) if not known else paper)
 		var random := RandomNumberGenerator.new()
 		random.seed=region.seed
 		for i in range(9):
 			var q := p+Vector2(random.randf_range(0.1,0.9),random.randf_range(0.1,0.9))*cell
 			if region.biome in ["snow","alpine"]:
 				draw_colored_polygon(PackedVector2Array([q+Vector2(-cell*0.14,cell*0.06),q+Vector2(0,-cell*0.15),q+Vector2(cell*0.14,cell*0.06)]),c.darkened(0.22))
-			else:draw_circle(q,cell*0.065,c.darkened(0.14))
+			else:
+				var tree := PackedVector2Array([q-Vector2(0,cell*0.08),q+Vector2(-cell*0.055,cell*0.05),q+Vector2(cell*0.055,cell*0.05)])
+				draw_colored_polygon(tree,c.darkened(0.19).lerp(Color("#63816a"),0.20))
+				draw_line(q+Vector2(0,cell*0.04),q+Vector2(0,cell*0.09),c.darkened(0.27),1)
 		if region.biome=="river":draw_line(p+Vector2(cell*0.30,0),p+Vector2(cell*0.32,cell),Color("#64adb4"),cell*0.11)
 		if region.biome=="coast":draw_rect(Rect2(p,Vector2(cell*0.22,cell)),Color("#72a6b1"))
 		if region.biome=="lake":draw_circle(p+Vector2(cell*0.67,cell*0.63),cell*0.15,Color("#64adb4"))
@@ -138,7 +168,8 @@ func _world() -> void:
 		if selected==index:draw_rect(rect.grow(-2),Color("#ffe8a0"),false,3)
 		if index==0:_paw(middle,cell*0.075,Color("#4c4937"))
 		if game.state.marked.has(index):draw_arc(middle,cell*0.14,0,TAU,20,Color("#f0d990"),1.5)
-		if not known:draw_circle(middle,cell*0.35,Color(0.7,0.7,0.59,0.45))
+		if not known:
+			for cloud in range(3):draw_circle(middle+Vector2((cloud-1)*cell*0.2,sin(index+cloud)*cell*0.12),cell*0.24,Color(0.72,0.73,0.64,0.32))
 		if cell>72:
 			var name: String=region.name if known else "Unerkundet"
 			var font := ThemeDB.fallback_font
@@ -160,12 +191,27 @@ func _local() -> void:
 	var region: Dictionary=WolfWorldData.REGIONS[local_region]
 	var color := Color(region.ground)
 	var rect := Rect2(origin,WolfWorldData.SIZE*scale_value)
-	draw_rect(rect,color)
+	draw_rect(rect,color.lerp(Color("#d9d0a7"),0.25))
 	if not game.state.visited.has(local_region):
 		draw_rect(rect,Color(0.60,0.63,0.53,0.80))
 		draw_string(ThemeDB.fallback_font,Vector2(40,size.y*0.5),"Dieser Ort ist noch unerforscht.",HORIZONTAL_ALIGNMENT_LEFT,-1,19,Color("#334b3d"))
 		return
-	var data: Dictionary=game.world if local_region==game.state.region else WolfWorldData.generate(local_region)
+	if loaded_region!=local_region:
+		region_data=game.world if local_region==game.state.region else WolfWorldData.generate(local_region)
+		loaded_region=local_region
+	var data: Dictionary=region_data
+	for x in range(0,3201,400):
+		draw_line(origin+Vector2(x,0)*scale_value,origin+Vector2(x,3200)*scale_value,Color(0.22,0.35,0.22,0.08),1)
+	for y in range(0,3201,400):
+		draw_line(origin+Vector2(0,y)*scale_value,origin+Vector2(3200,y)*scale_value,Color(0.22,0.35,0.22,0.08),1)
+	if region.biome in ["alpine","snow","meadow","forest"]:
+		for contour in range(6):
+			var ring := PackedVector2Array()
+			for angle in range(49):
+				var t := TAU*angle/48.0
+				var radius := (140+contour*65)*(1.0+0.14*sin(t*3+local_region))
+				ring.append(origin+(Vector2(760,900)+Vector2(cos(t)*1.2,sin(t))*radius)*scale_value)
+			draw_polyline(ring,Color(0.2,0.32,0.19,0.18),1,true)
 	for vertical in [true,false]:
 		var path := WolfWorldData.path_points(local_region,vertical)
 		for i in range(path.size()-1):draw_line(origin+path[i]*scale_value,origin+path[i+1]*scale_value,Color("#ded1a3"),maxf(2,90*scale_value))
@@ -180,14 +226,24 @@ func _local() -> void:
 		var q: Vector2=origin+obj.p*scale_value
 		if not Rect2(Vector2.ZERO,size).grow(15).has_point(q):continue
 		match obj.kind:
-			"tree":draw_circle(q,maxf(1,36*scale_value),color.darkened(0.24))
-			"rock":draw_circle(q,maxf(1,23*scale_value),Color("#9eaa98"))
+			"tree":
+				var r := maxf(1.5,38*scale_value)
+				if obj.variant==0:draw_colored_polygon(PackedVector2Array([q-Vector2(0,r),q+Vector2(-r*0.7,r*0.5),q+Vector2(r*0.7,r*0.5)]),color.darkened(0.27))
+				else:draw_circle(q,r,color.darkened(0.23));draw_circle(q+Vector2(r*0.4,-r*0.35),r*0.7,color.darkened(0.18))
+			"rock":
+				var r := maxf(1.5,23*scale_value)
+				draw_colored_polygon(PackedVector2Array([q+Vector2(-r,r*0.5),q+Vector2(-r*0.3,-r),q+Vector2(r*0.8,-r*0.3),q+Vector2(r,r*0.6)]),Color("#9eaa98"))
 			"water":
 				if obj.variant==0:draw_circle(q,190*obj.scale*scale_value,Color("#52abb8"))
 			"den":_paw(q,5,Color("#584a32"))
 			"discovery":
+				draw_circle(q,6,Color("#405f40"))
 				draw_arc(q,5,0,TAU,16,Color("#f7e098"),2)
-				if magnification>1.3:draw_string(ThemeDB.fallback_font,q+Vector2(8,4),obj.title,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#233e31"))
+				if game.state.sites.has(obj.site):draw_circle(q,2,Color("#eae0b6"))
+				if magnification>1.3:
+					var text_width := ThemeDB.fallback_font.get_string_size(obj.title,HORIZONTAL_ALIGNMENT_LEFT,-1,12).x
+					draw_rect(Rect2(q+Vector2(6,-10),Vector2(text_width+8,17)),Color(0.88,0.85,0.7,0.9))
+					draw_string(ThemeDB.fallback_font,q+Vector2(10,3),obj.title,HORIZONTAL_ALIGNMENT_LEFT,-1,12,Color("#233e31"))
 			"landmark":draw_circle(q,4,Color("#d6c185"))
 			"bridge":draw_line(q-Vector2(12,0),q+Vector2(12,0),Color("#805b35"),5)
 			"house":draw_rect(Rect2(q-Vector2(5,5),Vector2(10,10)),Color("#835738"))

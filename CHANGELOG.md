@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 — 2026-10-08
+
+- 256 gegenseitig verbundene Gebiete im 16×16-Verbund; vierfache Fläche gegenüber 0.3.0. Alte IDs, Seeds und lokale Spielpositionen bleiben erhalten.
+- 1536 Naturorte, zusätzliche Nahrung und Ruheplätze; tatsächlich erreichbare Trinkufer und freigeräumte Ressourcenzugänge.
+- 18 natürliche Storykapitel, 40 Erlebnisse und wiederholbare Wildnisbegegnungen mit neuen Handlungen, Fortschritt, Wegführung und einmaliger Belohnung.
+- Fünf Rudel-Tagesroutinen, vier allmählich wechselnde Jahreszeiten und langsames Körperwachstum.
+- Detailliertere originale 3D-Tiermodelle mit Fell, beweglichen Gelenken, Blinzeln und weicheren Posen; optionaler eigener Wolf in hindernisgeprüfter Folgekamera.
+- Mehr Gräser, Farne, Schilf, Blumen, liegendes Holz und Naturortmodelle; Himmel, saisonale Farben und mehrschichtige Wettereffekte.
+- Illustrierte Menüs, detaillierter Wildnisatlas und lokale Karten, Gebietssuche, Kompass, Maßstab und anklickbare Naturorte.
+- Begrenzter Weltcache und dauerhaft gespeicherte kompakte Tierpositionen; räumlicher Kollisionsindex und Bewegung mit sicheren Teilschritten.
+- Atomare Spielstand-Ersetzung, Migration alter Save-Formate, Validierung beschädigter Aufgaben und echte Aktionszähler.
+- Hintergrundpause, Android-Zurück-Navigation, erreichbare Story-Wasserziele und Ruhen neben Rudelmitgliedern.
+- Vier Prüfskripte für Welt, Gameplay, Grafik und echte Menü-/Controllerabläufe; neue Spielaufnahmen und signierter Android-Build.
+- Neuer dauerhaft gesicherter lokaler Debug-Schlüssel, da der frühere nicht mehr verfügbar war. Ein direktes Android-Update über die alte Signatur ist damit nicht möglich; siehe Installationshinweise.
+
 ## 0.3.0 — 2026-10-08
 
 - 64 gegenseitig verbundene Gebiete im 8×8-Verbund; vierfache Fläche gegenüber 0.2.0 und 64-fache Fläche gegenüber 0.1.0. Bestehende Gebiets-IDs bleiben erhalten.

@@ -122,7 +122,7 @@ func run() -> void:
 			if not reached.has(target):
 				reached.append(target)
 				frontier.append(target)
-	check(reached.size()==64,"all 64 regions reachable without teleporting")
+	check(reached.size()==data.REGIONS.size(),"all %d regions reachable without teleporting"%data.REGIONS.size())
 	# Test observation with a clear line of sight, then a blocking trunk.
 	game.change_region(0,Vector2(800,800))
 	game.world.animals[0].p=Vector2(800,580)
@@ -154,8 +154,9 @@ func run() -> void:
 	root.add_child(animal_model)
 	animal_model.build("wolf")
 	animal_model.animate(PI/2,80,"wandern",0)
+	for i in range(12):animal_model.animate(PI/2,80,"wandern",float(i)/20)
 	var walking_pose: float=animal_model.legs[0].rotation.x
-	animal_model.animate(0,0,"ruhen",0)
+	for i in range(32):animal_model.animate(0,0,"ruhen",0.6+float(i)/20)
 	check(absf(walking_pose)>0.2 and animal_model.torso.position.y<0.5,"articulated animal changes walking and resting poses")
 	animal_model.queue_free()
 	var touch := InputEventScreenTouch.new()
@@ -193,12 +194,10 @@ func run() -> void:
 	check(game.state.elapsed==elapsed_before,"menus pause simulation")
 	game.close_overlay()
 	check(not is_instance_valid(game.overlay),"clean modal close")
-	game.sound.stop()
-	game.sound.stream=null
-	game.ambient.stop()
-	game.ambient.stream=null
+	game._release_audio()
 	game.state=WolfState.new()
 	DirAccess.remove_absolute(WolfState.save_path)
+	DirAccess.remove_absolute(WolfState.save_path+".wildlife.json")
 	root.remove_child(game)
 	game.queue_free()
 	await process_frame

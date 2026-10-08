@@ -30,6 +30,7 @@ func run() -> void:
 	game.toast_time=0
 	await capture("res://docs/wolfs-eye.png")
 	game.show_map()
+	game.state.map_reveal=true
 	await capture("res://docs/world-map.png")
 	game.map_panel.set_local(0)
 	game.map_panel.zoom_by(1.4)
@@ -38,6 +39,8 @@ func run() -> void:
 	await capture("res://docs/story.png")
 	game.show_menu()
 	await capture("res://docs/menu.png")
+	game.show_encounter()
+	await capture("res://docs/encounter.png")
 	game.show_pack()
 	await capture("res://docs/pack.png")
 	game.close_overlay()
@@ -55,4 +58,22 @@ func run() -> void:
 	game.world_view.pitch=-0.12
 	game.toast.text=""
 	await capture("res://docs/pack-3d.png")
+	game.state.pos=Vector2(1690,1800)
+	game.state.facing=Vector2.UP
+	game.world_view.yaw=0.2
+	game.world_view.pitch=-0.15
+	game.switch_camera()
+	game.player_mood="laufen"
+	game.player_gait=0.7
+	game.toast.text=""
+	await capture("res://docs/follow-camera.png")
+	game.set_process(false)
+	game.sound.stream_paused=false;game.ambient.stream_paused=false
+	await create_timer(0.2).timeout
+	game._release_audio()
+	root.remove_child(game);game.queue_free()
+	await process_frame
+	await create_timer(0.15).timeout
+	for path in [WolfState.save_path,WolfState.save_path+".wildlife.json"]:
+		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)
 	quit()
