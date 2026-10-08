@@ -9,6 +9,7 @@ var ground_patches: Array[Dictionary]=[]
 var ground_season := ""
 var ground_chunks: Array[Dictionary]=[]
 var cached_paths: Array[PackedVector2Array]=[]
+var path_mesh: ArrayMesh
 var cached_tree_shadows := 0
 const GROUND_CHUNK := 400.0
 
@@ -65,7 +66,9 @@ func _bake_ground(ground: Color,biome: String) -> void:
 	ground_chunks.clear()
 	cached_tree_shadows=0
 	cached_paths.clear()
-	for vertical in [true,false]:cached_paths.append(WolfWorldData.path_points(game.state.region,vertical))
+	var paths := WolfWorldData.render_paths(game.state.region,game.world.objects)
+	for branch in paths.branches:cached_paths.append(branch.points)
+	path_mesh=WolfWildernessPaths.mesh_2d(paths,seasonal_color(paths.color))
 	var buffers := {}
 	for patch in ground_patches:
 		var buffer := _ground_buffer(buffers,patch.p)
@@ -89,6 +92,7 @@ func _bake_ground(ground: Color,biome: String) -> void:
 		match d.variant:
 			0,1:_ground_disc(buffer,p,r*2,Color(ground.darkened(.1),.30))
 			2,3:
+				if WolfWildernessPaths.contains(p,paths,7):continue
 				if d.variant==3 and biome in ["forest","oak","ruins"]:
 					_ground_fern(buffer,p,maxf(7,r*1.1),grass)
 					continue
@@ -134,10 +138,6 @@ func _draw() -> void:
 	var ground := seasonal_color(Color(WolfWorldData.REGIONS[game.state.region].ground).lerp(Color("#8d9872"),0.08))
 	draw_rect(Rect2(Vector2.ZERO,WolfWorldData.SIZE),ground)
 	_ground_texture(ground,biome)
-	for points in cached_paths:
-		draw_polyline(points,ground.darkened(0.14),92,true)
-		draw_polyline(points,Color("#afaa70") if biome!="snow" else Color("#ebf3f0"),64,true)
-		draw_polyline(points,Color("#beba83") if biome!="snow" else Color("#f8fcfa"),36,true)
 	if biome=="river":
 		var river := PackedVector2Array()
 		for i in range(65):river.append(Vector2(WolfWorldData.river_x(i*50),i*50))
@@ -156,6 +156,7 @@ func _draw() -> void:
 	if biome=="coast":
 		draw_rect(Rect2(0,1535,460,130),Color("#d2c38d"))
 		draw_line(Vector2(0,1540),Vector2(450,1540),Color("#e4d6a1"),6)
+	if path_mesh!=null:draw_mesh(path_mesh,null)
 	# Ground objects first. Taller objects and animals are sorted by depth.
 	var items: Array[Dictionary]=[]
 	for obj in game.world.objects:
@@ -173,7 +174,7 @@ func _draw() -> void:
 		if item.has("object"):_draw_object(item.object,biome)
 		elif item.has("animal"):
 			var a: Dictionary=item.animal
-			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),a.get("attention",0.0))
+			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),a.get("attention",0.0),str(a.get("phase",0.0)))
 		else:_draw_animal(game.state.pos,"wolf",game.state.facing,true,true,game.player_gait,game.player_speed,game.player_mood)
 	for foot in game.state.pawsteps:
 		if bounds.has_point(foot.p):
@@ -366,21 +367,46 @@ func _draw_track(p: Vector2,c: Color,species: String="Wolf") -> void:
 	if game.scent_time>0:
 		draw_arc(p,21,0,TAU,24,Color(c,0.24),2)
 
-static func animal_pose(kind: String,facing: Vector2,gait: float,speed: float,mood: String,reduced: bool=false,attention: float=0.0) -> Dictionary:
+static func animal_pose(kind: String,facing: Vector2,gait: float,speed: float,mood: String,reduced: bool=false,attention: float=0.0,time: float=0.0) -> Dictionary:
 	var cycle := gait*(22.0*.032*TAU)/(.90 if kind=="deer" else .53 if kind=="fox" else .42 if kind=="rabbit" else .65)
 	var resting := speed<1 and mood=="ruhen"
 	var feeding := speed<1 and mood in ["grasen","schnüffeln","trinken"]
 	var lift := sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*5 if kind=="rabbit" and speed>1 else sin(cycle*2)*1.1 if speed>1 else 0.0
 	if reduced:lift=0.0
-	return {"scale":Vector2(1.04,.74) if resting else Vector2(1.03,.94) if mood=="fliehen" else Vector2.ONE,"lift":lift,"head_angle":-.38 if feeding else .12 if attention>.35 else -.06 if mood=="begrüßen" else .0,"head_drop":4.0 if feeding else 0.0,"tilt":clampf(facing.y,-1,1)*(-.10 if facing.x>0 else .10),"frame":posmod(int(cycle*2/PI),4) if speed>1 else 1 if kind=="wolf" else 0}
+	var motion := .25 if reduced else 1.0
+	var breath := sin(time*1.65)*.006*motion if speed<1 else 0.0
+	var head_angle := -.38 if feeding else .12 if attention>.35 else -.06 if mood=="begrüßen" else 0.0
+	if speed<1:head_angle+=(sin(time*2.15)*.022+sin(time*1.07)*.008 if feeding else sin(time*.73)*.025)*motion
+	return {"scale":Vector2(1.04,.74) if resting else Vector2(1.03,.94) if mood=="fliehen" else Vector2.ONE,"breath_scale":Vector2(1+breath,1-breath),"lift":lift,"head_angle":head_angle,"head_drop":4.0 if feeding else 0.0,"tilt":clampf(facing.y,-1,1)*(-.10 if facing.x>0 else .10),"frame":posmod(int(cycle*2/PI),4) if speed>1 else 1 if kind=="wolf" else 0}
 
-func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen",attention: float=0.0) -> void:
+static func blend_animal_pose(previous: Dictionary,current: Dictionary,dt: float) -> Dictionary:
+	# Distance-derived atlas frames keep their timing; only posture eases.
+	var pose := current.duplicate()
+	var weight := 1.0-exp(-clampf(dt,0,.1)*10.0)
+	for key in ["scale","breath_scale"]:pose[key]=previous[key].lerp(current[key],weight)
+	for key in ["head_drop","lift"]:pose[key]=lerpf(previous[key],current[key],weight)
+	for key in ["head_angle","tilt"]:pose[key]=lerp_angle(previous[key],current[key],weight)
+	return pose
+
+func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen",attention: float=0.0,animation_key: String="player") -> void:
 	gait=WolfAnimalModel.renderer_gait(gait,player)
 	_shadow(p+Vector2(0,18),29 if kind!="rabbit" else 17)
 	var index := 12 if kind=="deer" else 13 if kind=="rabbit" else 14 if kind=="fox" else 8
 	if kind=="wolf":
 		index=10 if absf(facing.x)>absf(facing.y) and facing.x<0 else 11 if absf(facing.x)>absf(facing.y) else 8 if facing.y<0 else 9
-	var pose := animal_pose(kind,facing,gait,speed,mood,game.state.reduced_motion,attention)
+	var pose_time: float=game.clock+float(posmod(hash(animation_key),1000))*.006
+	var pose := animal_pose(kind,facing,gait,speed,mood,game.state.reduced_motion,attention,pose_time)
+	# Individual keys survive depth sorting. Keep only a bounded regional
+	# cache so a passing animal cannot inherit another animal's resting pose.
+	var memory: Dictionary=get_meta("animated_poses",{})
+	if memory.get("region",-1)!=game.state.region:memory={"region":game.state.region,"animals":{}}
+	var key := "player" if player else kind+":"+animation_key
+	if memory.animals.has(key):
+		var previous: Dictionary=memory.animals[key]
+		if game.clock>=previous.time:pose=blend_animal_pose(previous.pose,pose,game.clock-previous.time)
+	if memory.animals.size()>=24 and not memory.animals.has(key):memory.animals.clear()
+	memory.animals[key]={"time":game.clock,"pose":pose}
+	set_meta("animated_poses",memory)
 	var bob: float=-pose.lift
 	var dimensions := Vector2(104,112) if kind=="wolf" else Vector2(112,107) if kind=="deer" else Vector2(67,68) if kind=="rabbit" else Vector2(96,84)
 	if index==8:dimensions.x=65
@@ -395,13 +421,14 @@ func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bo
 		var walk_size := Vector2(124,124)*(1.25 if not young else 1.0)
 		if special<0 and absf(facing.y)>absf(facing.x):walk_size=Vector2(108,133)*(1.25 if not young else 1.0)
 		if player:walk_size*=game.state.growth()/0.72
+		walk_size*=pose.breath_scale
 		var rect := Rect2(p+Vector2(0,-14+bob)-walk_size*0.5,walk_size)
 		if special>=0 and facing.x>0:rect.position.x+=rect.size.x;rect.size.x=-rect.size.x
 		draw_texture_rect(texture,rect,false)
 	else:
 		var row := 0 if kind=="deer" else 1 if kind=="rabbit" else 2
 		var texture := WolfAtlas.wildlife(row,pose.frame)
-		dimensions*=pose.scale
+		dimensions*=pose.scale*pose.breath_scale
 		if absf(facing.y)>absf(facing.x):dimensions.x*=.87
 		var camera_base: Vector2=get_viewport_rect().size*Vector2(.5,.48)-game.state.pos*zoom
 		var anchor := p+Vector2(0,-12+bob+(10.0 if mood=="ruhen" else 0.0))

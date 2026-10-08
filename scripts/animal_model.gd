@@ -27,6 +27,16 @@ var phase := 0.0
 var body_scale := 1.0
 var body_height := 0.79
 var last_time := -1.0
+var _last_cycle := 0.0
+var _movement := 0.0
+var _rest_amount := 0.0
+var _step_velocity := 6.0
+var _leg_cycles: Array[float] = [0.0,0.0,0.0,0.0]
+var _leg_duties: Array[float] = [.66,.66,.66,.66]
+var _swing_starts: Array[float] = [0.0,0.0,0.0,0.0]
+var _swing_from: Array[float] = [0.0,0.0,0.0,0.0]
+var _swing_to: Array[float] = [0.0,0.0,0.0,0.0]
+var _was_moving := false
 var _surfaces: Dictionary = {}
 var _parents: Dictionary = {}
 
@@ -234,9 +244,9 @@ func set_foot_heights(heights: Array[float]) -> void:
 func foot_position(index: int) -> Vector3:
 	return torso.transform*legs[index].transform*knees[index].transform*paws[index].position
 
-func _solve_leg(index: int,target: Vector3,blend: float) -> void:
+func _solve_leg(index: int,target: Vector3,blend: float,torso_inverse: Transform3D) -> void:
 	var geometry: Vector3=limb_geometry[index]
-	var local: Vector3=torso.transform.affine_inverse()*target-legs[index].position
+	var local: Vector3=torso_inverse*target-legs[index].position
 	var upper_length := Vector2(geometry.x,geometry.z).length()
 	var lower_length := Vector2(geometry.y,.082).length()
 	var distance := clampf(Vector2(local.y,local.z).length(),absf(upper_length-lower_length)+.001,upper_length+lower_length-.001)
@@ -253,57 +263,120 @@ func _solve_leg(index: int,target: Vector3,blend: float) -> void:
 
 func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=false,attention: float=0.0,look_angle: float=0.0) -> void:
 	if torso==null:return
-	var movement := clampf(speed/80.0,0,1)
-	var moving := movement>.035
+	var cycle := cycle_phase(gait)
+	# A fresh/reset pose is deterministic; ordinary frames preserve planted
+	# pads and finish airborne steps instead of snapping into a neutral pose.
+	# Time-zero snapshots support anatomical checks. Repeated camera sync at
+	# the same positive clock leaves the current phase untouched.
+	var immediate := last_time<0 or time<last_time or (time==0.0 and last_time==0.0) or absf(cycle-_last_cycle)>PI
+	var dt := minf(maxf(time-last_time,0.0),.1) if not immediate else 0.0
+	var blend := 1.0 if immediate else 1.0-exp(-dt*10.0)
+	var distance_phase := 0.0 if immediate else maxf(0.0,cycle-_last_cycle)
+	_movement=lerpf(_movement,clampf(speed/80.0,0,1),blend)
+	var movement := _movement
+	var moving := speed>2.8
+	if moving:
+		_step_velocity=maxf(6.0,speed*.032/maxf(.1,stride_length()*scale.x)*TAU) if immediate else maxf(6.0,distance_phase/maxf(dt,.001))
 	var motion := .25 if reduced else 1.0
-	var blend := 1.0 if last_time<0 or time<=last_time else 1.0-exp(-minf(time-last_time,.1)*14.0)
 	last_time=time
+	_last_cycle=cycle
 	var rabbit := kind=="rabbit"
 	var resting := not moving and mood=="ruhen"
 	var greeting := mood=="begrüßen"
 	var escaping := mood=="fliehen"
-	var cycle := cycle_phase(gait)
-	var duty := .32 if rabbit else .58 if escaping else .66
+	_rest_amount=lerpf(_rest_amount,1.0 if resting else 0.0,blend)
+	var duty_goal := .32 if rabbit else .58 if escaping else .66
 	var body_drop := .105 if kind=="deer" else .055 if kind=="fox" else .05 if rabbit else .065
-	var target_height := body_height-body_drop*movement+sin(cycle*2)*.011*movement*motion
+	var breathing := sin(time*1.65+phase)*.004*motion*(1.0-movement)
+	var target_height := body_height-body_drop*movement+sin(cycle*2)*.011*movement*motion+breathing
 	var lowest_ground := minf(minf(foot_ground[0],foot_ground[1]),minf(foot_ground[2],foot_ground[3]))
 	target_height-=maxf(0,-lowest_ground-.012)
 	if rabbit and moving:target_height+=sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*.055*movement*motion
-	if resting:target_height=(.20 if rabbit else .42 if kind=="deer" else .29 if kind=="fox" else .34)+sin(time*1.6)*.007*motion
+	var rest_height := (.20 if rabbit else .42 if kind=="deer" else .29 if kind=="fox" else .34)+sin(time*1.6+phase)*.007*motion
+	target_height=lerpf(target_height,rest_height,_rest_amount)
+	if moving or foot_planted.has(false):
+		# Ease down before rear-pad landing rather than imposing a sudden
+		# height limit only when the approaching pad has reached the ground.
+		for i in range(4):
+			var geometry: Vector3=limb_geometry[i]
+			var reach := Vector2(geometry.x,geometry.z).length()+Vector2(geometry.y,.082).length()-.012
+			var landing_z := geometry.z-.082-stride_length()*duty_goal*.5
+			var landing_height := foot_ground[i]+paw_sizes[i].y-legs[i].position.y+sqrt(maxf(.001,reach*reach-landing_z*landing_z))
+			target_height=minf(target_height,landing_height)
 	torso.position.y=lerpf(torso.position.y,target_height,blend)
 	var bow := -.14 if mood=="spielen" and not moving else -.055 if escaping else 0.0
 	torso.rotation.x=lerp_angle(torso.rotation.x,bow+(sin(cycle)*.065*movement*motion if rabbit else 0.0),blend)
 	torso.rotation.z=lerp_angle(torso.rotation.z,sin(cycle)*.012*movement*motion,blend)
-	var offsets: Array=[0.0,PI,PI,0.0] if speed>=80 else [0.0,PI,PI*.65,PI*1.65]
+	# Walk becomes diagonal trot gradually. Correction is limited to swing,
+	# so changing speed never drags a supporting paw across the soil.
+	var trot := smoothstep(45.0,105.0,speed)
+	var offsets: Array[float]=[0.0,PI,lerpf(PI*.65,PI,trot),lerpf(PI*1.65,TAU,trot)]
 	if escaping and kind=="deer":offsets=[0.0,.25,PI,PI+.25]
 	if rabbit:offsets=[PI,PI+.12,0.0,.12]
 	for i in range(4):
-		var phase_value := fposmod(cycle+offsets[i],TAU)/TAU
-		var planted := not moving or phase_value<duty
+		var was_planted := foot_planted[i]
+		var previous_phase := fposmod(_leg_cycles[i],TAU)/TAU
+		if immediate:
+			_leg_cycles[i]=cycle+offsets[i]
+			_leg_duties[i]=duty_goal
+		else:
+			_leg_cycles[i]+=distance_phase
+			if not was_planted:
+				if moving:
+					var error := wrapf(cycle+offsets[i]-_leg_cycles[i],-PI,PI)
+					_leg_cycles[i]+=clampf(error,-distance_phase*.30,distance_phase*.30)
+				else:
+					# Only airborne paws complete a step after travel stops.
+					_leg_cycles[i]+=dt*_step_velocity
+		var phase_value := fposmod(_leg_cycles[i],TAU)/TAU
+		if not immediate and phase_value<previous_phase:_leg_duties[i]=duty_goal
+		var duty := _leg_duties[i]
+		if not immediate and moving and not _was_moving and was_planted and phase_value<duty:
+			# Start the first stance at the actual standing pad, rather than
+			# holding a neutral pad down for an entire front-to-back stride.
+			var neutral_phase := (foot_targets[i].z-legs[i].position.z-limb_geometry[i].z+.082+stride_length()*duty*.5)/stride_length()
+			var phase_shift := maxf(0.0,minf(neutral_phase,duty-.02)-phase_value)
+			_leg_cycles[i]+=phase_shift*TAU
+			phase_value+=phase_shift
+		var planted := (not moving and was_planted) or phase_value<duty
 		var stride := stride_length()*duty
 		var z_offset := 0.0
 		var lift := 0.0
-		if moving:
-			if planted:z_offset=lerpf(-stride*.5,stride*.5,phase_value/duty)
-			else:
-				var swing := (phase_value-duty)/(1.0-duty)
-				z_offset=lerpf(stride*.5,-stride*.5,smoothstep(0,1,swing))
-				lift=sin(swing*PI)*(.15 if rabbit else .12 if kind=="deer" else .095)*movement
-		foot_planted[i]=planted
 		var geometry: Vector3=limb_geometry[i]
-		var target := Vector3(legs[i].position.x,foot_ground[i]+paw_sizes[i].y+lift,legs[i].position.z+geometry.z-.082+z_offset)
-		if resting:
-			# Folded legs, but planted front pads remain above the soil.
-			target.z+=(-.16 if i<2 else -.22)
-		elif mood=="spielen" and not moving:
-			target.z+=-.10 if i<2 else .07
-		foot_targets[i]=target
-	# Let the planted limbs support the body. This is especially necessary
-	# during a low escape stance: a rear hip can otherwise rise just beyond
-	# its reach even though the torso centre is at a sensible height.
+		var base_z := legs[i].position.z+geometry.z-.082
+		if immediate:
+			planted=not moving or phase_value<duty
+			if moving:
+				z_offset=lerpf(-stride*.5,stride*.5,phase_value/duty) if planted else _swing_z(stride*.5,-stride*.5,(phase_value-duty)/(1.0-duty),stride_length()*(1.0-duty))
+				if not planted:lift=_swing_lift((phase_value-duty)/(1.0-duty),movement)
+			_swing_starts[i]=duty
+			_swing_from[i]=stride*.5
+			_swing_to[i]=-stride*.5
+		elif planted and moving:
+			# Forward body travel is -Z. The support pad moves +Z in local
+			# space by exactly the same distance, holding its world position.
+			z_offset=foot_targets[i].z-base_z+distance_phase/TAU*stride_length()
+			if not was_planted:z_offset=_swing_to[i]+phase_value*stride_length()
+		elif not planted:
+			if was_planted:
+				_swing_starts[i]=phase_value
+				_swing_from[i]=foot_targets[i].z-base_z+distance_phase/TAU*stride_length()
+				_swing_to[i]=-stride_length()*duty_goal*.5
+			var swing := clampf((phase_value-_swing_starts[i])/maxf(.02,1.0-_swing_starts[i]),0.0,1.0)
+			z_offset=_swing_z(_swing_from[i],_swing_to[i],swing,stride_length()*(1.0-_swing_starts[i]))
+			lift=_swing_lift(swing,maxf(movement,.35))
+		else:
+			var folded_z := (-.16 if i<2 else -.22)*_rest_amount
+			if mood=="spielen":folded_z+=(-.10 if i<2 else .07)*(1.0-_rest_amount)
+			z_offset=lerpf(foot_targets[i].z-base_z,folded_z,blend)
+		if immediate and not moving:
+			z_offset=(-.16 if i<2 else -.22) if resting else (-.10 if i<2 else .07) if mood=="spielen" else 0.0
+		foot_planted[i]=planted
+		foot_targets[i]=Vector3(legs[i].position.x,foot_ground[i]+paw_sizes[i].y+lift,base_z+z_offset)
+	# Limit body height for all approaching feet as well as supporting ones;
+	# their smooth trajectories must not force a late touchdown body drop.
 	var supported_height := torso.position.y
 	for i in range(4):
-		if not foot_planted[i]:continue
 		var geometry: Vector3=limb_geometry[i]
 		var reach := Vector2(geometry.x,geometry.z).length()+Vector2(geometry.y,.082).length()-.006
 		var hip_offset := torso.basis*legs[i].position
@@ -311,10 +384,13 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 		var vertical := sqrt(maxf(.001,reach*reach-horizontal*horizontal))
 		supported_height=minf(supported_height,foot_targets[i].y-hip_offset.y+vertical)
 	torso.position.y=supported_height
+	var torso_inverse := torso.transform.affine_inverse()
 	for i in range(4):
 		# Solve the current blended torso pose so body breathing cannot push
 		# planted feet into the ground. Locomotion uses the exact distance phase.
-		_solve_leg(i,foot_targets[i],1.0 if foot_planted[i] else blend)
+		# Solve the eased trajectory exactly, rather than easing bone angles
+		# that would leave a newly planted foot floating above the ground.
+		_solve_leg(i,foot_targets[i],1.0,torso_inverse)
 	var neck_angle := -.025+sin(time*1.65)*.015*motion
 	var head_angle := -.045+sin(time*1.1)*.012*motion
 	var alert := clampf(maxf(attention,.6 if greeting else 0.0),0,1)
@@ -332,14 +408,28 @@ func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=fal
 	head.rotation.x=lerp_angle(head.rotation.x,head_angle,blend)
 	head.rotation.y=lerp_angle(head.rotation.y,head_turn,blend)
 	jaw.rotation.x=lerp_angle(jaw.rotation.x,-.12 if mood=="heulen" else -.018*movement,blend)
-	var tail_amount := .34 if mood=="spielen" else .22 if greeting else .025 if escaping else .07
-	tail.rotation.y=lerp_angle(tail.rotation.y,sin(time*(3.4 if greeting or mood=="spielen" else 1.4))*tail_amount*motion,blend)
+	var tail_amount := .28 if mood=="spielen" else .18 if greeting else .025 if escaping else .045
+	var tail_turn := sin(time*(2.7 if greeting or mood=="spielen" else 1.1)+phase)*tail_amount*motion+sin(cycle)*.035*movement*motion
+	tail.rotation.y=lerp_angle(tail.rotation.y,tail_turn,blend)
 	tail.rotation.x=lerp_angle(tail.rotation.x,-.23 if resting else -.20 if greeting or mood=="spielen" else .08 if escaping else sin(time*1.7)*.025*motion,blend)
 	for i in range(ears.size()):
 		var twitch := pow(maxf(0,sin(time*.81+float(i)*2.5)),12)*.11*motion
 		ears[i].rotation.z=lerp_angle(ears[i].rotation.z,(-.1 if i==0 else .1) if resting else twitch*(1 if i==0 else -1),blend)
 		ears[i].rotation.x=lerp_angle(ears[i].rotation.x,-.26 if resting else -.18 if escaping else .12 if greeting else alert*.055,blend)
-		ears[i].rotation.y=lerp_angle(ears[i].rotation.y,clampf(look_angle,-.6,.6)*alert*.35,blend)
+		var ear_turn := clampf(look_angle,-.6,.6)*alert*(.42 if i==0 else .30)
+		ears[i].rotation.y=lerp_angle(ears[i].rotation.y,ear_turn,blend)
 	for eye in eyes:
 		var blink := fposmod(time+phase,7.0 if alert>.35 else 5.8)<.13
 		eye.scale.y=lerpf(eye.scale.y,.09 if resting or blink else 1.0,blend)
+	_was_moving=moving
+
+func _swing_z(from_z: float,to_z: float,t: float,tangent: float) -> float:
+	# Cubic Hermite meets stance with matching local forward velocity, hence
+	# a stationary world pad at both toe-off and landing.
+	var t2 := t*t
+	var t3 := t2*t
+	return (2*t3-3*t2+1)*from_z+(t3-2*t2+t)*tangent+(-2*t3+3*t2)*to_z+(t3-t2)*tangent
+
+func _swing_lift(t: float,amount: float) -> float:
+	var arc := sin(t*PI)
+	return arc*arc*(.15 if kind=="rabbit" else .12 if kind=="deer" else .095)*amount

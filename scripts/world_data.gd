@@ -168,12 +168,17 @@ static func _site_description(biome: String,index: int) -> String:
 	return ecology[biome][index]+" Du prägst dir Wind, Boden und Deckung ein." if ecology.has(biome) else "Du prägst dir die Gerüche und den sicheren Rückweg ein."
 
 static func path_points(region: int, vertical: bool) -> PackedVector2Array:
+	# Legacy generation reservations and terrain retain their saved positions.
+	# Renderers use the independently derived narrow wilderness trails below.
 	var points := PackedVector2Array()
 	for i in range(41):
 		var t := float(i)/40
 		var bend := sin(t*TAU)*sin(t*PI)*140*sin(float(region)*0.7+1.0)
 		points.append(Vector2(1600+bend,t*3200) if vertical else Vector2(t*3200,1600+bend))
 	return points
+
+static func render_paths(region: int,objects: Array=[]) -> Dictionary:
+	return WolfWildernessPaths.for_region(region,objects)
 
 static func on_path(p: Vector2,region: int,margin: float=95) -> bool:
 	var ty := clampf(p.y/3200,0,1)

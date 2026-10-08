@@ -177,10 +177,11 @@ func build_river() -> void:
 			add_shape("reed",world_pos(p),Vector3(0.45,0.77,0.45),Color("#85925d"),float(y)*0.01)
 
 func build_understory(biome: String) -> void:
+	var paths := WolfWorldData.render_paths(game.state.region,game.world.objects)
 	for i in range(game.world.decor.size()):
 		var d: Dictionary=game.world.decor[i]
 		var p: Vector2=d.p
-		if WolfWorldData.on_path(p,game.state.region,48) or WolfWorldData.water_blocked(p,game.state.region):continue
+		if WolfWildernessPaths.contains(p,paths,7) or WolfWorldData.water_blocked(p,game.state.region):continue
 		if i%3==0 and biome in ["snow","alpine","coast"]:continue
 		var kind := "fern" if biome in ["forest","oak","ruins"] and (i%6==0 or d.variant==3 and sin(p.x*.006+p.y*.004)>.15) else "reed" if biome=="marsh" and i%4==0 else "flower" if biome in ["meadow","lake"] and i%7==0 else "grass"
 		if biome=="snow":kind="grass"
@@ -215,21 +216,29 @@ func build_ground() -> void:
 	var m := nature_material(ground,5)
 	n.material_override=m
 	contents.add_child(n)
-	for vertical in [true,false]:
-		var points := WolfWorldData.path_points(game.state.region,vertical)
-		var trail := SurfaceTool.new()
-		trail.begin(Mesh.PRIMITIVE_TRIANGLES)
-		for i in range(points.size()-1):
-			var a: Vector2=points[i]
-			var b: Vector2=points[i+1]
-			var side := Vector2(-(b-a).y,(b-a).x).normalized()*34
-			for p in [a-side,b-side,b+side,a-side,b+side,a+side]:trail.add_vertex(world_pos(p)+Vector3(0,0.015,0))
-		trail.generate_normals()
-		var path_mesh := MeshInstance3D.new()
-		path_mesh.mesh=trail.commit()
-		path_mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		path_mesh.material_override=nature_material(Color("#aa9e79") if WolfWorldData.REGIONS[game.state.region].biome!="snow" else Color("#e4eeec"),6)
-		contents.add_child(path_mesh)
+	var paths := WolfWorldData.render_paths(game.state.region,game.world.objects)
+	var colors := WolfWildernessPaths.vertex_colors(paths,seasonal_color(paths.color))
+	var trail := SurfaceTool.new()
+	trail.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for index in range(paths.vertices.size()):
+		# Compatibility ignores the StandardMaterial sRGB vertex flag.
+		# Calibrate explicitly like the existing soil and instanced palette.
+		trail.set_color(painted_colour(colors[index]))
+		trail.add_vertex(world_pos(paths.vertices[index])+Vector3(0,0.012,0))
+	trail.generate_normals()
+	var path_mesh := MeshInstance3D.new()
+	path_mesh.name="WildernessPaths"
+	path_mesh.mesh=trail.commit()
+	path_mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var path_material := StandardMaterial3D.new()
+	path_material.vertex_color_use_as_albedo=true
+	path_material.vertex_color_is_srgb=false
+	path_material.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+	path_material.cull_mode=BaseMaterial3D.CULL_DISABLED
+	path_material.roughness=0.96
+	path_material.metallic_specular=0.18
+	path_mesh.material_override=path_material
+	contents.add_child(path_mesh)
 
 func build_nature_site(p: Vector3,biome: String,variant: int) -> void:
 	var style := WolfForestMesh.site_style(biome,variant)

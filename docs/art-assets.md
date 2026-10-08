@@ -48,3 +48,8 @@ Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellu
 - Waldlaub, Humus und Moos entstehen aus eigenen Shaderflächen. Sehr nahe niedrige Flora senkt sich sanft unter die Kamera, um den Wolfsblick frei zu halten.
 - Eigene Fell- und Gesichtsflächen bleiben in den vorhandenen Tier-Gelenkmeshes zusammengefasst. Reale NPC-Laufstrecke und 2D-Fressrichtung sind korrigiert. Kein externes Modellpaket und keine übernommenen Simulator-Grafiken.
 - Die neuen Spielaufnahmen und Grafikdetails werden direkt mit Godot 4.5.1 unter Linux aufgenommen. Die originalen PNG-Atlanten bleiben unverändert.
+
+
+## 0.8.0
+
+Die neuen Wildwechsel werden als originale deterministische Geometrie erzeugt und teilen ihre weichen Gabelungen und acht Bodenpaletten zwischen Draufsicht, 3D und Karten. Die Tieranimationen verwenden weiterhin dieselben 21 Gelenkmeshes mit Gelände-Pfotenkontakt; weichere Gangwechsel, auslaufende Landungen und natürliche Kopf-/Ohr-/Rutenbewegungen entstehen im eigenen Code. Keine neuen externen Bild- oder Modellassets. Die Hauptgeschichte ist neu geschriebene friedliche Naturerzählung.

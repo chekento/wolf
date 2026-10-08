@@ -32,7 +32,7 @@ jobs:
           set -o pipefail
           godot --headless --editor --import --quit 2>&1 | tee /tmp/wolf-import.log
           if grep -Eq 'SCRIPT ERROR|^ERROR:' /tmp/wolf-import.log; then exit 1; fi
-          for suite in smoke gameplay_expansion graphics_expansion ui_expansion animal_behavior atlas_expansion ecology_expansion encounter_controls locomotion_expansion living_world landscape_expansion atlas_observation; do
+          for suite in smoke gameplay_expansion graphics_expansion ui_expansion animal_behavior atlas_expansion ecology_expansion encounter_controls locomotion_expansion living_world landscape_expansion atlas_observation path_expansion animation_expansion main_story main_story_controls story_journey; do
             godot --headless --verbose --audio-driver Dummy --script "tests/$suite.gd" 2>&1 | tee "/tmp/wolf-$suite.log"
             if grep -Eq 'SCRIPT ERROR|^ERROR:|instances leaked' "/tmp/wolf-$suite.log"; then exit 1; fi
           done
@@ -62,20 +62,20 @@ jobs:
       - name: Export Android and Web
         run: |
           mkdir -p builds/web
-          godot --headless --export-debug Android builds/Wolf-0.7.0-debug.apk
+          godot --headless --export-debug Android builds/Wolf-0.8.0-debug.apk
           godot --headless --export-release Web builds/web/index.html
           cd builds
-          zip -qr Wolf-0.7.0-web.zip web
-          sha256sum Wolf-0.7.0-debug.apk Wolf-0.7.0-web.zip > SHA256SUMS.txt
-          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs Wolf-0.7.0-debug.apk > Android-verification.txt
-          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Wolf-0.7.0-debug.apk >> Android-verification.txt
-          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 Wolf-0.7.0-debug.apk
+          zip -qr Wolf-0.8.0-web.zip web
+          sha256sum Wolf-0.8.0-debug.apk Wolf-0.8.0-web.zip > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs Wolf-0.8.0-debug.apk > Android-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Wolf-0.8.0-debug.apk >> Android-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 Wolf-0.8.0-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Wolf-0.7.0-Android-and-Web
+          name: Wolf-0.8.0-Android-and-Web
           path: |
-            builds/Wolf-0.7.0-debug.apk
-            builds/Wolf-0.7.0-web.zip
+            builds/Wolf-0.8.0-debug.apk
+            builds/Wolf-0.8.0-web.zip
             builds/SHA256SUMS.txt
             builds/Android-verification.txt
           retention-days: 30

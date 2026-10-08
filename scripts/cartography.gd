@@ -17,6 +17,7 @@ var touches: Dictionary = {}
 var pinch_length := 0.0
 var region_data: Dictionary = {}
 var loaded_region := -1
+var path_mesh: ArrayMesh
 var layers := {"sites":true,"tracks":false,"route":true}
 
 func _ready() -> void:
@@ -211,6 +212,8 @@ func _local() -> void:
 		return
 	if loaded_region!=local_region:
 		region_data=game.world if local_region==game.state.region else WolfWorldData.generate(local_region)
+		var paths := WolfWorldData.render_paths(local_region,region_data.objects)
+		path_mesh=WolfWildernessPaths.mesh_2d(paths,paths.color)
 		loaded_region=local_region
 	var data: Dictionary=region_data
 	for x in range(0,3201,400):
@@ -225,9 +228,6 @@ func _local() -> void:
 				var radius := (140+contour*65)*(1.0+0.14*sin(t*3+local_region))
 				ring.append(origin+(Vector2(760,900)+Vector2(cos(t)*1.2,sin(t))*radius)*scale_value)
 			draw_polyline(ring,Color(0.2,0.32,0.19,0.18),1,true)
-	for vertical in [true,false]:
-		var path := WolfWorldData.path_points(local_region,vertical)
-		for i in range(path.size()-1):draw_line(origin+path[i]*scale_value,origin+path[i+1]*scale_value,Color("#ded1a3"),maxf(2,90*scale_value))
 	if region.biome=="river":
 		var river := PackedVector2Array()
 		for y in range(0,3201,50):river.append(origin+Vector2(WolfWorldData.river_x(y),y)*scale_value)
@@ -235,6 +235,7 @@ func _local() -> void:
 	if region.biome=="coast":
 		draw_rect(Rect2(origin,Vector2(425,3200)*scale_value),Color("#5dabb7"))
 		draw_rect(Rect2(origin+Vector2(0,1535)*scale_value,Vector2(460,130)*scale_value),Color("#d2c38d"))
+	if path_mesh!=null:draw_mesh(path_mesh,null,Transform2D(0,Vector2.ONE*scale_value,0,origin))
 	for obj in data.objects:
 		var q: Vector2=origin+obj.p*scale_value
 		if not Rect2(Vector2.ZERO,size).grow(15).has_point(q):continue

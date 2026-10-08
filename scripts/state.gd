@@ -53,6 +53,7 @@ var encounter_preview_key := ""
 var encounter_preview: Dictionary = {}
 var routine_seen: Array[String] = []
 var pack_signal: Dictionary = {}
+var main_story_progress: Dictionary = WolfMainStory.initial()
 
 
 
@@ -150,10 +151,50 @@ func biomes_visited() -> Array[String]:
 func pack_routine(role: String="Mutter") -> Dictionary:
 	return WolfPackLife.routine(hour(),role)
 
+func main_story_status() -> Dictionary:
+	return WolfMainStory.status(main_story_progress,region,pos,escort)
+
+func begin_main_story() -> bool:
+	if not WolfMainStory.begin(main_story_progress):return false
+	record("Hauptgeschichte beginnt · Der Kreis deiner Pfoten. Du lernst mit der Mutter Wasser, Deckung und den Weg zurück kennen.")
+	return true
+
+func advance_main_story() -> bool:
+	var before := int(main_story_progress.get("chapter",0))
+	if not WolfMainStory.advance(main_story_progress):return false
+	var scene: Dictionary=WolfMainStory.chapters()[before]
+	xp+=40
+	bond=minf(100,bond+2)
+	skills[scene.skill]=mini(100,int(skills[scene.skill])+3)
+	record("Hauptgeschichte · "+scene.title+" · "+scene.ending)
+	return true
+
+func note_main_story_action(action: String,detail: String="",animal: Dictionary={}) -> bool:
+	var goal := WolfMainStory.current_stage(main_story_progress)
+	var changed := WolfMainStory.note_action(main_story_progress,action,detail,region,pos,animal)
+	_record_main_story_progress(goal,changed)
+	return changed
+
+func note_main_story_observation(animal: Dictionary,player_speed: float,quiet: bool,clear_view: bool=true) -> bool:
+	return WolfMainStory.note_observation(main_story_progress,animal,region,pos,player_speed,quiet,clear_view)
+
+func tick_main_story(dt: float,parent: Dictionary={},parent_path_clear: bool=false,player_speed: float=0,watch_animal: Dictionary={},watch_clear: bool=false,quiet: bool=false,player_mood: String="") -> bool:
+	var goal := WolfMainStory.current_stage(main_story_progress)
+	var changed := WolfMainStory.tick(main_story_progress,dt,region,pos,escort,parent,parent_path_clear,player_speed,watch_animal,watch_clear,quiet,player_mood)
+	_record_main_story_progress(goal,changed)
+	return changed
+
+func clear_main_story_presence() -> void:
+	WolfMainStory.clear_live(main_story_progress)
+
+func _record_main_story_progress(goal: Dictionary,changed: bool) -> void:
+	if changed and not goal.is_empty():record("Hauptgeschichte · Ein eigener Schritt · "+str(goal.objective))
+
 func note_action(action: String,detail: String="") -> void:
 	var key := action+":"+detail if action=="observe" else action
 	if not action_counts.has(key):return
 	action_counts[key]=mini(100000000,int(action_counts[key])+1)
+	note_main_story_action(action,detail)
 	if action in ["greet","rest","howl"]:
 		pack_signal={"action":action,"region":region,"pos":pos,"at":elapsed,"serial":int(action_counts[key])}
 	if active_encounter.is_empty():return
@@ -178,6 +219,7 @@ func note_action(action: String,detail: String="") -> void:
 func clear_encounter_presence() -> void:
 	# Presence is a live measurement; the earned visit and observation time
 	# remain valid when a view, region or foreground session changes.
+	clear_main_story_presence()
 	if active_encounter.is_empty():return
 	if active_encounter.task=="wildlife_cycle":active_encounter.current_activity=""
 	if active_encounter.task=="pack_walk":active_encounter.player_ready=false;active_encounter.companion_ready=false
@@ -477,7 +519,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"main_story":WolfMainStory.saved(main_story_progress)}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -555,6 +597,7 @@ func load_from(path: String = "") -> bool:
 	encounter_preview_key=""
 	encounter_preview={}
 	pack_signal={}
+	main_story_progress=WolfMainStory.restored(data.get("main_story",{}))
 	return true
 
 

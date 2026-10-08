@@ -2,6 +2,8 @@ class_name WolfMinimap
 extends Control
 
 var game: Node
+var path_region := -1
+var path_mesh: ArrayMesh
 
 func _ready() -> void:
 	custom_minimum_size=Vector2(83,83)
@@ -16,9 +18,11 @@ func _draw() -> void:
 	draw_circle(center,radius-4,Color(WolfWorldData.REGIONS[game.state.region].ground).darkened(0.18))
 	var scale_f := (radius-9)*2/3200.0
 	var origin := center-Vector2(1600,1600)*scale_f
-	for vertical in [true,false]:
-		var points := WolfWorldData.path_points(game.state.region,vertical)
-		for i in range(points.size()-1):draw_line(origin+points[i]*scale_f,origin+points[i+1]*scale_f,Color("#d2c187"),2)
+	if path_region!=game.state.region:
+		path_region=game.state.region
+		var paths := WolfWorldData.render_paths(path_region,game.world.objects)
+		path_mesh=WolfWildernessPaths.mesh_2d(paths,paths.color)
+	if path_mesh!=null:draw_mesh(path_mesh,null,Transform2D(0,Vector2.ONE*scale_f,0,origin))
 	for obj in game.world.objects:
 		var p: Vector2=origin+obj.p*scale_f
 		if p.distance_to(center)>radius-6:continue

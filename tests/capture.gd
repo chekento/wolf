@@ -13,6 +13,13 @@ func run() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	await process_frame
+	game.set_process(false)
+	game.show_main_story()
+	await capture("res://docs/main-story-start.png")
+	game._begin_main_story()
+	game.show_main_story()
+	await capture("res://docs/main-story.png")
+	game.state=WolfState.new()
 	game.show_intro()
 	await capture("res://docs/intro.png")
 	game.close_overlay()
@@ -90,6 +97,20 @@ func run() -> void:
 	await capture("res://docs/observation.png")
 	game.show_encounter()
 	await capture("res://docs/observation-menu.png")
+	game.close_overlay()
+	var completed: Array=[]
+	for i in range(4):completed.append(WolfMainStory.chapters()[i].id)
+	game.state.main_story_progress=WolfMainStory.restored({"version":1,"started":true,"chapter":4,"stage":0,"completed_chapters":completed})
+	game.change_region(3,Vector2(1600,1800))
+	var story_deer := {"kind":"deer","p":Vector2(1600,1540),"home":Vector2(1600,1540),"phase":0.0,"mood":"lauschen","attention":0.0,"alarm":0.0,"facing":Vector2.LEFT,"speed":0.0,"gait":0.0}
+	game.world.animals=[story_deer];game.world.objects=[];game.world.tracks=[]
+	game.world_view.rebuild();game.world_view.yaw=0;game.world_view.pitch=-.14
+	game.player_speed=0;game.interact()
+	for i in range(20):game._tick_main_story(.1)
+	game._refresh_status();game.world_view.sync_camera();game.toast.text=""
+	await capture("res://docs/main-story-watch.png")
+	game.show_main_story()
+	await capture("res://docs/main-story-mission.png")
 	game.set_process(false)
 	game.sound.stream_paused=false;game.ambient.stream_paused=false
 	await create_timer(0.2).timeout

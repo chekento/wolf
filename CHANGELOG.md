@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.8.0 — 2026-10-08
+
+- Neue Hauptgeschichte „Die Düfte der Heimat“ mit acht Kapiteln und 21 tatsächlichen Handlungsschritten: Mutter begrüßen, gemeinsame Ankunft, Trinkufer, konkrete Fährten, Naturorte und Duftmarken, ruhige Rehbeobachtung und Heimkehr mit gemeinsamer Rast.
+- Eigener gespeicherter Reisefortschritt mit einmaligen Kapitelbelohnungen; die bisherigen 18 Rudelerinnerungen und Save-Version4 bleiben erhalten.
+- Schmale organische Wildwechsel mit verbundenen Gabelungen und acht Bodenstilen. Keine sichtbaren Wege vor der Heimathöhle; alte Weltobjekte und Koordinaten bleiben erhalten.
+- Weichere Gangartwechsel, stabile Stützpfoten, abgeschlossene Landung beim Anhalten und sanftere Kopf-, Ohren- und Schwanzbewegungen.
+- Hauptgeschichtenmenü mit sichtbaren Handlungstasten, tatsächlichen Fortschrittsanzeigen und Duftzielführung; wichtige Missionshandlungen bleiben neben der begleitenden Mutter erreichbar.
+
+## 0.7.0 — 2026-10-08
+
+- Artspezifische Zielankünfte und Verweildauer, lockere Rehgruppen und auslaufender Gruppenalarm, Geschwisterspiel und Ruhephasen.
+- Zwei zusätzliche Begegnungen für echte gemeinsame Ankunft und unterschiedliche Tätigkeiten desselben Tiers.
+- Erhaltene Atlasansicht, Live-Anzeigen und reichere originale Landschafts- und Felldetails.
+- Zwölf bestandene Suiten mit 2750 Prüfungen und signierter Android-Build.
+
 ## 0.6.0 — 2026-10-08
 
 - Wirkliche artspezifische Deckungs-, Futter- und Trinkziele in allen 256 Gebieten; Aufmerksamkeit und Flucht reagieren auf Abstand, Sicht, Bewegung und Rudelruf. Tiere kehren über begehbare Wege in die Deckung zurück und beruhigen sich vor ihrer nächsten Routine.

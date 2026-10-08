@@ -1,12 +1,12 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-[![Android APK 0.7.0](https://img.shields.io/badge/Android-APK%200.7.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
-[![Version](https://img.shields.io/badge/Version-0.7.0-5865F2?style=for-the-badge)](CHANGELOG.md)
+[![Android APK 0.8.0](https://img.shields.io/badge/Android-APK%200.8.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
+[![Version](https://img.shields.io/badge/Version-0.8.0-5865F2?style=for-the-badge)](CHANGELOG.md)
 [![Godot](https://img.shields.io/badge/Godot-4.5.1-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org/)
 
 **[🇩🇪 Deutsch](#-deutsch) · [🇬🇧 English](#-english)**
 
-> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.7.0-Android-and-Web** herunter. Darin liegt `Wolf-0.7.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
+> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.8.0-Android-and-Web** herunter. Darin liegt `Wolf-0.8.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
 
 ---
 
@@ -94,11 +94,20 @@ Bindung wächst durch echte gemeinsame Erlebnisse. Bei ausreichender Bindung kan
 
 Die aktuelle Fassung enthält:
 
-- **18 zusammenhängende Kapitel**
+- **8 neue Hauptkapitel mit 21 Handlungsschritten**
+- **18 zusätzliche Rudelerinnerungen**
 - **40 Erlebnisse**
 - wiederholbare regionale Wildnisbegegnungen
 - mehrere Aufgaben mit tatsächlicher gemeinsamer Ankunft und Tierbeobachtung
 - Fortschritt, der nur durch wirklich ausgeführte Aktionen zählt
+
+## 📖 Die Düfte der Heimat
+
+Eine eigene Hauptgeschichte führt von der Höhle über Bergwiese und Flussauen in den Kiefernwald und zurück nach Hause. Begrüße die Mutter, kommt wirklich gemeinsam an, prüfe konkrete Fährten und Naturorte, beobachte dasselbe ruhige Reh und kehre zur gemeinsamen Rast zurück. Kapitel werden bewusst fortgesetzt und genau einmal belohnt; alte Rudelerinnerungen bleiben erhalten.
+
+Schmale, geschwungene Wildwechsel ersetzen die gleichförmigen Kreuzungen. Laub, Nadeln, Gras, Moorboden, Stein, Kies, Sand und Schnee unterscheiden die Wege. Einige laufen aus; vor der Heimathöhle bleibt der Boden ohne sichtbaren Weg.
+
+Die Animationen blenden Gangarten weicher, setzen Pfoten am Boden auf und lassen einen begonnenen Schritt beim Anhalten auslaufen.
 
 ## 🦌 Lebendige Tierwelt
 
@@ -121,7 +130,7 @@ Die visuelle Richtung verbindet **niedliche, gut lesbare Comic-Grafik** mit glau
 
 Die Top-Down-Ansicht verwendet Comic-Laufsequenzen, Aktionsposen und Bodenschatten. In 3D besitzen Wolf, Reh, Hase und Fuchs eigene Modelle mit unterschiedlichen Körperformen und beweglichen Gliedmaßen.
 
-Version 0.7.0 erweitert die Landschaft unter anderem mit:
+Version 0.8.0 erweitert die Landschaft unter anderem mit:
 
 - unregelmäßigeren Baumkronen
 - geneigten Ästen
@@ -144,6 +153,10 @@ Die folgenden Bilder stammen aus dem tatsächlich laufenden Godot-Prototyp.
 | 3D-Wolfsblick | Wildnisatlas |
 |---|---|
 | ![3D-Wolfsblick](docs/wolfs-eye.png) | ![Wildnisatlas](docs/world-map.png) |
+
+| Hauptgeschichte | Ruhige Beobachtung |
+|---|---|
+| ![Hauptgeschichte](docs/main-story.png) | ![Ruhige Beobachtung](docs/main-story-watch.png) |
 
 | Rudel in 3D | Begegnung |
 |---|---|
@@ -186,13 +199,13 @@ Wetter, Licht und Umgebung verändern die Atmosphäre über:
 
 ## 📱 Android-Download
 
-**Aktuelle Version: 0.7.0 · Lebendige Wege**
+**Aktuelle Version: 0.8.0 · Die Düfte der Heimat**
 
-1. Oben auf **Android APK 0.7.0** klicken.
+1. Oben auf **Android APK 0.8.0** klicken.
 2. Den neuesten erfolgreichen grünen Workflow-Lauf auf `main` öffnen.
-3. Unter **Artifacts** `Wolf-0.7.0-Android-and-Web` herunterladen.
+3. Unter **Artifacts** `Wolf-0.8.0-Android-and-Web` herunterladen.
 4. ZIP entpacken.
-5. `Wolf-0.7.0-debug.apk` installieren.
+5. `Wolf-0.8.0-debug.apk` installieren.
 
 Technik:
 
@@ -208,7 +221,7 @@ Technik:
 
 ## 🧪 Entwicklungsstand
 
-Version **0.7.0** wurde laut aktuellem Prüfbericht mit **2750 Prüfungen** validiert.
+Version **0.8.0** wurde laut aktuellem Prüfbericht mit **3005 Prüfungen** validiert.
 
 Noch nicht vollständig umgesetzt sind unter anderem:
 
@@ -220,7 +233,7 @@ Noch nicht vollständig umgesetzt sind unter anderem:
 Weitere Dokumentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validierung 0.7.0](docs/validation-0.7.0.md)
+- [Validierung 0.8.0](docs/validation-0.8.0.md)
 - [Android-Installation](docs/android-install.md)
 - [Grafikherkunft & Schriftlizenz](docs/art-assets.md)
 - [Entwicklungsübergabe](docs/development-handoff.md)
@@ -311,11 +324,20 @@ Bond grows through real shared experiences. At sufficient bond level, the mother
 
 The current build includes:
 
-- **18 connected chapters**
+- **8 new main-story chapters with 21 physical objectives**
+- **18 additional pack memories**
 - **40 experiences**
 - repeatable regional wilderness encounters
 - objectives based on real joint arrival and wildlife observation
 - progress that only counts when the required action truly happens
+
+## 📖 The Scents of Home
+
+A new main story follows a shared journey from the den through mountain meadow and river banks into the pine forest, then home. Greet Mother, physically arrive together, read specific tracks and landmarks, watch the same calm deer and return for a shared rest. Chapters advance explicitly and reward once; existing pack memories remain available.
+
+Narrow organic wildlife trails replace uniform crossroads. Leaves, needles, grass, peat, stone, gravel, sand and snow give paths distinct appearances. Some fade into wilderness; the home den has no visible approach path.
+
+Smoother gait blending, planted support paws and completed landing steps improve animation transitions.
 
 ## 🦌 Living wildlife
 
@@ -338,7 +360,7 @@ The visual direction combines a **cute, readable illustrated style** with a beli
 
 Top-down gameplay uses comic movement frames, action poses and ground shadows. In 3D, wolf, deer, rabbit and fox have distinct models and articulated body parts.
 
-Version 0.7.0 expands the scenery with:
+Version 0.8.0 expands the scenery with:
 
 - more irregular tree crowns
 - angled branches
@@ -361,6 +383,10 @@ The following images come from the running Godot prototype.
 | 3D wolf view | Wilderness Atlas |
 |---|---|
 | ![3D wolf view](docs/wolfs-eye.png) | ![Wilderness Atlas](docs/world-map.png) |
+
+| Main story | Quiet observation |
+|---|---|
+| ![Main story](docs/main-story.png) | ![Quiet observation](docs/main-story-watch.png) |
 
 | Pack in 3D | Encounter |
 |---|---|
@@ -403,13 +429,13 @@ Atmosphere changes through:
 
 ## 📱 Android download
 
-**Current version: 0.7.0 · Living Paths**
+**Current version: 0.8.0 · The Scents of Home**
 
-1. Click **Android APK 0.7.0** at the top.
+1. Click **Android APK 0.8.0** at the top.
 2. Open the newest successful green workflow run on `main`.
-3. Download the artifact `Wolf-0.7.0-Android-and-Web`.
+3. Download the artifact `Wolf-0.8.0-Android-and-Web`.
 4. Extract the ZIP.
-5. Install `Wolf-0.7.0-debug.apk`.
+5. Install `Wolf-0.8.0-debug.apk`.
 
 Technical requirements:
 
@@ -425,7 +451,7 @@ Technical requirements:
 
 ## 🧪 Development status
 
-Version **0.7.0** is documented as validated with **2,750 checks** in the current validation report.
+Version **0.8.0** is documented as validated with **3,005 checks** in the current validation report.
 
 Not yet fully implemented:
 
@@ -437,7 +463,7 @@ Not yet fully implemented:
 Further documentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validation 0.7.0](docs/validation-0.7.0.md)
+- [Validation 0.8.0](docs/validation-0.8.0.md)
 - [Android installation](docs/android-install.md)
 - [Art assets & font licence](docs/art-assets.md)
 - [Development handoff](docs/development-handoff.md)
@@ -460,7 +486,12 @@ godot --headless --script tests/locomotion_expansion.gd
 godot --headless --script tests/living_world.gd
 godot --headless --script tests/landscape_expansion.gd
 godot --headless --script tests/atlas_observation.gd
-godot --headless --export-debug Android builds/Wolf-0.7.0-debug.apk
+godot --headless --script tests/path_expansion.gd
+godot --headless --script tests/animation_expansion.gd
+godot --headless --script tests/main_story.gd
+godot --headless --script tests/main_story_controls.gd
+godot --headless --script tests/story_journey.gd
+godot --headless --export-debug Android builds/Wolf-0.8.0-debug.apk
 ```
 
 Idea and direction / Idee und Ausrichtung: **KoSch / Kolja Werner Schumann**.
