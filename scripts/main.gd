@@ -39,6 +39,8 @@ var encounter_button: Button
 var camera_button: Button
 var header: PanelContainer
 var header_details: VBoxContainer
+var compact_needs: Label
+var fold_button: Button
 var action_button: Button
 var story_button: Button
 var player_speed := 0.0
@@ -50,6 +52,8 @@ var app_idle := false
 var map_panel: WolfCartography
 var map_selection: Label
 var map_selected := -1
+var guided_encounter_id := ""
+var guided_progress := -1
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
 
 
@@ -78,6 +82,7 @@ func _ready() -> void:
 		show_intro()
 	else:
 		notify("Willkommen zurück. Dein Rudel ist noch hier.")
+	_sync_audio()
 
 func panel_style(color: Color, radius: int=18) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -107,6 +112,16 @@ func _release_audio() -> void:
 			player.stop()
 			player.stream=null
 
+func _sync_audio() -> void:
+	# Stop menu/background playbacks rather than parking paused mixer objects.
+	# A fresh outdoor loop keeps repeated modal changes and teardown reliable.
+	var audible := state.sound_enabled and not app_idle and not is_instance_valid(overlay)
+	if is_instance_valid(ambient):
+		if audible:
+			if not ambient.playing:ambient.play()
+		else:ambient.stop()
+	if is_instance_valid(sound) and not audible:sound.stop()
+
 func _exit_tree() -> void:
 	_release_audio()
 
@@ -123,6 +138,8 @@ func label(text_value: String,font_size: int=18) -> Label:
 func button(text_value: String,callback: Callable) -> Button:
 	var b := Button.new()
 	b.text=text_value
+	b.clip_text=false
+	b.tooltip_text=text_value
 	b.custom_minimum_size=Vector2(0,54)
 	b.add_theme_font_size_override("font_size",17)
 	b.add_theme_color_override("font_color",Color("#eee9cc"))
@@ -171,9 +188,9 @@ func _build_ui() -> void:
 	titles.add_child(title)
 	location_hint=label("",12)
 	titles.add_child(location_hint)
-	var fold := button("⌃",func():header_details.visible=not header_details.visible)
-	fold.custom_minimum_size=Vector2(38,46)
-	top.add_child(fold)
+	fold_button=button("⌄",func():set_hud_compact(not state.compact_hud))
+	fold_button.custom_minimum_size=Vector2(38,46)
+	top.add_child(fold_button)
 	var menu := button("☰",show_menu)
 	menu.custom_minimum_size=Vector2(46,46)
 	top.add_child(menu)
@@ -213,8 +230,10 @@ func _build_ui() -> void:
 	row.add_child(minimap)
 	level_label=label("",12)
 	header_details.add_child(level_label)
+	compact_needs=label("",12)
+	stack.add_child(compact_needs)
 	var shortcuts := HBoxContainer.new()
-	header_details.add_child(shortcuts)
+	stack.add_child(shortcuts)
 	encounter_button=button("Neue Begegnung",show_encounter)
 	encounter_button.custom_minimum_size.y=32
 	encounter_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -226,7 +245,7 @@ func _build_ui() -> void:
 	camera_button.hide()
 	shortcuts.add_child(camera_button)
 	quest_hint=label("",13)
-	header_details.add_child(quest_hint)
+	stack.add_child(quest_hint)
 	stats=label("",12)
 	stats.hide()
 	header_details.add_child(stats)
@@ -281,6 +300,20 @@ func _build_ui() -> void:
 	sneak_button.toggle_mode=true
 	bottom.add_child(sneak_button)
 	bottom.add_child(button("Karte",show_map))
+	set_hud_compact(state.compact_hud,false)
+
+func set_hud_compact(compact: bool,persist: bool=true) -> void:
+	state.compact_hud=compact
+	header_details.visible=not compact
+	compact_needs.visible=compact
+	fold_button.text="⌄" if compact else "⌃"
+	fold_button.tooltip_text="Bedürfnisse und Minikarte öffnen" if compact else "Mehr Platz für die Wildnis"
+	header.queue_sort()
+	_fit_header.call_deferred()
+	if persist:_save_game()
+
+func _fit_header() -> void:
+	if is_instance_valid(header):header.size=Vector2(header.size.x,header.get_combined_minimum_size().y)
 
 func _process(dt: float) -> void:
 	if app_idle or is_instance_valid(overlay):return
@@ -333,6 +366,7 @@ func _process(dt: float) -> void:
 	if status_timer>0.25:
 		status_timer=0
 		check_quests()
+		_refresh_encounter_guide()
 		_refresh_status()
 	save_timer+=dt
 	if save_timer>20:
@@ -378,13 +412,24 @@ func change_region(index: int,entry: Vector2) -> void:
 func _sync_companion() -> void:
 	world.animals=world.animals.filter(func(a:Dictionary):return not a.get("companion",false))
 	if not state.escort or state.region==0:return
-	var p := state.pos+Vector2(70,55)
-	for attempt in range(12):
-		if can_walk(p):break
-		p=state.pos+Vector2(cos(attempt*0.7),sin(attempt*0.7))*90
+	if not world.has("_animal_motion"):
+		var motion := WolfAnimalMotion.new()
+		motion.configure(state.region,world.objects)
+		world._animal_motion=motion
+	var navigation: WolfAnimalMotion=world._animal_motion
+	# New region entries put the parent just behind the arriving wolf, inside
+	# a real free area. An existing animal is never moved to catch the player.
+	var p := navigation.nearest_free(state.pos-state.facing*70+Vector2(25,20),160)
+	if not p.is_finite():p=state.pos
+	if not navigation.walkable(p):return
 	world.animals.append({"kind":"wolf","p":p,"home":p,"phase":0.0,"facing":state.facing,"young":false,"role":"Mutter","companion":true,"mood":"begleiten","speed":0.0,"gait":0.0})
 
 func _update_animals(dt: float) -> void:
+	if not world.has("_animal_motion"):
+		var motion := WolfAnimalMotion.new()
+		motion.configure(state.region,world.objects)
+		world._animal_motion=motion
+	var navigation: WolfAnimalMotion=world._animal_motion
 	for a in world.animals:
 		var distance: float=a.p.distance_to(state.pos)
 		var phase: float=clock*0.12+a.phase
@@ -392,8 +437,14 @@ func _update_animals(dt: float) -> void:
 		var speed := 20.0
 		var mood := "wandern"
 		var interval := int((clock+a.phase*13)/12)%5
-		if interval in [0,1]:target=a.p;speed=0;mood="grasen" if a.kind!="wolf" else "lauschen"
 		if a.kind!="wolf":
+			var activity: Dictionary=WolfPackLife.wildlife_routine(a.kind,state.hour(),interval)
+			mood=activity.mood;speed=activity.speed
+			if activity.rest:
+				target=a.home
+				mood="wandern" if a.p.distance_to(target)>12 else "ruhen"
+				if mood=="ruhen":speed=0
+			elif activity.pause:target=a.p;speed=0
 			var quiet := sneak_button.button_pressed or player_speed<1
 			var alarm_radius := (75.0-float(state.skills.stealth)*0.2) if quiet else 160.0
 			if distance<alarm_radius:
@@ -405,29 +456,33 @@ func _update_animals(dt: float) -> void:
 				mood="fliehen"
 			elif distance<250:mood="lauschen";target=a.p;speed=0
 		else:
-			if state.region==0 and not a.get("companion",false):
+			var accompanying: bool=a.get("companion",false) or (state.escort and a.get("role","")=="Mutter")
+			if accompanying:
+				target=state.pos-state.facing*110+Vector2(30,25)
+				if not navigation.walkable(target) or not navigation.segment_free(target,state.pos):target=state.pos
+				# An adult can catch a running pup by walking/running the whole
+				# route; there is no distance threshold that relocates it.
+				speed=220.0 if distance>500 else 175.0 if distance>340 else 125.0 if distance>200 else 70.0
+				mood="begleiten"
+				if distance<125 and navigation.segment_free(a.p,state.pos):
+					target=a.p;speed=0;mood="ruhen" if player_mood=="ruhen" else "lauschen"
+			elif state.region==0:
 				var routine: Dictionary=state.pack_routine(a.get("role","Mutter"))
 				target=routine.target;speed=routine.speed;mood=routine.mood
-			if a.get("young",false):
-				if mood=="spielen":target+=Vector2(sin(phase*4),cos(phase*3))*70
-			elif a.get("companion",false) or (state.escort and a.get("role","")=="Mutter"):
-				target=state.pos-state.facing*110+Vector2(30,25)
-				speed=140.0 if distance>340 else 100.0 if distance>200 else 65.0
-				mood="begleiten"
-				if distance<135:target=a.p;speed=0;mood="lauschen"
-			elif state.bond>=50 and distance<380 and distance>160:
-				target=state.pos-state.facing*110
-				speed=65;mood="begleiten"
+				if a.get("young",false):
+					if float(a.phase)>3:target+=Vector2(45,35)
+					if mood=="spielen":target+=Vector2(sin(phase*4),cos(phase*3))*70
+				var free_target: Vector2=navigation.nearest_free(target)
+				if free_target.is_finite():target=free_target
+				if mood=="ruhen":
+					if a.p.distance_to(target)>14:mood="wandern"
+					else:speed=0
+				elif state.time_name()!="Nacht" and state.bond>=50 and not a.get("young",false) and distance<380 and distance>160:
+					target=state.pos-state.facing*110
+					speed=65;mood="begleiten"
 			if action_timer>0 and player_mood=="heulen" and distance<500:target=a.p;speed=0;mood="heulen"
-			elif state.time_name()=="Nacht" and not a.get("companion",false) and distance>180:target=a.p;speed=0;mood="ruhen"
-		var step: Vector2=a.p.direction_to(target)*minf(speed*dt,a.p.distance_to(target))
-		var next: Vector2=a.p+step
-		if not can_walk(next):
-			for turn in [0.75,-0.75,1.5,-1.5]:
-				var alternate: Vector2=a.p+step.rotated(turn)
-				if can_walk(alternate):next=alternate;break
-		if not can_walk(next):next=a.p
-		next=next.clamp(Vector2(95,95),Vector2(3105,3105))
+		var purposeful: bool=a.kind=="wolf" or a.p.distance_to(target)>260
+		var next: Vector2=navigation.advance(a,target,speed,dt,clock,purposeful)
 		var moved: float=next.distance_to(a.p)
 		if moved>0.01:a.facing=(next-a.p).normalized()
 		a.speed=moved/maxf(dt,0.0001)
@@ -437,6 +492,7 @@ func _update_animals(dt: float) -> void:
 
 func toggle_view() -> void:
 	first_person=not first_person
+	look_pointer=-1;looking_mouse=false
 	world_view.visible=first_person
 	map_view.visible=not first_person
 	stick.reset()
@@ -451,6 +507,7 @@ func toggle_view() -> void:
 	notify("Wische über die Landschaft zum Umsehen. Untersuchen entdeckt sichtbare Tiere." if first_person else "Du siehst die Karte wieder von oben. Bewege dich in alle Richtungen.")
 
 func switch_camera() -> void:
+	look_pointer=-1;looking_mouse=false
 	state.camera_follow=not state.camera_follow
 	if first_person:world_view.set_follow_camera(state.camera_follow)
 	camera_button.text="Wolfsblick" if state.camera_follow else "Folgekamera"
@@ -462,7 +519,9 @@ func _apply_quality() -> void:
 	get_viewport().msaa_3d=Viewport.MSAA_2X if first_person and state.smooth_edges else Viewport.MSAA_DISABLED
 
 func _look_input(event: InputEvent) -> void:
-	if not first_person:return
+	if not first_person or app_idle or is_instance_valid(overlay):return
+	# Touch is already handled directly; its synthesized mouse event is a duplicate.
+	if event.device==InputEvent.DEVICE_ID_EMULATION and (event is InputEventMouseButton or event is InputEventMouseMotion):return
 	if event is InputEventScreenTouch:
 		if event.pressed and look_pointer==-1:look_pointer=event.index
 		elif not event.pressed and event.index==look_pointer:look_pointer=-1
@@ -518,7 +577,6 @@ func interact() -> void:
 			if obj.kind=="den" and obj.p.distance_to(state.pos)<190:
 				rest()
 				return
-	if first_person and observe():return
 	for a in world.animals:
 		if a.kind=="wolf" and a.p.distance_to(state.pos)<135:
 			if state.elapsed-last_pack_visit<20:
@@ -584,6 +642,7 @@ func interact() -> void:
 					notify("Ein alter Wegstein. Du prägst dir den Ort und seine Gerüche ein.")
 					check_quests()
 					return
+	if first_person and observe():return
 	notify("Nichts in unmittelbarer Nähe. Schnüffle nach Spuren oder nähere dich Wasser und Wegsteinen.")
 
 func observe() -> bool:
@@ -618,7 +677,7 @@ func howl() -> void:
 		return
 	howl_cooldown=8
 	player_mood="heulen";action_timer=3
-	if state.sound_enabled:play_howl()
+	if state.sound_enabled and not app_idle and not is_instance_valid(overlay):play_howl()
 	if state.region==0 and state.pos.distance_to(Vector2(1600,2240))<460:
 		state.bond=minf(100,state.bond+4)
 		state.howled=true
@@ -676,6 +735,8 @@ func _refresh_status() -> void:
 	level_label.text="%d Wochen · Rang %d · Wildnis %d/%d"%[state.age_weeks(),state.level(),state.visited.size(),WolfWorldData.REGIONS.size()]
 	title.text=WolfWorldData.REGIONS[state.region].name
 	location_hint.text="Tag %d · %02d:%02d · %s"%[state.day(),int(state.hour()),int(fmod(state.hour(),1)*60),state.weather()]
+	compact_needs.text="Nahrung %d · Wasser %d · Kraft %d · Rudel %d"%[state.hunger,state.thirst,state.energy,state.bond]
+	compact_needs.add_theme_color_override("font_color",Color("#f3ca7f") if minf(state.hunger,minf(state.thirst,state.energy))<25 else Color("#d4d9c0"))
 	if state.waypoint_region>=0:
 		quest_hint.text="◎ Duftziel: "+WolfWorldData.REGIONS[state.waypoint_region].name
 		if state.waypoint_region==state.region:quest_hint.text+=" · %d Pfotenschritte"%int(state.pos.distance_to(state.waypoint_pos)/25)
@@ -699,6 +760,9 @@ func context_action() -> String:
 	if state.food_cooldown<=0:
 		for obj in world.objects:
 			if obj.kind=="food" and obj.p.distance_to(state.pos)<85:return "Fressen"
+	if not state.active_encounter.is_empty() and state.active_encounter.task=="water_rest" and state.active_encounter.get("drank_after_start",false):
+		for obj in world.objects:
+			if obj.kind=="den" and obj.p.distance_to(state.pos)<190:return "Ruhen"
 	for a in world.animals:
 		if a.kind=="wolf" and a.p.distance_to(state.pos)<135:return "Begrüßen"
 	for t in world.tracks:
@@ -708,7 +772,7 @@ func context_action() -> String:
 		if obj.kind=="water" and ((obj.variant==0 and d<190*obj.scale+90) or (obj.variant==1 and absf(state.pos.x-WolfWorldData.river_x(state.pos.y))<155)):return "Trinken"
 		if obj.kind=="food" and d<85 and state.food_cooldown<=0:return "Fressen"
 		if obj.kind=="den" and d<190:return "Ruhen"
-		if obj.kind in ["landmark","discovery"] and d<120:return "Entdecken"
+		if (obj.kind=="landmark" and d<100) or (obj.kind=="discovery" and d<140):return "Entdecken"
 	return "Beobachten" if first_person else "Aktion"
 
 func route_to(target: int) -> Array[int]:
@@ -737,6 +801,7 @@ func goal_position() -> Vector2:
 
 func set_waypoint(region: int,point: Vector2) -> void:
 	if region<0 or region>=WolfWorldData.REGIONS.size():return
+	guided_encounter_id=""
 	point=point.clamp(Vector2(20,20),WolfWorldData.SIZE-Vector2(20,20))
 	state.waypoint_region=region
 	state.waypoint_pos=point
@@ -752,7 +817,7 @@ func set_waypoint(region: int,point: Vector2) -> void:
 	if is_instance_valid(map_panel):map_panel.queue_redraw()
 	if is_instance_valid(map_selection):map_selection.text="Duftziel: "+WolfWorldData.REGIONS[region].name+". Der Kompass führt dich zu den Übergängen."
 
-func close_overlay() -> void:
+func close_overlay(resume_audio: bool=true) -> void:
 	if is_instance_valid(overlay):
 		ui.remove_child(overlay)
 		overlay.queue_free()
@@ -760,14 +825,14 @@ func close_overlay() -> void:
 	look_pointer=-1
 	looking_mouse=false
 	stick.reset()
-	if is_instance_valid(ambient):ambient.stream_paused=false
+	if resume_audio:_sync_audio()
 
 func modal(heading: String) -> VBoxContainer:
-	close_overlay()
+	close_overlay(false)
 	stick.reset()
 	overlay=ColorRect.new()
 	overlay.color=Color(0.025,0.08,0.06,0.98)
-	if is_instance_valid(ambient):ambient.stream_paused=true
+	_sync_audio()
 	ui.add_child(overlay)
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter=Control.MOUSE_FILTER_STOP
@@ -866,7 +931,7 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.4.0 · Pfade der Wildnis",13))
+	v.add_child(label("Wolf 0.5.0 · Auf leisen Pfoten",13))
 
 func show_encounter() -> void:
 	var v := modal("Wildnisbegegnung")
@@ -881,13 +946,21 @@ func show_encounter() -> void:
 		progress.custom_minimum_size.y=14;progress.show_percentage=false
 		task_card.add_child(progress)
 		task_card.add_child(label(encounter.progress,15))
+		if encounter.task=="water_rest":
+			task_card.add_child(label(("✓" if encounter.get("drank_after_start",false) else "○")+"  Frisches Wasser trinken",17))
+			task_card.add_child(label(("✓" if encounter.get("rested_after_drink",false) else "○")+"  Danach im Schutz ruhen",17))
+		elif encounter.task=="family":
+			task_card.add_child(label(("✓" if encounter.get("greeted_family",false) else "○")+"  Familie begrüßen",17))
+			task_card.add_child(label(("✓" if encounter.get("family_howl",false) else "○")+"  Nahe der Heimat heulen",17))
 	else:task_card.add_child(label("Neue Begegnung · Du bestimmst den ersten Schritt.",15))
 	if encounter.done:
 		v.add_child(button("Die Erfahrung mitnehmen · +%d"%encounter.reward,func():
 			if state.complete_encounter():_save_game();check_quests();show_encounter()
 		))
 	elif not encounter.accepted:
-		v.add_child(button("Diesem Duft folgen",func():state.begin_encounter();_save_game();show_encounter()))
+		v.add_child(button("Diesem Duft folgen",func():
+			if state.begin_encounter():guide_encounter();close_overlay();_refresh_status()
+		))
 	if encounter.accepted and not encounter.done:
 		v.add_child(button("Den Weg in der Karte zeigen",func():guide_encounter();close_overlay()))
 		v.add_child(button("Für später lassen",func():state.abandon_encounter();_save_game();show_menu()))
@@ -912,12 +985,30 @@ func guide_encounter() -> void:
 				nearest=distance
 				point=animal.p+Vector2(0,230) if encounter.task=="observe" else animal.p+Vector2(30,0)
 	set_waypoint(target,point)
+	guided_encounter_id=str(encounter.id)
+	guided_progress=int(encounter.current)
 	if encounter.task=="observe":notify("Nähere dich leise mit Abstand. Im Wolfsblick richtest du den Blick auf das Tier und wählst Beobachten.")
+	elif encounter.task=="journey":notify("Gehe deinen eigenen Weg. Der Fortschritt zählt deine tatsächlich gegangenen Pfotenschritte.")
+	else:notify(encounter.hint)
+
+func _refresh_encounter_guide() -> void:
+	if guided_encounter_id.is_empty():return
+	var encounter: Dictionary=state.encounter_status()
+	if not encounter.accepted or str(encounter.id)!=guided_encounter_id:
+		guided_encounter_id="";return
+	if encounter.done:
+		guided_encounter_id=""
+		notify("Deine Begegnung ist erfüllt. Öffne Begegnungen, um die Erfahrung mitzunehmen.")
+		return
+	if int(encounter.current)!=guided_progress and encounter.task in ["tracks","sites","water_rest","family"]:guide_encounter()
 
 func show_intro() -> void:
 	var v := modal("Wolf · Wildnis & Rudel")
 	hero(v,"DEIN LEBEN ZWISCHEN WALD UND WEITEN",210)
 	v.add_child(label("Deine Welt beginnt am Geruch.",26))
+	v.add_child(button("Die erste Pfote setzen",close_overlay))
+	card(v,"Deine ersten Schritte","Begrüße die Familie nahe der Höhle. Trinke am Ufer. Schnüffle auf den Wegen und lies drei frische Fährten. Die Rudelgeschichte erinnert sich an das, was du selbst erlebst.")
+	v.add_child(button("Den Weg zum kühlen Ufer zeigen",func():set_waypoint(state.region,WolfWorldData.water_bank(state.region));close_overlay();notify("Der Kompass führt dich zum sicheren Trinkufer. Dort wählst du Trinken.")))
 	card(v,"Ein Jungwolf im natürlichen Rudel","Du bist 16 Wochen alt. Mutter, Vater und Geschwister begleiten deinen Anfang. Du lernst langsam, liest Spuren, beobachtest Tiere und findest geschützte Orte. Dein Körper wächst mit den vergangenen Tagen.")
 	card(v,"%d Gebiete · eine zusammenhängende Wildnis"%WolfWorldData.REGIONS.size(),"Kiefern, Wälder, Schnee, Moore, Quellen und Küste. Wege an den Kartenrändern führen ins nächste Gebiet. Die Karte lässt sich ziehen und vergrößern; setze dort ein Duftziel für den Kompass.")
 	card(v,"Pfoten & Wolfsblick","Der Stick bewegt dich in alle Richtungen. Schnüffeln zeigt Fährten; die Aktion passt sich der Umgebung an. In 3D wischst du über die Landschaft zum Umsehen. Nutze Leise, um Tiere mit Abstand zu beobachten.")
@@ -1051,14 +1142,14 @@ func show_settings() -> void:
 	var v := modal("Darstellung & Klang")
 	card(v,"Deine Wildnis","%s · Tag %d\nWähle die Atmosphäre, die zu dir passt. Menüs halten die Zeit an."%[state.season_name(),state.day()])
 	v.add_child(button("3D-Kamera: "+("Folgekamera" if state.camera_follow else "Wolfsblick"),func():switch_camera();show_settings()))
+	v.add_child(button(("✓  " if state.compact_hud else "○  ")+"Mehr Platz für die Wildnis",func():set_hud_compact(not state.compact_hud);show_settings()))
 	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"],["map_reveal","Alle Gebietsnamen in der Übersicht"]]:
 		var setting: String=item[0]
 		var toggle := button(("✓  " if state.get(setting) else "○  ")+item[1],func():
 			state.set(setting,not state.get(setting));_save_game()
 			if setting=="smooth_edges":_apply_quality()
 			if setting=="sound_enabled":
-				ambient.playing=state.sound_enabled
-				if not state.sound_enabled:sound.stop()
+				_sync_audio()
 			show_settings()
 		)
 		v.add_child(toggle)
@@ -1096,6 +1187,8 @@ func confirm_new_game() -> void:
 		world_cache.clear()
 		world={}
 		first_person=false
+		guided_encounter_id="";guided_progress=-1
+		set_hud_compact(state.compact_hud,false)
 		camera_button.hide()
 		_apply_quality()
 		world_view.visible=false
@@ -1233,8 +1326,6 @@ func _build_ambient() -> void:
 	stream.format=AudioStreamWAV.FORMAT_16_BITS;stream.mix_rate=rate;stream.data=bytes
 	stream.loop_mode=AudioStreamWAV.LOOP_FORWARD;stream.loop_begin=0;stream.loop_end=rate*duration
 	ambient.stream=stream;ambient.volume_db=-19
-	if state.sound_enabled:ambient.play()
-	if is_instance_valid(overlay):ambient.stream_paused=true
 
 func _notification(what: int) -> void:
 	if what==NOTIFICATION_APPLICATION_FOCUS_OUT or what==NOTIFICATION_APPLICATION_PAUSED or what==NOTIFICATION_WM_CLOSE_REQUEST:
@@ -1243,12 +1334,10 @@ func _notification(what: int) -> void:
 		if stick!=null:stick.reset()
 		looking_mouse=false
 		look_pointer=-1
-		if is_instance_valid(ambient):ambient.stream_paused=true
-		if is_instance_valid(sound):sound.stream_paused=true
+		_sync_audio()
 	elif what==NOTIFICATION_APPLICATION_FOCUS_IN or what==NOTIFICATION_APPLICATION_RESUMED:
 		app_idle=false
-		if is_instance_valid(ambient):ambient.stream_paused=is_instance_valid(overlay) or not state.sound_enabled
-		if is_instance_valid(sound):sound.stream_paused=is_instance_valid(overlay) or not state.sound_enabled
+		_sync_audio()
 	elif what==NOTIFICATION_WM_GO_BACK_REQUEST and is_instance_valid(ui):
 		if is_instance_valid(overlay):close_overlay()
 		else:show_menu()

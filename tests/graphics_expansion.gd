@@ -44,16 +44,34 @@ func run() -> void:
 		check(first_mesh(animal.torso)==first_mesh(duplicate.torso),"shared species mesh "+species)
 		animal.free();duplicate.free()
 	check(heights.deer>heights.wolf*1.3 and heights.wolf>heights.fox and heights.fox>heights.rabbit,"species heights differ naturally")
-	for kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge","track_deer","track_rabbit","track_wolf"]:
+	for kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge","mushroom","shell","track_deer","track_rabbit","track_wolf"]:
 		var mesh := WolfForestMesh.get_mesh(kind)
 		check(mesh.get_surface_count()==1 and mesh.surface_get_array_len(0)>10 and mesh==WolfForestMesh.get_mesh(kind),"cached botanical mesh "+kind)
+	for kind in ["pine","leaf","trunk","stone","log","ridge"]:
+		var counts: Dictionary=WolfForestMesh.lod_index_counts[kind]
+		check(counts.far*3<=counts.near,"distant geometry retains topology with fewer triangles "+kind)
+	check(WolfForestMesh.site_style("coast",0)=="shells" and WolfForestMesh.site_style("forest",0)=="mushrooms" and WolfForestMesh.site_style("marsh",2)=="reeds","natural landmarks reflect coast, forest and wetland biomes")
 	WolfState.save_path="user://wolf_graphics_test.json"
+	for path in [WolfState.save_path,WolfState.save_path+".wildlife.json"]:
+		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)
 	var game = load("res://main.tscn").instantiate()
+	# This suite validates geometry. Live audio, modal changes and teardown
+	# are exercised separately by the UI suite.
+	game.state.sound_enabled=false
 	root.add_child(game)
 	await process_frame
 	game.close_overlay()
 	game.state=WolfState.new()
+	game.state.sound_enabled=false
 	game.change_region(0,WolfWorldData.SPAWN)
+	game.map_view._prepare_ground(Color("#719348"),"forest")
+	check(game.map_view.ground_chunks.size()>16 and game.map_view.ground_chunks.size()<=64,"2D soil and flowers occupy bounded spatial meshes")
+	var cached_ground: Mesh=game.map_view.ground_chunks[0].mesh
+	var old_position: Vector2=game.state.pos
+	game.state.pos+=Vector2(100,0)
+	game.map_view._prepare_ground(Color("#719348"),"forest")
+	check(game.map_view.ground_chunks[0].mesh==cached_ground,"camera movement reuses painted soil geometry")
+	game.state.pos=old_position
 	check(game.world_view.contents==null,"3D remains lazy in top-down view")
 	game.toggle_view()
 	var terrain_safe := true
@@ -71,6 +89,15 @@ func run() -> void:
 	check(hidden,"shared cooldown hides every food site")
 	check(game.world_view.decorative_nodes.size()>0,"spatially batched understory exists")
 	check(game.world_view.material_cache.size()<90,"terrain materials reused across spatial chunks")
+	var batch_count := 0
+	var coloured_instances := true
+	for n in game.world_view.contents.get_children():
+		if n is MultiMeshInstance3D:
+			batch_count+=1
+			coloured_instances=coloured_instances and n.multimesh.use_colors
+	# The Dummy renderer cannot read back instance colours; the palette is
+	# checked in the real GL captures, while this checks its batch budget.
+	check(batch_count<220 and coloured_instances,"groves use a bounded number of spatial batches with instance colours")
 	check(not game.world_view.follow_camera and not game.world_view.player_model.visible,"default wolf eye view hides own body")
 	game.world_view.set_follow_camera(true)
 	check(game.world_view.follow_camera and game.world_view.player_model.visible,"follow mode reveals articulated player")
@@ -96,8 +123,12 @@ func run() -> void:
 	game.state.elapsed=WolfState.DAY_SECONDS*65
 	game.world_view.sync_camera()
 	check(game.world_view.built_season=="Herbst","season change refreshes 3D landscape")
+	game.map_view._prepare_ground(Color("#719348"),"forest")
+	check(game.map_view.ground_season=="Herbst" and game.map_view.ground_chunks[0].mesh!=cached_ground,"season change refreshes cached 2D botanicals")
+	game.set_process(false)
 	game.sound.stream_paused=false;game.ambient.stream_paused=false
-	game.sound.stop();game.sound.stream=null;game.ambient.stop();game.ambient.stream=null
+	await create_timer(.08).timeout
+	game._release_audio()
 	root.remove_child(game);game.queue_free()
 	await process_frame
 	await create_timer(.15).timeout

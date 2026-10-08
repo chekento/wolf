@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.0 — 2026-10-08
+
+- Elternwölfe folgen tatsächlich begehbaren Wegen um Felsen und über bestehende Flussbrücken. Auch nahe, verdeckte Jungwölfe werden erreicht; keine Versetzung zum Aufholen.
+- Die Familie kehrt vor dem Ruhen an den geschützten Nachtplatz zurück. Fuchs, Hase und Reh haben unterschiedliche Aktivitätsphasen.
+- Kompakte, gespeicherte Kopfleiste mit weiter sichtbaren Bedürfnissen, Begegnungen und Kamera; aufklappbare Minikarte und ausführliche Werte.
+- Sofort sichtbarer Einstiegsknopf und Wegführung zum echten Trinkufer. Angenommene Begegnungen führen nach Fährten-, Naturort-, Wasser- und Rudelfortschritt zum nächsten Schritt.
+- Gleichzeitiges Bewegen und Umsehen mit zwei Fingern; keine doppelte Kamerabewegung durch synthetisierte Mausereignisse und keine festhängenden Berührungen nach Ansichtwechseln.
+- Die nahe Wasseraktion hat Vorrang vor einer entfernten Tierbeobachtung. Geschützte Begegnungsruhe bleibt neben Familienmitgliedern erreichbar.
+- Statische Bodenmalerei, Blumen und Gräser der Draufsicht werden räumlich zusammengefasst; 3D-Vegetation teilt Farbbatches mit individueller Instanzfarbe. Entfernte Baum- und Felsmodelle verwenden leichtere native Mesh-LOD.
+- Natürlichere Boden- und Tierpalette, ruhigere Bodenflecken und biomeigene Naturortformen: Muscheln, Pilze, Schilf, Treibholz, Zapfen und Steinstapel.
+- Naturklang startet erst draußen; Menüs und App-Hintergrund stoppen die Wiedergaben zuverlässig. Die Toneinstellung bleibt beim Zurückkehren wirksam.
+- Fünfte Prüfsuite für tatsächliche Tierwege, Hindernisse, Brücken, Nachtkehr und alte Spielstände; reale Ton-/Menü-/Hintergrundwechsel und vollständige Audio-Freigabe sind zusätzlich geprüft.
+- Android-Build mit demselben dauerhaft gesicherten lokalen Schlüssel wie 0.4.0.
+
 ## 0.4.0 — 2026-10-08
 
 - 256 gegenseitig verbundene Gebiete im 16×16-Verbund; vierfache Fläche gegenüber 0.3.0. Alte IDs, Seeds und lokale Spielpositionen bleiben erhalten.

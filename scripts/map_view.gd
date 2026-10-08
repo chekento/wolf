@@ -6,6 +6,10 @@ var zoom := 0.72
 var bounds: Rect2
 var ground_region := -1
 var ground_patches: Array[Dictionary]=[]
+var ground_season := ""
+var ground_chunks: Array[Dictionary]=[]
+var cached_paths: Array[PackedVector2Array]=[]
+const GROUND_CHUNK := 400.0
 
 func seasonal_color(color: Color,foliage: bool=false) -> Color:
 	var season: String=game.state.season_name()
@@ -14,17 +18,77 @@ func seasonal_color(color: Color,foliage: bool=false) -> Color:
 	if season=="Sommer":return color.darkened(0.035)
 	return color
 
-func _ground_texture(ground: Color) -> void:
-	if ground_region!=game.state.region:
+func _ground_triangle(buffer: Dictionary,a: Vector2,b: Vector2,c: Vector2,colour: Color) -> void:
+	for p in [a,b,c]:
+		buffer.vertices.append(p)
+		buffer.colors.append(colour)
+
+func _ground_disc(buffer: Dictionary,p: Vector2,r: float,colour: Color,segments: int=12) -> void:
+	for i in range(segments):
+		var a := float(i)/segments*TAU
+		var b := float(i+1)/segments*TAU
+		_ground_triangle(buffer,p,p+Vector2(cos(a),sin(a))*r,p+Vector2(cos(b),sin(b))*r,colour)
+
+func _ground_flower(buffer: Dictionary,p: Vector2,r: float,colour: Color) -> void:
+	for i in range(5):_ground_disc(buffer,p+Vector2(cos(i*TAU/5),sin(i*TAU/5))*r,r*.8,colour,8)
+	_ground_disc(buffer,p,r*.45,Color("#e7b844"),8)
+
+func _ground_buffer(buffers: Dictionary,p: Vector2) -> Dictionary:
+	var key := Vector2i(floori(p.x/GROUND_CHUNK),floori(p.y/GROUND_CHUNK))
+	if not buffers.has(key):buffers[key]={"vertices":PackedVector2Array(),"colors":PackedColorArray()}
+	return buffers[key]
+
+func _bake_ground(ground: Color,biome: String) -> void:
+	# Quiet flowers, pebbles and painted soil do not change every frame. Bake
+	# their small triangles together; individual draw_circle calls are costly
+	# on mobile even when their radius is only two pixels.
+	ground_season=game.state.season_name()
+	ground_chunks.clear()
+	cached_paths.clear()
+	for vertical in [true,false]:cached_paths.append(WolfWorldData.path_points(game.state.region,vertical))
+	var buffers := {}
+	for patch in ground_patches:
+		var buffer := _ground_buffer(buffers,patch.p)
+		var colour := ground.lightened(.08) if patch.light else ground.darkened(.08)
+		for ring in range(3):_ground_disc(buffer,patch.p,patch.r*(1.0-float(ring)*.20),Color(colour,.075),32)
+	var grass := seasonal_color(Color("#5b7b3f"),true) if biome!="snow" else Color("#b2cbd5")
+	for d in game.world.decor:
+		var buffer := _ground_buffer(buffers,d.p)
+		var p: Vector2=d.p
+		var r: float=d.size
+		match d.variant:
+			0,1:_ground_disc(buffer,p,r*2,Color(ground.darkened(.1),.30))
+			2,3:
+				_ground_triangle(buffer,p-Vector2(.7,0),p+Vector2(.7,0),p+Vector2(-3,-r),grass)
+				_ground_triangle(buffer,p+Vector2(2.3,0),p+Vector2(3.7,0),p+Vector2(5,-r*1.3),grass.lightened(.16))
+				_ground_flower(buffer,p+Vector2(-3,-r),2.2,Color("#f4d358"))
+			4:_ground_flower(buffer,p,2.4,Color("#faf3d5"))
+			5:_ground_flower(buffer,p,2,Color("#b9a1d8"))
+			6:_ground_disc(buffer,p,2,Color("#6f7951"),8)
+	for key in buffers:
+		var buffer: Dictionary=buffers[key]
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX]=buffer.vertices
+		arrays[Mesh.ARRAY_COLOR]=buffer.colors
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+		ground_chunks.append({"bounds":Rect2(Vector2(key)*GROUND_CHUNK,Vector2.ONE*GROUND_CHUNK).grow(260),"mesh":mesh})
+
+func _prepare_ground(ground: Color,biome: String) -> void:
+	var changed: bool=ground_region!=game.state.region
+	if changed:
 		ground_region=game.state.region
 		ground_patches.clear()
 		var rng := RandomNumberGenerator.new()
 		rng.seed=WolfWorldData.REGIONS[game.state.region].seed+923
 		for i in range(80):ground_patches.append({"p":Vector2(rng.randf_range(0,3200),rng.randf_range(0,3200)),"r":rng.randf_range(90,250),"light":i%2==0})
-	for patch in ground_patches:
-		if not bounds.grow(patch.r).has_point(patch.p):continue
-		var colour := ground.lightened(0.08) if patch.light else ground.darkened(0.08)
-		for ring in range(3):draw_circle(patch.p,patch.r*(1.0-float(ring)*0.20),Color(colour,0.075))
+	if changed or ground_season!=game.state.season_name():_bake_ground(ground,biome)
+
+func _ground_texture(ground: Color,biome: String) -> void:
+	_prepare_ground(ground,biome)
+	for chunk in ground_chunks:
+		if bounds.intersects(chunk.bounds):draw_mesh(chunk.mesh,null)
 
 func _draw() -> void:
 	if game==null:return
@@ -36,23 +100,8 @@ func _draw() -> void:
 	var biome: String=WolfWorldData.REGIONS[game.state.region].biome
 	var ground := seasonal_color(Color(WolfWorldData.REGIONS[game.state.region].ground).lerp(Color("#8d9872"),0.08))
 	draw_rect(Rect2(Vector2.ZERO,WolfWorldData.SIZE),ground)
-	_ground_texture(ground)
-	for d in game.world.decor:
-		if not bounds.has_point(d.p):continue
-		var p: Vector2=d.p
-		var r: float=d.size
-		var grass := seasonal_color(Color("#5b7b3f"),true) if biome!="snow" else Color("#b2cbd5")
-		match d.variant:
-			0,1:draw_circle(p,r*2,Color(ground.darkened(0.1),0.30))
-			2,3:
-				draw_line(p,p+Vector2(-3,-r),grass,1.5)
-				draw_line(p+Vector2(3,0),p+Vector2(5,-r*1.3),grass.lightened(0.16),1.5)
-				_draw_flower(p+Vector2(-3,-r),2.2,Color("#f4d358"))
-			4:_draw_flower(p,2.4,Color("#faf3d5"))
-			5:_draw_flower(p,2,Color("#b9a1d8"))
-			6:draw_circle(p,2,Color("#6f7951"))
-	for vertical in [true,false]:
-		var points := WolfWorldData.path_points(game.state.region,vertical)
+	_ground_texture(ground,biome)
+	for points in cached_paths:
 		draw_polyline(points,ground.darkened(0.14),92,true)
 		draw_polyline(points,Color("#afaa70") if biome!="snow" else Color("#ebf3f0"),64,true)
 		draw_polyline(points,Color("#beba83") if biome!="snow" else Color("#f8fcfa"),36,true)
@@ -148,6 +197,50 @@ func _shadow(p: Vector2,width: float) -> void:
 	var size := get_viewport_rect().size
 	draw_set_transform(Vector2(size.x*0.5,size.y*0.48)-game.state.pos*zoom,0,Vector2.ONE*zoom)
 
+func _draw_nature_site(p: Vector2,biome: String,variant: int) -> void:
+	var style := WolfForestMesh.site_style(biome,variant)
+	match style:
+		"shells":
+			for i in range(5):
+				var q := p+Vector2(sin(i*2.4)*29,cos(i*2.4)*24)
+				var fan := PackedVector2Array([q+Vector2(0,5)])
+				for rib in range(9):fan.append(q+Vector2(cos(rib*PI/8)*10,-sin(rib*PI/8)*9))
+				draw_colored_polygon(fan,Color("#e9dac0"))
+				for rib in range(1,8):draw_line(q+Vector2(0,5),q+Vector2(cos(rib*PI/8)*9,-sin(rib*PI/8)*8),Color("#baa181"),.8)
+		"driftwood","fallen_log","wet_log":
+			draw_line(p+Vector2(-40,-3),p+Vector2(35,13),Color("#b8ac87") if style=="driftwood" else Color("#9f8254"),20,true)
+			draw_circle(p+Vector2(35,13),10,Color("#d5c499") if style=="driftwood" else Color("#c1a171"))
+			draw_arc(p+Vector2(35,13),6,0,TAU,16,Color("#a58b65"),1)
+			if style!="driftwood":_sprite(3,p+Vector2(-15,8),Vector2(60,48))
+		"reeds","dune_grass","frost_grass":
+			var colour := Color("#aca06a") if style=="dune_grass" else Color("#b5ced0") if style=="frost_grass" else Color("#7c9354")
+			for i in range(7):
+				var q := p+Vector2(sin(i*2.4)*30,cos(i*2.4)*24)
+				var tip := q+Vector2(sin(i*1.7)*9,-18-float(i%3)*5)
+				draw_line(q,tip,colour,2,true)
+				draw_line(q,tip+Vector2(8,5),colour.lightened(.12),1.4,true)
+				if style=="reeds":draw_line(tip-Vector2(0,5),tip+Vector2(0,5),Color("#88714e"),4,true)
+		"cairn","pebbles","snow_rocks":
+			for i in range(4):
+				var q := Vector2(0,-i*13) if style=="cairn" else Vector2(sin(i*2.4)*29,cos(i*2.4)*24)
+				var s := 1.0-i*.14 if style=="cairn" else .50+float(i%3)*.10
+				_sprite(4,p+q,Vector2(70,52)*s,Color("#e0ece8") if style=="snow_rocks" else Color("#c0cab8"))
+		"pinecones":
+			for i in range(7):
+				var q := p+Vector2(sin(i*2.4)*29,cos(i*2.4)*24)
+				draw_line(q-Vector2(0,4),q+Vector2(0,4),Color("#92704a"),7,true)
+				for row in range(3):draw_line(q+Vector2(-2,-3+row*3),q+Vector2(2,-3+row*3),Color("#bea277"),1)
+		"mushrooms":
+			for i in range(5):
+				var q := p+Vector2(sin(i*2.4)*23,cos(i*2.4)*20)
+				draw_line(q,q+Vector2(0,-7),Color("#d5c79d"),3)
+				var cap := PackedVector2Array([q+Vector2(-7,-5),q+Vector2(-5,-10),q+Vector2(0,-12),q+Vector2(5,-10),q+Vector2(7,-5)])
+				draw_colored_polygon(cap,Color("#bc875a"))
+				draw_line(q+Vector2(-6,-5),q+Vector2(6,-5),Color("#e1c596"),1)
+			_sprite(3,p+Vector2(-25,10),Vector2(43,33))
+		_:
+			for i in range(4):_sprite(6,p+Vector2(sin(i*2.4)*25,cos(i*2.4)*22),Vector2(48,46)*(.7 if style=="alpine_flowers" else 1.0))
+
 func _draw_object(obj: Dictionary,biome: String) -> void:
 	var p: Vector2=obj.p
 	var s: float=obj.scale
@@ -205,15 +298,7 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 			_sprite(4,p,Vector2(95,80))
 			draw_arc(p+Vector2(0,-8),12,0,TAU,20,Color("#ddce8c"),2)
 		"discovery":
-			if obj.variant==1:
-				draw_line(p+Vector2(-40,-3),p+Vector2(35,13),Color("#9f8254"),20,true)
-				draw_circle(p+Vector2(35,13),10,Color("#c1a171"))
-				_sprite(3,p+Vector2(-15,8),Vector2(60,48))
-			elif obj.variant==2:
-				for i in range(4):_sprite(6,p+Vector2(sin(i*2.4)*25,cos(i*2.4)*22),Vector2(48,46))
-			else:
-				_sprite(4,p+Vector2(0,-3),Vector2(95,76))
-				_sprite(6,p+Vector2(24,13),Vector2(45,40))
+			_draw_nature_site(p,biome,obj.variant)
 			var found: bool=game.state.sites.has(obj.site)
 			var pulse := 0.0 if game.state.reduced_motion else sin(game.clock*1.5)*2
 			draw_arc(p,50+pulse,0,TAU,40,Color(0.65,0.76,0.49,0.32) if found else Color(0.94,0.83,0.55,0.45),1.5)

@@ -10,6 +10,7 @@ func _ready() -> void:
 	mouse_filter=Control.MOUSE_FILTER_STOP
 
 func _gui_input(event: InputEvent) -> void:
+	if event.device==InputEvent.DEVICE_ID_EMULATION and (event is InputEventMouseButton or event is InputEventMouseMotion):return
 	if event is InputEventScreenTouch:
 		if event.pressed and pointer==-1:
 			pointer=event.index

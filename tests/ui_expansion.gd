@@ -59,6 +59,39 @@ func run() -> void:
 		quit(1)
 		return
 	game.close_overlay()
+	await process_frame
+	check(game.ambient.playing,"outdoor play starts the natural ambience")
+	game.play_howl()
+	game.show_menu()
+	check(not game.ambient.playing and not game.sound.playing,"opening a menu stops ambient and call playbacks")
+	game.show_settings()
+	find_button(game.overlay,"✓  Naturklang").pressed.emit()
+	game.close_overlay()
+	check(not game.state.sound_enabled and not game.ambient.playing,"disabled nature audio stays silent when returning outdoors")
+	game.show_settings()
+	find_button(game.overlay,"○  Naturklang").pressed.emit()
+	check(game.state.sound_enabled and not game.ambient.playing,"enabling nature audio waits until the menu closes")
+	for i in range(8):
+		game.close_overlay();game.show_pack();game.show_settings()
+		await process_frame
+	game.close_overlay()
+	check(game.ambient.playing and not game.ambient.stream_paused,"repeated menu changes return to one active unpaused ambience")
+	check(game.state.compact_hud and not game.header_details.visible and game.compact_needs.visible,"compact HUD starts with needs and encounter controls visible")
+	var compact_height: float=game.header.size.y
+	game.set_hud_compact(false)
+	await process_frame
+	await process_frame
+	check(game.header_details.visible and game.header.size.y>compact_height,"HUD expansion reveals meters and minimap")
+	game.set_hud_compact(true)
+	await process_frame
+	await process_frame
+	check(not game.header_details.visible and game.header.size.y<compact_height+5,"HUD collapses back without reserving empty space")
+	game.show_intro()
+	await process_frame
+	await process_frame
+	var start := find_button(game.overlay,"Die erste Pfote")
+	check(start!=null and start.global_position.y+start.size.y<game.ui.size.y-60,"intro start action is visible before the long instructions")
+	game.close_overlay()
 	game.show_encounter()
 	await process_frame
 	var accept := find_button(game.overlay,"Diesem Duft")
@@ -109,9 +142,11 @@ func run() -> void:
 	game._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	game._process(30)
 	check(game.state.elapsed==time_before and game.stick.vector==Vector2.ZERO,"backgrounding pauses needs, age and input")
+	check(not game.ambient.playing and not game.sound.playing,"backgrounding stops all game audio")
 	game._notification(Node.NOTIFICATION_APPLICATION_FOCUS_IN)
 	game._process(0.1)
 	check(game.state.elapsed>time_before,"returning to the foreground resumes active time")
+	check(game.ambient.playing,"returning to outdoor play restarts natural ambience")
 	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
 	check(is_instance_valid(game.overlay),"Android back opens the in-game menu")
 	game._notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -130,10 +165,60 @@ func run() -> void:
 	game.state.note_action("drink")
 	game.rest_cooldown=0
 	var rests_before: int=game.state.action_counts.rest
+	check(game.context_action()=="Ruhen","context action matches protected encounter rest beside family")
 	game.interact()
 	check(game.state.action_counts.rest==rests_before+1 and game.state.active_encounter.rested_after_drink,"encounter rest remains usable beside family members")
 	game.state.active_encounter={}
+	game.change_region(0,WolfWorldData.SPAWN)
+	for serial in range(40):
+		game.state.encounter_serial=serial
+		if game.state.encounter_status().task=="tracks":game.state.begin_encounter();break
+	game.guide_encounter()
+	var first_clue: Vector2=game.state.waypoint_pos
+	game.state.pos=first_clue
+	game.sniff();game.interact()
+	game._refresh_encounter_guide()
+	check(game.state.encounter_status().current==1 and game.state.waypoint_pos!=first_clue,"a guided encounter leads to the next fresh clue after a real interaction")
+	game.set_waypoint(game.state.region,Vector2(1600,1600))
+	check(game.guided_encounter_id.is_empty(),"a manual map goal takes control from encounter guidance")
+	game.state.active_encounter={}
+	game.toggle_view()
+	var steering := InputEventScreenTouch.new()
+	steering.index=0;steering.pressed=true;steering.position=game.stick.size*.5+Vector2(36,0)
+	game.stick._gui_input(steering)
+	var looking := InputEventScreenTouch.new();looking.index=4;looking.pressed=true
+	game._look_input(looking)
+	var drag := InputEventScreenDrag.new();drag.index=4;drag.relative=Vector2(12,0)
+	var yaw_before: float=game.world_view.yaw
+	game._look_input(drag)
+	check(game.stick.vector.x>0 and game.world_view.yaw!=yaw_before,"two touch pointers steer and look independently")
+	yaw_before=game.world_view.yaw
+	var emulated_press := InputEventMouseButton.new()
+	emulated_press.button_index=MOUSE_BUTTON_LEFT;emulated_press.pressed=true;emulated_press.device=InputEvent.DEVICE_ID_EMULATION
+	game._look_input(emulated_press)
+	var emulated_motion := InputEventMouseMotion.new()
+	emulated_motion.relative=Vector2(12,0);emulated_motion.device=InputEvent.DEVICE_ID_EMULATION
+	game._look_input(emulated_motion)
+	game.stick._gui_input(emulated_press)
+	check(game.world_view.yaw==yaw_before and game.stick.vector.x>0,"synthesized mouse events do not double touch look or reset steering")
+	drag.index=0;game._look_input(drag)
+	check(game.world_view.yaw==yaw_before,"joystick pointer cannot rotate the look camera")
+	game.toggle_view();game.toggle_view()
+	looking.index=8;game._look_input(looking)
+	check(game.look_pointer==8 and not game.looking_mouse,"view switching releases stale look pointers")
+	game.stick.reset()
+	game.state.pos=WolfWorldData.water_bank(0)
+	game.world_view.yaw=0;game.world_view.pitch=0
+	game.world.animals[0].p=game.state.pos+Vector2(0,-250)
+	drinks_before=game.state.action_counts.drink
+	game.interact()
+	check(game.state.action_counts.drink==drinks_before+1,"nearby water action takes priority over a distant visible animal")
+	game.set_process(false)
+	game.sound.stream_paused=false;game.ambient.stream_paused=false
+	await create_timer(0.2).timeout
 	game._release_audio()
+	check(game.ambient.stream==null and game.sound.stream==null and not game.ambient.has_stream_playback() and not game.sound.has_stream_playback(),"teardown releases audio resources and player references")
+	await create_timer(0.2).timeout
 	root.remove_child(game);game.queue_free()
 	await process_frame
 	await create_timer(0.15).timeout

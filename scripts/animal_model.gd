@@ -26,6 +26,7 @@ static func mat() -> StandardMaterial3D:
 	if not material_cache.has("fur"):
 		var m := StandardMaterial3D.new()
 		m.vertex_color_use_as_albedo=true
+		m.vertex_color_is_srgb=true
 		m.roughness=0.92
 		m.cull_mode=BaseMaterial3D.CULL_DISABLED
 		material_cache.fur=m
@@ -63,7 +64,7 @@ func piece(parent: Node3D,points: Array,radii: Array,color: Color,segments: int=
 				if dorsal:
 					c=c.lerp(color.darkened(0.20),smoothstep(-0.025,0.20,radial.y)*0.8)
 					if kind in ["wolf","fox"]:c=c.lerp(Color("#cfc9b6"),smoothstep(0.0,0.18,-radial.y)*0.5)
-				st.set_color(c)
+				st.set_color(c.srgb_to_linear().lerp(c,.22) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else c)
 				st.set_normal(normal)
 				st.add_vertex(p)
 

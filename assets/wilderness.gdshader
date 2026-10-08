@@ -35,9 +35,20 @@ void fragment() {
     float detail = noise_at(world_point.xz * 1.4);
     ROUGHNESS = 0.96;
     SPECULAR = 0.18;
-    if (surface_kind == 0) {
-        colour *= 0.92 + 0.12 * patch + 0.035 * detail * fine;
-        colour = mix(colour, colour * vec3(1.08, 1.02, 0.93), noise_at(world_point.xz * 0.08) * 0.27);
+    if (surface_kind == 0 || surface_kind == 5) {
+        colour *= 0.83 + 0.27 * patch + 0.045 * detail * fine;
+        float soil = smoothstep(0.45, 0.80, noise_at(world_point.xz * 0.08));
+        colour = mix(colour, colour * vec3(1.13, 0.98, 0.85), soil * 0.36);
+        if (surface_kind == 5) {
+            // Sparse painted leaf litter adds close soil scale without more
+            // instances. Soft edges and derivative fade keep the horizon calm.
+            vec2 cell = floor(world_point.xz * 1.8);
+            vec2 local = fract(world_point.xz * 1.8) - vec2(hash_at(cell), hash_at(cell + 9.1));
+            local = mix(local, local.yx, step(0.5, hash_at(cell + 4.7)));
+            float leaf = 1.0 - smoothstep(0.045, 0.105, length(local * vec2(1.0, 2.8)));
+            leaf *= step(0.64, hash_at(cell + 2.3)) * fine;
+            colour = mix(colour, colour * vec3(0.74, 0.82, 0.65), leaf * 0.42);
+        }
     } else if (surface_kind == 1 || surface_kind == 4) {
         colour *= 0.91 + 0.11 * noise_at(world_point.xz * 1.7 + world_point.y * 0.23);
         ROUGHNESS = 0.88;

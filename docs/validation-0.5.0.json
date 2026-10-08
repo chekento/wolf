@@ -1,0 +1,81 @@
+{
+  "engine": "4.5.1.stable.f62fdbde1",
+  "date": "2026-10-08",
+  "checks": [
+    {
+      "suite": "import",
+      "exit": 0,
+      "pass": 0,
+      "seconds": 4.008,
+      "problems": [],
+      "warnings": []
+    },
+    {
+      "suite": "smoke",
+      "exit": 0,
+      "pass": 2220,
+      "seconds": 19.686,
+      "problems": [],
+      "warnings": []
+    },
+    {
+      "suite": "gameplay_expansion",
+      "exit": 0,
+      "pass": 138,
+      "seconds": 25.262,
+      "problems": [],
+      "warnings": []
+    },
+    {
+      "suite": "graphics_expansion",
+      "exit": 0,
+      "pass": 75,
+      "seconds": 0.989,
+      "problems": [],
+      "warnings": []
+    },
+    {
+      "suite": "ui_expansion",
+      "exit": 0,
+      "pass": 52,
+      "seconds": 3.318,
+      "problems": [],
+      "warnings": []
+    },
+    {
+      "suite": "animal_behavior",
+      "exit": 0,
+      "pass": 18,
+      "seconds": 2.102,
+      "problems": [],
+      "warnings": []
+    }
+  ],
+  "total_pass": 2503,
+  "extra_audio_ui_runs": 5,
+  "android_device_tested": false,
+  "apk": {
+    "file": "Wolf-0.5.0-debug.apk",
+    "bytes": 32244252,
+    "sha256": "aad54966e4a815bf97e927a134170cd047de853763529034189f95ec6080b9a7",
+    "zip_crc": "passed",
+    "zip_entries": 156,
+    "abi": "arm64-v8a",
+    "zip_alignment_16k": "passed",
+    "elf_load_alignment": {
+      "lib/arm64-v8a/libc++_shared.so": [
+        16384,
+        16384,
+        16384,
+        16384
+      ],
+      "lib/arm64-v8a/libgodot_android.so": [
+        16384,
+        16384,
+        16384,
+        16384
+      ]
+    }
+  },
+  "signer_sha256": "08b255aa8a68369a40d089d7a5bb0e0c5e058d6ddb358f9ef449630a81bd3f1c"
+}

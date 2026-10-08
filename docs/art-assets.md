@@ -1,4 +1,4 @@
-# Grafikquellen · 0.2.0
+# Grafikquellen · Wolf
 
 `assets/woodland-atlas.png` wurde mit dem integrierten Bildgenerator erzeugt, als neues transparentes Spriteatlas mit lokalen Stilreferenzen aus den vom Nutzer bereitgestellten Bildern. Das Bild wird als unveränderte PNG-Datei verwendet; `scripts/atlas.gd` wählt die Spritebereiche zur Laufzeit aus. Keine externen Spielgrafiken wurden übernommen.
 
@@ -27,3 +27,10 @@ Die Bilder in `docs/` sind Aufnahmen des Godot-Spiels unter Linux mit Software-R
 - `scripts/cartography.gd`: gezeichnete Kartenflächen, Höhenlinien, Vegetationszeichen, Kompass und Maßstab aus tatsächlichen Weltdaten.
 
 Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellungen entstehen aus eigenem Code und Modellgeometrie.
+
+## Erweiterung 0.5.0
+
+- Eigene Muschel- und Pilzmeshes, zusammen mit Schilf, Treibholz, Zapfen und Steinstapeln nach Landschaft ausgewählt.
+- Distanzgeometrie entsteht aus denselben Originalvertices von Bäumen und Felsen; keine fremden LOD-Modelle.
+- Räumlich zusammengefasste 2D-Bodenflora, eigene ruhige Shader-Laubmarken und abgestimmte Fell-/Bodenfarben. Die bisherigen Spriteatlanten bleiben unverändert.
+- Alle erneuerten Bilder in `docs/` stammen aus dem tatsächlichen finalen Spiel; die Rendering-Vergleiche verwenden feste Spielszenen und keinen Konzeptbildgenerator.

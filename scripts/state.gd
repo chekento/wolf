@@ -43,6 +43,7 @@ var weather_enabled := true
 var map_reveal := false
 var camera_follow := false
 var smooth_edges := true
+var compact_hud := true
 var pawsteps: Array[Dictionary] = []
 var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"feed":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
 var active_encounter: Dictionary = {}
@@ -336,7 +337,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -401,6 +402,7 @@ func load_from(path: String = "") -> bool:
 	map_reveal=bool(data.get("map_reveal",false))
 	camera_follow=data.camera_follow if data.get("camera_follow") is bool else false
 	smooth_edges=data.smooth_edges if data.get("smooth_edges") is bool else true
+	compact_hud=data.compact_hud if data.get("compact_hud") is bool else true
 	drank=bool(data.get("drank",false))
 	rested=bool(data.get("rested",false))
 	howled=bool(data.get("howled",false))

@@ -71,6 +71,7 @@ func run() -> void:
 	game.sound.stream_paused=false;game.ambient.stream_paused=false
 	await create_timer(0.2).timeout
 	game._release_audio()
+	await create_timer(0.2).timeout
 	root.remove_child(game);game.queue_free()
 	await process_frame
 	await create_timer(0.15).timeout

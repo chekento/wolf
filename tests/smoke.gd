@@ -194,7 +194,11 @@ func run() -> void:
 	check(game.state.elapsed==elapsed_before,"menus pause simulation")
 	game.close_overlay()
 	check(not is_instance_valid(game.overlay),"clean modal close")
+	game.set_process(false)
+	game.sound.stream_paused=false;game.ambient.stream_paused=false
+	await create_timer(0.2).timeout
 	game._release_audio()
+	await create_timer(0.2).timeout
 	game.state=WolfState.new()
 	DirAccess.remove_absolute(WolfState.save_path)
 	DirAccess.remove_absolute(WolfState.save_path+".wildlife.json")

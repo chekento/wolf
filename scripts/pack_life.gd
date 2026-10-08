@@ -51,3 +51,12 @@ static func routine(hour: float,role: String) -> Dictionary:
 	if hour>=16 and hour<21:
 		return {"label":"Abendliche Wege","mood":"lauschen" if young else "wandern","target":Vector2(1700,1950)+offset,"speed":28.0,"hint":"Die Ohren und Nasen des Rudels nehmen die kühlere Abendluft auf."}
 	return {"label":"Nacht nahe der Höhle","mood":"ruhen","target":Vector2(1510,2340)+offset,"speed":12.0,"hint":"Das Rudel bleibt in geschützter Nähe; auch ruhende Wölfe reagieren auf ungewohnte Geräusche."}
+
+static func wildlife_routine(kind: String,hour: float,cycle: int) -> Dictionary:
+	# Foxes mainly investigate at dusk and night; hares favor morning and
+	# evening. Deer alternate feeding and sheltered rest throughout the day.
+	var active := true
+	if kind=="fox":active=hour>=17 or hour<7
+	elif kind=="rabbit":active=(hour>=5 and hour<10) or (hour>=16 and hour<23)
+	var rest := not active or (kind=="deer" and cycle==0)
+	return {"rest":rest,"pause":active and not rest and cycle==1,"mood":"schnüffeln" if kind=="fox" and cycle==1 else "grasen" if cycle==1 else "wandern","speed":24.0 if kind=="fox" else 20.0}

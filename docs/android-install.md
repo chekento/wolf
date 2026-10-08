@@ -1,6 +1,8 @@
-# Android-Installation · 0.4.0
+# Android-Installation · 0.5.0
 
 Die APK unterstützt Android 7 oder neuer und ARM64-Geräte. Sie spielt offline und benötigt keine Internetberechtigung. Android muss die Installation aus der verwendeten Downloadquelle erlauben.
+
+**0.5.0 verwendet denselben lokalen Signierschlüssel wie 0.4.0 und lässt sich darüber installieren.** Die folgenden Sicherungshinweise betreffen ältere lokale Builds bis 0.3.0.
 
 ## Vorhandene Installation
 
@@ -23,7 +25,7 @@ tar -tf wolf-save-backup.tar
 
 ```sh
 adb uninstall cloud.kosch.wolf
-adb install Wolf-0.4.0-debug.apk
+adb install Wolf-0.5.0-debug.apk
 adb shell run-as cloud.kosch.wolf tar -xf - < wolf-save-backup.tar
 ```
 

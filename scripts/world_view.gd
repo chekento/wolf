@@ -85,25 +85,32 @@ func cone_mesh() -> CylinderMesh:
 func add_shape(kind: String,p: Vector3,dimensions: Vector3,color: Color,rotation: float=0) -> void:
 	# Spatial chunks let Godot cull entire groves instead of drawing every tree.
 	var chunk := Vector2i(floori(p.x/24.0),floori(p.z/24.0))
-	var key := kind+color.to_html()+str(chunk)
+	# Tint belongs to each instance, not the batch. Birch trunks and individual
+	# crown layers can then share one draw call without losing their palette.
+	var key := kind+str(chunk)
 	var center := Vector3(chunk.x*24.0+12,0,chunk.y*24.0+12)
-	if not batches.has(key):batches[key]={"kind":kind,"color":color,"center":center,"transforms":[]}
+	if not batches.has(key):batches[key]={"kind":kind,"center":center,"transforms":[],"colors":[]}
 	var basis := Basis(Vector3.UP,rotation).scaled(dimensions)
 	batches[key].transforms.append(Transform3D(basis,p-center))
+	batches[key].colors.append(color)
 
 func flush_batches() -> void:
 	for key in batches:
 		var batch: Dictionary=batches[key]
 		var mm := MultiMesh.new()
 		mm.transform_format=MultiMesh.TRANSFORM_3D
-		mm.mesh=WolfForestMesh.get_mesh(batch.kind) if batch.kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge"] else sphere_mesh() if batch.kind=="sphere" else cone_mesh() if batch.kind=="cone" else BoxMesh.new()
+		mm.use_colors=true
+		mm.mesh=WolfForestMesh.get_mesh(batch.kind) if batch.kind in ["pine","leaf","trunk","stone","grass","fern","reed","flower","log","ridge","mushroom","shell"] else sphere_mesh() if batch.kind=="sphere" else cone_mesh() if batch.kind=="cone" else BoxMesh.new()
 		# A default BoxMesh has size 1×1×1.
 		mm.instance_count=batch.transforms.size()
-		for i in range(batch.transforms.size()):mm.set_instance_transform(i,batch.transforms[i])
+		for i in range(batch.transforms.size()):
+			mm.set_instance_transform(i,batch.transforms[i])
+			var colour: Color=batch.colors[i]
+			mm.set_instance_color(i,painted_colour(colour))
 		var n := MultiMeshInstance3D.new()
 		n.multimesh=mm
 		n.position=batch.center
-		n.material_override=nature_material(batch.color,1 if batch.kind in ["pine","leaf"] else 2 if batch.kind in ["trunk","log"] else 4 if batch.kind in ["grass","fern","reed","flower"] else 0)
+		n.material_override=nature_material(Color.WHITE,1 if batch.kind in ["pine","leaf"] else 2 if batch.kind in ["trunk","log"] else 4 if batch.kind in ["grass","fern","reed","flower"] else 0)
 		if batch.kind in ["grass","fern","reed","flower"]:
 			n.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			n.visibility_range_end=46
@@ -203,7 +210,7 @@ func build_ground() -> void:
 	# Terrain receives tree/animal shadows but must not write itself into the
 	# mobile depth atlas: nearly coplanar soil/path surfaces produce acne.
 	n.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m := nature_material(ground,0)
+	var m := nature_material(ground,5)
 	n.material_override=m
 	contents.add_child(n)
 	for vertical in [true,false]:
@@ -221,6 +228,35 @@ func build_ground() -> void:
 		path_mesh.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		path_mesh.material_override=nature_material(Color("#aa9e79") if WolfWorldData.REGIONS[game.state.region].biome!="snow" else Color("#e4eeec"),6)
 		contents.add_child(path_mesh)
+
+func build_nature_site(p: Vector3,biome: String,variant: int) -> void:
+	var style := WolfForestMesh.site_style(biome,variant)
+	match style:
+		"shells":
+			for i in range(6):
+				var q := p+Vector3(sin(i*2.4)*.75,.01,cos(i*2.4)*.65)
+				add_shape("shell",q,Vector3.ONE*(.8+float(i%3)*.2),Color.WHITE,float(i)*1.2)
+		"driftwood","fallen_log","wet_log":
+			add_shape("log",p+Vector3(0,.22,0),Vector3(.42,.42,2.3),Color("#a29578") if style=="driftwood" else Color("#857051"),.8)
+			for i in range(3):add_shape("reed" if style=="wet_log" else "grass" if style=="driftwood" else "fern",p+Vector3(-.8+i*.55,0,-.3),Vector3.ONE*.7,seasonal_color(Color("#819956"),true),float(i)*2)
+		"reeds","dune_grass","frost_grass":
+			for i in range(7):
+				var q := p+Vector3(sin(i*2.4)*.9,0,cos(i*2.4)*.75)
+				add_shape("reed" if style=="reeds" else "grass",q,Vector3.ONE*(.85+float(i%3)*.12),seasonal_color(Color("#a59d6b") if style=="dune_grass" else Color("#8b975f"),true),float(i)*1.7)
+			if style=="reeds":add_shape("flower",p+Vector3(.15,0,.1),Vector3.ONE*.8,Color("#a0b09a"))
+		"cairn","pebbles","snow_rocks":
+			for i in range(4):
+				var q := Vector3(0,.18+i*.27,0) if style=="cairn" else Vector3(sin(i*2)*.7,.13,cos(i*2)*.6)
+				var s := .65-float(i)*.09 if style=="cairn" else .40+float(i%3)*.09
+				add_shape("stone",p+q,Vector3(s,s*.48,s*.8),Color("#d3e1df") if style=="snow_rocks" else Color("#a3ad9b"),float(i)*.7)
+		"pinecones":
+			for i in range(7):add_shape("stone",p+Vector3(sin(i*2.4)*.85,.055,cos(i*2.4)*.7),Vector3(.13,.19,.13),Color("#8c6a44"),float(i))
+			add_shape("grass",p+Vector3(.7,0,-.3),Vector3.ONE*.7,seasonal_color(Color("#83945c"),true))
+		"mushrooms":
+			for i in range(5):add_shape("mushroom",p+Vector3(sin(i*2.4)*.6,0,cos(i*2.4)*.5),Vector3.ONE*(.8+float(i%2)*.35),Color.WHITE,float(i))
+			add_shape("fern",p+Vector3(-.5,0,.5),Vector3.ONE*.7,seasonal_color(Color("#819956"),true))
+		_:
+			for i in range(5):add_shape("flower",p+Vector3(sin(i*2.4)*.65,0,cos(i*2.4)*.65),Vector3.ONE*(.65 if style=="alpine_flowers" else 1.1),seasonal_color(Color("#8e9c5f"),true),float(i))
 
 func rebuild() -> void:
 	region_built=game.state.region
@@ -303,14 +339,7 @@ func rebuild() -> void:
 				add_shape("stone",p+Vector3(0,1.65,0),Vector3(3.2,1.15,2.25),Color("#a6a68a"))
 				add_shape("box",p+Vector3(0,0.8,-0.2),Vector3(2.5,1.6,0.1),Color("#273d2d"))
 			"landmark","discovery":
-				if obj.get("variant",0)==1:
-					add_shape("log",p+Vector3(0,0.24,0),Vector3(0.42,0.42,2.3),Color("#857051"),0.8)
-					for i in range(3):add_shape("fern",p+Vector3(-0.8+i*0.55,0,-0.3),Vector3.ONE*0.7,seasonal_color(Color("#819956"),true),float(i)*2)
-				elif obj.get("variant",0)==2:
-					for i in range(4):add_shape("flower",p+Vector3(sin(i*2)*0.6,0,cos(i*2)*0.6),Vector3.ONE*1.1,seasonal_color(Color("#8e9c5f"),true),float(i))
-				else:
-					add_shape("stone",p+Vector3(0,0.48,0),Vector3(1.4,1.2,1.1),Color("#aaa68d"))
-					add_shape("fern",p+Vector3(0.4,0.2,0.2),Vector3.ONE*0.7,seasonal_color(Color("#9da363"),true))
+				build_nature_site(p,biome,obj.get("variant",0))
 			"bridge":
 				for i in range(14):add_shape("box",p+Vector3(-3.4+i*0.5,0.18,0),Vector3(0.45,0.3,3.1),Color("#b58d52"))
 				for side in [-1,1]:
@@ -466,10 +495,15 @@ func nature_material(color: Color,surface: int) -> ShaderMaterial:
 	if material_cache.has(key):return material_cache[key]
 	var m := ShaderMaterial.new()
 	m.shader=nature_shader
-	m.set_shader_parameter("base_color",color)
+	# Compatibility leaves source_color uniforms in their original space.
+	# Match the instanced palette rather than producing fluorescent soil.
+	m.set_shader_parameter("base_color",painted_colour(color) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else color)
 	m.set_shader_parameter("surface_kind",surface)
 	m.set_shader_parameter("wind_phase",game.clock)
 	m.set_shader_parameter("animation_amount",0.0 if game.state.reduced_motion else 1.0)
 	scene_materials.append(m)
 	material_cache[key]=m
 	return m
+
+func painted_colour(color: Color) -> Color:
+	return color.srgb_to_linear().lerp(color,.22) if RenderingServer.get_current_rendering_method()=="gl_compatibility" else color.srgb_to_linear()
