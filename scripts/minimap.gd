@@ -28,6 +28,10 @@ func _draw() -> void:
 			"landmark","discovery":draw_circle(p,3,Color("#edc457"))
 			"tree":draw_circle(p,1.5,Color("#355b37"))
 	if game.state.waypoint_region>=0:
+		var route: PackedVector2Array=game.navigation_points
+		var points := PackedVector2Array()
+		for point in route:points.append(origin+point*scale_f)
+		if points.size()>1:draw_polyline(points,Color("#d7ad69"),1.5,true)
 		var target: Vector2=game.goal_position()
 		var q: Vector2=origin+target*scale_f
 		draw_circle(q,3,Color("#eaba77"))

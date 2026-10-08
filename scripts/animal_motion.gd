@@ -7,11 +7,26 @@ const MARGIN := 20.0
 var region := 0
 var collision := WolfCollisionIndex.new()
 var navigation: AStar2D
+var habitat_objects: Array = []
+var water_points: Array[Vector2] = []
 
 func configure(index: int,objects: Array) -> void:
 	region=index
 	collision.build(objects)
 	navigation=null
+	habitat_objects=objects.filter(func(object: Dictionary):return object.kind in ["bush","flowers","tree","rock"])
+	water_points.clear()
+	for object in objects:
+		if object.kind!="water":continue
+		if int(object.variant)==1:
+			for y in range(400,2900,250):
+				for side in [-1,1]:
+					var bank := Vector2(WolfWorldData.river_x(y)+side*130,float(y))
+					if walkable(bank):water_points.append(bank)
+		else:
+			for i in range(12):
+				var bank: Vector2=object.p+Vector2.from_angle(i*TAU/12)*(190.0*float(object.scale)+50)
+				if walkable(bank):water_points.append(bank)
 
 func walkable(point: Vector2) -> bool:
 	return point.x>=MARGIN and point.y>=MARGIN and point.x<=3200-MARGIN and point.y<=3200-MARGIN and collision.walkable(point) and not WolfWorldData.water_blocked(point,region)
@@ -44,6 +59,62 @@ func nearest_free(point: Vector2,max_radius: float=360) -> Vector2:
 			var candidate := center+Vector2.from_angle(float(angle)*TAU/24)*float(radius)
 			if walkable(candidate):return candidate
 	return Vector2(INF,INF)
+
+func ecology_targets(animal: Dictionary) -> Dictionary:
+	# Anchors are selected once and stay tied to vegetation or a real bank.
+	# A free line back to the original home proves the initial connection;
+	# later returns from a flight may use the same shared navigation graph.
+	var home: Vector2=animal.home
+	var forage := home
+	var other_forage := home
+	var shelter := home
+	var best_food := INF
+	var best_other := INF
+	var best_cover := INF
+	var refuges: Array[Vector2]=[home]
+	for object in habitat_objects:
+		var offset: Vector2=Vector2.from_angle(float(animal.get("phase",0)))*65
+		var candidate: Vector2=object.p+offset if object.kind in ["tree","rock"] else object.p
+		var distance := home.distance_to(candidate)
+		if distance>620 or not walkable(candidate) or not segment_free(home,candidate):continue
+		if object.kind=="flowers" or (animal.kind=="fox" and object.kind=="bush"):
+			if distance<best_food:
+				other_forage=forage;best_other=best_food
+				forage=candidate;best_food=distance
+			elif distance<best_other:other_forage=candidate;best_other=distance
+		if object.kind in ["bush","tree","rock"]:
+			if refuges.size()<18:refuges.append(candidate)
+			if distance<best_cover and distance>20:shelter=candidate;best_cover=distance
+	if best_other==INF:
+		for offset in [Vector2(120,45),Vector2(-110,65),Vector2(65,-120)]:
+			if segment_free(home,home+offset):other_forage=home+offset;break
+	var water := home
+	var water_distance := 850.0
+	for bank in water_points:
+		var distance := home.distance_to(bank)
+		if distance<water_distance and segment_free(home,bank):water=bank;water_distance=distance
+	return {"forage":forage,"other_forage":other_forage,"shelter":shelter,"water":water,"has_water":water!=home,"refuges":refuges}
+
+func refuge_from(animal: Dictionary,threat: Vector2) -> Vector2:
+	var position: Vector2=animal.p
+	var ecology: Dictionary=animal.get("_ecology",{})
+	var best: Vector2=ecology.get("shelter",animal.home)
+	var score := -INF
+	for candidate in ecology.get("refuges",[]):
+		var separation: float=candidate.distance_to(threat)
+		var distance: float=candidate.distance_to(position)
+		if separation<position.distance_to(threat)+60 or distance<35:continue
+		var value := separation-distance*0.35
+		if value>score:best=candidate;score=value
+	if score>-INF:return best
+	# If the wolf stands between the animal and all known cover, retreat a
+	# short safe distance first. This is still a walked route, never a jump.
+	var away := threat.direction_to(position)
+	if away.length_squared()<0.01:away=Vector2.from_angle(float(animal.get("phase",0)))
+	for angle in [0.0,0.45,-0.45,0.9,-0.9]:
+		var candidate := nearest_free(position+away.rotated(angle)*300,100)
+		if candidate.is_finite() and candidate.distance_to(threat)>position.distance_to(threat)+80:return candidate
+	return best
 
 func _node_id(cell: Vector2i) -> int:
 	return cell.x+cell.y*GRID

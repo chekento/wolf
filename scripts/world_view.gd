@@ -432,13 +432,21 @@ func sync_camera() -> void:
 		player_model.scale=Vector3.ONE*game.state.growth()
 		var facing: Vector2=game.state.facing
 		player_model.rotation.y=lerp_angle(player_model.rotation.y,atan2(-facing.x,-facing.y),0.18)
-		player_model.animate(game.player_gait,game.player_speed,game.player_mood,game.clock,game.state.reduced_motion)
+		if follow_camera:
+			fit_paws(player_model)
+			player_model.animate(game.player_gait,game.player_speed,game.player_mood,game.clock,game.state.reduced_motion)
 	for i in range(mini(animal_nodes.size(),game.world.animals.size())):
 		var a: Dictionary=game.world.animals[i]
 		animal_nodes[i].position=world_pos(a.p)
 		var facing: Vector2=a.get("facing",Vector2.UP)
 		animal_nodes[i].rotation.y=lerp_angle(animal_nodes[i].rotation.y,atan2(-facing.x,-facing.y),0.18)
-		animal_nodes[i].animate(a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),game.clock+a.phase,game.state.reduced_motion)
+		var attention: float=maxf(a.get("attention",0.0),.6 if a.get("mood","")=="begrüßen" else 0.0)
+		var look_angle := 0.0
+		if attention>.01 and a.get("target_pos") is Vector2:
+			var direction: Vector2=a.p.direction_to(a.target_pos)
+			look_angle=wrapf(atan2(-direction.x,-direction.y)-animal_nodes[i].rotation.y,-PI,PI)
+		fit_paws(animal_nodes[i])
+		animal_nodes[i].animate(a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),game.clock+a.phase,game.state.reduced_motion,attention,look_angle)
 	for id in track_nodes:
 		var known: bool=game.state.found.has(id)
 		track_nodes[id].visible=game.scent_time>0 or known
@@ -453,6 +461,14 @@ func sync_camera() -> void:
 		for m in scene_materials:
 			m.set_shader_parameter("wind_phase",game.clock)
 			m.set_shader_parameter("animation_amount",0.0 if game.state.reduced_motion else 1.0)
+
+func fit_paws(model: WolfAnimalModel) -> void:
+	var heights: Array[float]=[]
+	for point in model.foot_targets:
+		var sample := model.transform*point
+		var soil := height_at(Vector2(sample.x,sample.z)/UNIT)
+		heights.append((soil-model.position.y)/maxf(model.scale.y,.25))
+	model.set_foot_heights(heights)
 
 func look(delta: Vector2) -> void:
 	yaw-=delta.x*0.005

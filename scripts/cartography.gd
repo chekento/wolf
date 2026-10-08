@@ -17,6 +17,7 @@ var touches: Dictionary = {}
 var pinch_length := 0.0
 var region_data: Dictionary = {}
 var loaded_region := -1
+var layers := {"sites":true,"tracks":false,"route":true}
 
 func _ready() -> void:
 	custom_minimum_size=Vector2(0,380)
@@ -43,10 +44,17 @@ func local_scale() -> float:
 	return minf(size.x,size.y)/3200.0*magnification
 
 func zoom_by(factor: float) -> void:
+	zoom_at(factor,size*0.5)
+
+func zoom_at(factor: float,anchor: Vector2) -> void:
 	var old := magnification
 	magnification=clampf(magnification*factor,1,4)
-	pan*=magnification/old
+	var ratio := magnification/old
+	pan=(anchor-size*0.5)-(anchor-size*0.5-pan)*ratio
 	queue_redraw()
+
+func toggle_layer(layer: String) -> void:
+	if layers.has(layer):layers[layer]=not layers[layer];queue_redraw()
 
 func set_local(region: int) -> void:
 	local_region=region
@@ -54,18 +62,21 @@ func set_local(region: int) -> void:
 	region_data={}
 	magnification=1
 	pan=Vector2.ZERO
+	pointer=-1;mouse_down=false;touches.clear();pinch_length=0
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
-		if event.button_index==MOUSE_BUTTON_WHEEL_UP:zoom_by(1.2)
-		elif event.button_index==MOUSE_BUTTON_WHEEL_DOWN:zoom_by(1.0/1.2)
+		if event.device==InputEvent.DEVICE_ID_EMULATION:return
+		if event.button_index==MOUSE_BUTTON_WHEEL_UP:zoom_at(1.2,event.position)
+		elif event.button_index==MOUSE_BUTTON_WHEEL_DOWN:zoom_at(1.0/1.2,event.position)
 		elif event.button_index==MOUSE_BUTTON_LEFT:
 			mouse_down=event.pressed
 			if event.pressed:press_pos=event.position;previous=event.position;dragged=false
 			elif not dragged:_select(event.position)
 		accept_event()
 	elif event is InputEventMouseMotion and mouse_down:
+		if event.device==InputEvent.DEVICE_ID_EMULATION:return
 		if event.position.distance_to(press_pos)>7:dragged=true
 		if dragged:pan+=event.position-previous;queue_redraw()
 		previous=event.position
@@ -81,12 +92,14 @@ func _gui_input(event: InputEvent) -> void:
 				pointer=-1
 			touches.erase(event.index)
 			pinch_length=0
+			if pointer==-1 and not touches.is_empty():
+				pointer=int(touches.keys()[0]);previous=touches[pointer];press_pos=previous;dragged=true
 		accept_event()
 	elif event is InputEventScreenDrag:
 		touches[event.index]=event.position
 		if touches.size()==2:
 			var length: float=touches.values()[0].distance_to(touches.values()[1])
-			if pinch_length>10:zoom_by(length/pinch_length)
+			if pinch_length>10:zoom_at(length/pinch_length,(touches.values()[0]+touches.values()[1])*0.5)
 			pinch_length=length
 		elif pointer==event.index:
 			if event.position.distance_to(press_pos)>7:dragged=true
@@ -183,7 +196,7 @@ func _world() -> void:
 		var points := PackedVector2Array([player])
 		for id in route:points.append(origin+(Vector2(WolfWorldData.REGIONS[id].coord)+Vector2(0.5,0.5))*cell)
 		points.append(goal)
-		if points.size()>1:draw_polyline(points,Color(0.64,0.24,0.18,0.72),2,true)
+		if layers.route and points.size()>1:draw_polyline(points,Color(0.64,0.24,0.18,0.72),2,true)
 
 func _local() -> void:
 	var scale_value := local_scale()
@@ -237,6 +250,7 @@ func _local() -> void:
 				if obj.variant==0:draw_circle(q,190*obj.scale*scale_value,Color("#52abb8"))
 			"den":_paw(q,5,Color("#584a32"))
 			"discovery":
+				if not layers.sites:continue
 				draw_circle(q,6,Color("#405f40"))
 				draw_arc(q,5,0,TAU,16,Color("#f7e098"),2)
 				if game.state.sites.has(obj.site):draw_circle(q,2,Color("#eae0b6"))
@@ -247,11 +261,45 @@ func _local() -> void:
 			"landmark":draw_circle(q,4,Color("#d6c185"))
 			"bridge":draw_line(q-Vector2(12,0),q+Vector2(12,0),Color("#805b35"),5)
 			"house":draw_rect(Rect2(q-Vector2(5,5),Vector2(10,10)),Color("#835738"))
+	if layers.tracks:
+		for track in data.tracks:
+			if not game.state.found.has(track.id):continue
+			var q: Vector2=origin+track.p*scale_value
+			_paw(q,2.5,Color("#8b6d42"))
+	if layers.route and local_region==game.state.region and game.state.waypoint_region>=0:
+		var route: PackedVector2Array=game.navigation_route()
+		var projected := PackedVector2Array()
+		for point in route:projected.append(origin+point*scale_value)
+		if projected.size()>1:
+			draw_polyline(projected,Color("#efdfb0"),5,true)
+			draw_polyline(projected,Color("#a4503f"),2,true)
+			for i in range(0,projected.size(),8):draw_circle(projected[i],2.2,Color("#a4503f"))
+	_draw_exits(origin,scale_value)
 	if local_region==game.state.region:
 		for a in data.animals:
 			if a.kind=="wolf":_paw(origin+a.p*scale_value,3,Color("#e7dfc4"))
 		_paw(origin+game.state.pos*scale_value,6,Color("#fff0b3"))
 	if game.state.waypoint_region==local_region:draw_arc(origin+game.state.waypoint_pos*scale_value,8,0,TAU,24,Color("#a54638"),3)
+
+func _draw_exits(origin: Vector2,scale_value: float) -> void:
+	var links: Dictionary=WolfWorldData.REGIONS[local_region].links
+	for direction in links:
+		var target: int=links[direction]
+		var point: Vector2={"north":Vector2(1600,70),"south":Vector2(1600,3130),"west":Vector2(70,1600),"east":Vector2(3130,1600)}[direction]
+		var q := origin+point*scale_value
+		if not Rect2(Vector2.ZERO,size).grow(12).has_point(q):continue
+		var outward: Vector2={"north":Vector2.UP,"south":Vector2.DOWN,"west":Vector2.LEFT,"east":Vector2.RIGHT}[direction]
+		var side := Vector2(-outward.y,outward.x)
+		draw_circle(q,11,Color("#eee0b2"))
+		draw_colored_polygon(PackedVector2Array([q+outward*7,q-outward*4+side*5,q-outward*4-side*5]),Color("#576b4a"))
+		if magnification<1.3:continue
+		var known: bool=game.state.visited.has(target) or game.state.map_reveal
+		var caption: String=WolfWorldData.REGIONS[target].name if known else "Neue Wildnis"
+		var font := ThemeDB.fallback_font
+		var text_width := minf(font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,11).x,size.x-24)
+		var baseline := (q-outward*23+Vector2(-text_width*0.5,4)).clamp(Vector2(8,18),size-Vector2(text_width+8,40))
+		draw_rect(Rect2(baseline-Vector2(3,13),Vector2(text_width+6,18)),Color(0.91,0.88,0.73,0.94))
+		draw_string(font,baseline,caption,HORIZONTAL_ALIGNMENT_LEFT,text_width,11,Color("#36503e"))
 
 func _paw(p: Vector2,r: float,color: Color) -> void:
 	draw_circle(p+Vector2(0,r*0.3),r*0.65,color)

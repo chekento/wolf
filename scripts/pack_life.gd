@@ -3,7 +3,7 @@ extends RefCounted
 
 # Short, repeatable experiences grounded in the current landscape. A chosen
 # encounter records its baseline in WolfState, so an old action cannot fulfil it.
-static func encounter(region: int,day_index: int,serial: int) -> Dictionary:
+static func encounter(region: int,day_index: int,serial: int,hour: float=7.5) -> Dictionary:
 	var biome: String=WolfWorldData.REGIONS[region].biome
 	var entries: Array[Dictionary]=[
 		{"title":"Eine neue Fährte","text":"Am Weg liegen frische Trittsiegel. Du senkst die Nase; der Duft ist deutlicher als die älteren Gerüche unter den Blättern. Folge den einzelnen Spuren und prüfe, wohin sie führen.","task":"tracks","goal":3,"hint":"Lies drei bisher unbekannte Spuren in diesem Gebiet.","skill":"nose","target_pos":Vector2(1640,1810)},
@@ -16,6 +16,14 @@ static func encounter(region: int,day_index: int,serial: int) -> Dictionary:
 		{"title":"Ein roter Schatten","text":"Ein Fuchs hält kurz zwischen den Stämmen inne. Seine Ohren drehen sich, dann verschwindet er wieder in der Deckung. Bleibe ruhig und beobachte sein Verhalten aus genügend Abstand.","task":"observe","detail":"Fuchs","goal":1,"hint":"Beobachte jetzt einen Fuchs aus dem Wolfsblick; nähere dich leise.","skill":"stealth","target_pos":Vector2(1950,1170)},
 		{"title":"Ein Hase lauscht","text":"Ein Hase sitzt geduckt im Gras. Selbst während er Nahrung sucht, lauscht er in mehrere Richtungen. Du hältst Abstand und lässt ihm die freie Flucht in seine Deckung.","task":"observe","detail":"Hase","goal":1,"hint":"Beobachte jetzt einen Hasen aus dem Wolfsblick und bleibe leise.","skill":"stealth","target_pos":Vector2(1760,1350)}
 	]
+	var waterside := biome in ["river","lake","marsh","coast"]
+	var dusk := hour>=17 or hour<7
+	entries.append_array([
+		{"title":"Drei sichere Plätze","text":"Wasser, ein zurückgelassener Nahrungsrest und trockene Deckung liegen auf verschiedenen Wegen. Du lernst sie in Ruhe kennen und kehrst danach geschützt zur Ruhe zurück.","task":"care_route","goal":3,"hint":"Trinke am gezeigten Ufer, friss danach am gewählten Nahrungsplatz und ruhe anschließend am gezeigten Ruheplatz.","skill":"pack","target_pos":WolfWorldData.water_bank(region)},
+		{"title":"Zwei Gäste am Ufer" if waterside else "Zwei Gäste am Waldsaum","text":"Verschiedene Tiere nutzen dieselbe Landschaft zu unterschiedlichen Zeiten. Du prüfst ihre Haltung aus genügend Abstand und lässt ihre Rückwege frei.","task":"edge_pair","detail":"Fuchs" if dusk else "Reh","second_detail":"Hase","goal":2,"hint":"Beobachte jetzt einen Fuchs und einen Hasen in diesem Gebiet." if dusk else "Beobachte jetzt ein Reh und einen Hasen in diesem Gebiet.","skill":"stealth","target_pos":Vector2(1760,1490)},
+		{"title":"Geduld im Abendwind" if dusk else "Ein ruhiger Blick","text":"Ein Wildtier hebt die Ohren und wendet sich wieder seinen eigenen Wegen zu. Du bleibst mit Abstand stehen, statt ihm nachzulaufen, und beobachtest seine ruhigen Bewegungen.","task":"quiet_watch","detail":"Fuchs" if dusk else "Reh","goal":12,"hint":"Wähle Beobachten für einen ruhigen Fuchs. Halte ihn danach 12 aktive Sekunden mit Abstand im Wolfsblick; bleibe ruhig." if dusk else "Wähle Beobachten für ein ruhiges Reh. Halte es danach 12 aktive Sekunden mit Abstand im Wolfsblick; bleibe ruhig.","skill":"stealth","target_pos":Vector2(1760,1490)},
+		{"title":"Ein vertrauter Rückweg","text":"Ein geschützter Naturort hat seinen eigenen Geruch. Du prüfst ihn erneut und hinterlässt dort deine Duftmarke. So wird aus einem einzelnen Besuch ein vertrauter Rückweg.","task":"site_mark","goal":2,"hint":"Prüfe den gezeigten Naturort mit Aktion und markiere danach dort deinen eigenen Duft.","skill":"nose","target_pos":Vector2(640,2500)}
+	])
 	var thematic := {
 		"snow":{"title":"Spuren unter Schneekiefern","text":"Der Wind hat feinen Schnee über ältere Fährten getragen. Die frischeren Abdrücke sind noch scharf. Du prüfst die Kanten mit Nase und Blick und bleibst auf festem Boden."},
 		"alpine":{"title":"Der Weg am hohen Hang","text":"Zwischen den Felsen führen Trittsiegel zu einer geschützten Grasmulde. Du gehst langsam. Die offene Höhe verlangt mehr Aufmerksamkeit als der Wald."},
@@ -60,3 +68,16 @@ static func wildlife_routine(kind: String,hour: float,cycle: int) -> Dictionary:
 	elif kind=="rabbit":active=(hour>=5 and hour<10) or (hour>=16 and hour<23)
 	var rest := not active or (kind=="deer" and cycle==0)
 	return {"rest":rest,"pause":active and not rest and cycle==1,"mood":"schnüffeln" if kind=="fox" and cycle==1 else "grasen" if cycle==1 else "wandern","speed":24.0 if kind=="fox" else 20.0}
+
+static func wildlife_profile(kind: String) -> Dictionary:
+	# Distances are game world units. Species differ in early attention and
+	# escape distance, rather than all reacting to one identical radius.
+	match kind:
+		"rabbit":return {"notice":285.0,"quiet_flee":78.0,"loud_flee":175.0,"escape_speed":145.0,"recover":5.0}
+		"fox":return {"notice":330.0,"quiet_flee":65.0,"loud_flee":135.0,"escape_speed":112.0,"recover":4.0}
+	return {"notice":390.0,"quiet_flee":88.0,"loud_flee":195.0,"escape_speed":128.0,"recover":6.0}
+
+static func animal_key(animal: Dictionary) -> String:
+	if animal.is_empty() or not animal.get("home") is Vector2:return ""
+	var home: Vector2=animal.home
+	return "%s:%.1f:%.1f:%.2f"%[animal.get("kind",""),home.x,home.y,float(animal.get("phase",0))]

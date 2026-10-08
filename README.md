@@ -1,16 +1,24 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-**0.5.0 · Auf leisen Pfoten** — ein offline spielbares Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege erschließen deine Heimat.
+**0.6.0 · Der Duft der Wildnis** — ein offline spielbares Wolfspiel für Android in Godot 4.5.1. Du beginnst als 16 Wochen alter Jungwolf bei Mutter, Vater und zwei Geschwistern. Gerüche, Fährten, vorsichtige Beobachtungen und gemeinsame Wege erschließen deine Heimat.
 
 Frei begehbare **2D-Draufsicht**, **echter 3D-Wolfsblick** und eine neue **3D-Folgekamera** teilen Landschaften, Tierpositionen und Spuren. Eigene Comic-Grafik und Tiermodelle verbinden sich mit friedlichen Rudelgeschichten und langsamer natürlicher Entwicklung.
 
 ## Spielen & Download
 
-- **Android 7+ / ARM64:** Die geprüfte, signierte `Wolf-0.5.0-debug.apk` wird direkt im Chat bereitgestellt. [GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml) erstellt zusätzlich Android- und Web-Artefakte. Debug-Builds mit lokalem Spielstand und ohne Internetberechtigung.
+- **Android 7+ / ARM64:** Die signierte `Wolf-0.6.0-debug.apk` wird direkt im Chat bereitgestellt. [GitHub Actions](https://github.com/chekento/wolf/actions/workflows/build.yml) erstellt zusätzlich Android- und Web-Artefakte. Debug-Builds mit lokalem Spielstand und ohne Internetberechtigung.
 - **Computer:** `project.godot` mit Godot **4.5.1** öffnen und starten.
 - **Browser:** Web-Artefakt entpacken, im Web-Ordner `python3 -m http.server 8000` starten und `http://localhost:8000` öffnen.
 
-**Installation gegenüber 0.3.0:** Der frühere lokale Debug-Schlüssel war nicht mehr verfügbar. Seit 0.4.0 wird ein neuer, dauerhaft gesicherter Schlüssel verwendet. 0.5.0 aktualisiert die lokale 0.4.0 mit demselben Schlüssel; Android erlaubt damit weiterhin kein direktes Update über 0.3.0. Einen vorhandenen Spielstand vor jeder Deinstallation sichern; siehe [Installationshinweise](docs/android-install.md). Spätere lokal ausgelieferte Builds sollen denselben neuen Schlüssel verwenden. Actions-Builds erhalten einen eigenen temporären Debug-Schlüssel.
+**Installation gegenüber 0.3.0:** Der frühere lokale Debug-Schlüssel war nicht mehr verfügbar. Seit 0.4.0 wird ein neuer, dauerhaft gesicherter Schlüssel verwendet. 0.6.0 setzt die Signatur der lokalen 0.4.0 und 0.5.0 fort; Android erlaubt damit weiterhin kein direktes Update über 0.3.0. Einen vorhandenen Spielstand vor jeder Deinstallation sichern; siehe [Installationshinweise](docs/android-install.md). Spätere lokal ausgelieferte Builds sollen denselben neuen Schlüssel verwenden. Actions-Builds erhalten einen eigenen temporären Debug-Schlüssel.
+
+## Neu in 0.6.0
+
+Rehe, Hasen, Füchse und Wölfe wählen wirkliche Futterplätze, Deckung und trockene Trinkufer. Aufmerksamkeit, Fluchtdistanz und Tagesaktivität unterscheiden sich nach Art. Tiere fliehen über freie Wege in die Deckung, beruhigen sich dort und kehren zu ihrer Routine zurück. Eine Begrüßung führt zu einer kurzen freundlichen Reaktion des Rudels.
+
+Vier weitere Begegnungen entstehen aus tatsächlichen Handlungen: erst trinken, dann am gewählten Platz fressen und zuletzt geschützt ruhen; zwei bestimmte Tierarten beobachten; dasselbe ruhige Tier zwölf aktive Sekunden im Blick behalten; einen Naturort prüfen und dort den eigenen Duft setzen. Die Aufgaben zeigen ihre nächsten Schritte. Annehmen und Belohnung stehen direkt unter dem Bild; im Menü pausiert die Beobachtungszeit.
+
+Die Gebietskarte zeichnet sichere Wege um Felsen und über vorhandene Brücken. Kompass und Pfotenschritte folgen diesem Weg. Naturorte, gelesene Spuren und Wegführung lassen sich einzeln anzeigen; Gebietsausgänge und die Liste der sechs lokalen Naturorte erleichtern die Orientierung. Aufziehen bleibt am Punkt zwischen den Fingern verankert. Im Menü führt **Sichere Wege** zu Wasser, Nahrung, Schutz oder zur Heimat.
 
 ## Neu in 0.5.0
 
@@ -85,8 +93,12 @@ godot --headless --script tests/gameplay_expansion.gd
 godot --headless --script tests/graphics_expansion.gd
 godot --headless --script tests/ui_expansion.gd
 godot --headless --script tests/animal_behavior.gd
+godot --headless --script tests/atlas_expansion.gd
+godot --headless --script tests/ecology_expansion.gd
+godot --headless --script tests/encounter_controls.gd
+godot --headless --script tests/locomotion_expansion.gd
 mkdir -p builds/web
-godot --headless --export-debug Android builds/Wolf-0.5.0-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.6.0-debug.apk
 godot --headless --export-release Web builds/web/index.html
 ```
 
@@ -98,7 +110,7 @@ godot --audio-driver Dummy --script tools/profile_rendering.gd -- /tmp/wolf-prof
 
 Er misst fünf feste Szenen mit ausgeblendeter Oberfläche, je 20 Aufwärm- und 80 Messbildern, und speichert Bilder sowie JSON-Messwerte. Messergebnisse des Software-Renderers sagen keine Android-Gerätebildrate voraus.
 
-Android: Godot-4.5.1-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1`, `platforms;android-35`. Package `cloud.kosch.wolf`, ARM64, minSdk 24, targetSdk 35. Private Signierschlüssel bleiben außerhalb des Repositorys. [Entwicklungsübergabe](docs/development-handoff.md) und [Prüfbericht](docs/validation-0.5.0.md) beschreiben den tatsächlich geprüften Stand.
+Android: Godot-4.5.1-Exportvorlagen, JDK 17, Android SDK mit `platform-tools`, `build-tools;35.0.1`, `platforms;android-35`. Package `cloud.kosch.wolf`, ARM64, minSdk 24, targetSdk 35. Private Signierschlüssel bleiben außerhalb des Repositorys. [Entwicklungsübergabe](docs/development-handoff.md) und [Prüfbericht](docs/validation-0.6.0.md) beschreiben den tatsächlich geprüften Stand.
 
 Spielbarer Prototyp. Noch kein Test auf einem physischen Android-Gerät und noch kein vollständiger Lebenszyklus mit Partnersuche, eigener Nachwuchspflege oder kooperativer Jagd. Bedürfnisse und Tierverhalten bleiben spielerisch vereinfacht.
 

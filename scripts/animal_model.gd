@@ -14,6 +14,12 @@ var ears: Array[Node3D] = []
 var eyes: Array[Node3D] = []
 var legs: Array[Node3D] = []
 var knees: Array[Node3D] = []
+var paws: Array[Node3D] = []
+var limb_geometry: Array[Vector3] = []
+var paw_sizes: Array[Vector3] = []
+var foot_targets: Array[Vector3] = []
+var foot_ground: Array[float] = [0.0,0.0,0.0,0.0]
+var foot_planted: Array[bool] = [true,true,true,true]
 var kind := "wolf"
 var phase := 0.0
 var body_scale := 1.0
@@ -107,7 +113,7 @@ func build(species: String,young: bool=false) -> void:
 	body_scale=0.70 if rabbit else 0.82 if fox else 1.08 if deer else 1.0
 	if young:body_scale*=0.73
 	scale=Vector3.ONE*body_scale
-	body_height=0.47 if rabbit else 0.715 if fox else 1.12 if deer else 0.79
+	body_height=0.47 if rabbit else 0.715 if fox else 1.10 if deer else 0.79
 	torso=pivot(self,Vector3(0,body_height,0),"Torso")
 	if rabbit:
 		ellipsoid(torso,Vector3(0,-0.01,0.09),Vector3(0.265,0.30,0.43),fur,16,true)
@@ -168,15 +174,20 @@ func build(species: String,young: bool=false) -> void:
 		var bend := 0.035 if front else -0.09
 		var knee := pivot(limb,Vector3(0,-upper,bend),"Knee"+str(i))
 		knees.append(knee)
+		limb_geometry.append(Vector3(upper,lower,bend))
 		piece(limb,[Vector3.ZERO,Vector3(0,-upper*0.5,bend*0.45),Vector3(0,-upper,bend)],[Vector2(thickness*1.18,thickness),Vector2(thickness,thickness*0.75),Vector2(thickness*0.71,thickness*0.68)],fur,10)
 		if not front:ellipsoid(limb,Vector3(0,-upper*0.2,0.018),Vector3(thickness*1.55,upper*0.72,0.13 if not rabbit else 0.21),fur,12,true)
 		piece(knee,[Vector3.ZERO,Vector3(0,-lower*0.52,0.04 if not front else -0.025),Vector3(0,-lower,-0.045)],[Vector2(thickness*0.72,thickness*0.65),Vector2(thickness*0.5,thickness*0.44),Vector2(thickness*0.62,thickness*0.50)],fur if not fox else Color("#514539"),10)
 		var foot_size := Vector3(0.065,0.047,0.089) if deer else Vector3(0.08,0.051,0.21) if rabbit and not front else Vector3(0.085,0.045,0.125)
-		ellipsoid(knee,Vector3(0,-lower,-0.082),foot_size,Color("#554a3d") if deer else cream.darkened(0.13),12)
+		var paw := pivot(knee,Vector3(0,-lower,-0.082),"Paw"+str(i))
+		paws.append(paw)
+		paw_sizes.append(foot_size)
+		foot_targets.append(Vector3(limb.position.x,foot_size.y,limb.position.z+bend-.082))
+		ellipsoid(paw,Vector3.ZERO,foot_size,Color("#554a3d") if deer else cream.darkened(0.13),12)
 		if deer:
-			piece(knee,[Vector3(0,-lower+0.003,-0.13),Vector3(0,-lower-0.033,-0.16)],[Vector2(0.006,0.024),Vector2(0.004,0.023)],Color("#302f28"),6)
+			piece(paw,[Vector3(0,.003,-.048),Vector3(0,-.033,-.078)],[Vector2(0.006,0.024),Vector2(0.004,0.023)],Color("#302f28"),6)
 		else:
-			for toe in [-1,0,1]:ellipsoid(knee,Vector3(toe*0.031,-lower-0.007,-0.17 if not rabbit else -0.20),Vector3(0.017,0.016,0.032),cream.darkened(0.19),8)
+			for toe in [-1,0,1]:ellipsoid(paw,Vector3(toe*.031,-.007,-.088 if not rabbit else -.118),Vector3(.017,.016,.032),cream.darkened(.19),8)
 	tail=pivot(torso,Vector3(0,-0.055,0.43 if rabbit else 0.61),"Tail")
 	if rabbit:
 		ellipsoid(tail,Vector3(0,0.015,0.07),Vector3(0.11,0.13,0.12),cream)
@@ -193,53 +204,126 @@ func build(species: String,young: bool=false) -> void:
 			piece(head,[Vector3(side*0.16,0.34,0.065),Vector3(side*0.28,0.43,-0.085),Vector3(side*0.31,0.57,-0.12)],[Vector2(0.018,0.018),Vector2(0.012,0.012),Vector2.ZERO],antler,8)
 	_finish_surfaces()
 
-func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=false) -> void:
+func stride_length() -> float:
+	return .90 if kind=="deer" else .53 if kind=="fox" else .42 if kind=="rabbit" else .65
+
+func cycle_phase(gait: float) -> float:
+	# Gameplay gait is real distance / 22. Match each anatomical stride to
+	# that distance, including the gradual size of a young player.
+	return gait*(22.0*.032*TAU)/(stride_length()*maxf(scale.x,.25))
+
+func set_foot_heights(heights: Array[float]) -> void:
+	if heights.size()==4:foot_ground=heights
+
+func foot_position(index: int) -> Vector3:
+	return torso.transform*legs[index].transform*knees[index].transform*paws[index].position
+
+func _solve_leg(index: int,target: Vector3,blend: float) -> void:
+	var geometry: Vector3=limb_geometry[index]
+	var local: Vector3=torso.transform.affine_inverse()*target-legs[index].position
+	var upper_length := Vector2(geometry.x,geometry.z).length()
+	var lower_length := Vector2(geometry.y,.082).length()
+	var distance := clampf(Vector2(local.y,local.z).length(),absf(upper_length-lower_length)+.001,upper_length+lower_length-.001)
+	var bend := acos(clampf((distance*distance-upper_length*upper_length-lower_length*lower_length)/(2*upper_length*lower_length),-1,1))*(-1.0 if index<2 else 1.0)
+	var direction := atan2(local.z,-local.y)
+	var upper_direction := direction-atan2(lower_length*sin(bend),upper_length+lower_length*cos(bend))
+	var upper_angle := atan2(geometry.z,geometry.x)-upper_direction
+	var lower_angle := atan2(-.082,geometry.y)-upper_direction-bend-upper_angle
+	legs[index].rotation.x=lerp_angle(legs[index].rotation.x,upper_angle,blend)
+	knees[index].rotation.x=lerp_angle(knees[index].rotation.x,lower_angle,blend)
+	# Ankle cancellation keeps the pads/hooves horizontal during stance.
+	paws[index].rotation.x=-(torso.rotation.x+legs[index].rotation.x+knees[index].rotation.x)
+	paws[index].rotation.z=-torso.rotation.z
+
+func animate(gait: float,speed: float,mood: String,time: float,reduced: bool=false,attention: float=0.0,look_angle: float=0.0) -> void:
 	if torso==null:return
-	var movement := clampf(speed/65.0,0,1)
-	var moving := movement>0.05
-	var motion := 0.28 if reduced else 1.0
-	var blend := 1.0 if last_time<0 or time<=last_time else 1.0-exp(-minf(time-last_time,0.1)*12.0)
+	var movement := clampf(speed/80.0,0,1)
+	var moving := movement>.035
+	var motion := .25 if reduced else 1.0
+	var blend := 1.0 if last_time<0 or time<=last_time else 1.0-exp(-minf(time-last_time,.1)*14.0)
 	last_time=time
 	var rabbit := kind=="rabbit"
 	var resting := not moving and mood=="ruhen"
-	var target_height := body_height+sin(gait*2.0)*(0.036 if rabbit else 0.015)*movement*motion
-	if resting:target_height=(0.20 if rabbit else 0.42 if kind=="deer" else 0.29 if kind=="fox" else 0.34)+sin(time*1.6)*0.007*motion
+	var greeting := mood=="begrüßen"
+	var escaping := mood=="fliehen"
+	var cycle := cycle_phase(gait)
+	var duty := .32 if rabbit else .58 if escaping else .66
+	var body_drop := .105 if kind=="deer" else .055 if kind=="fox" else .05 if rabbit else .065
+	var target_height := body_height-body_drop*movement+sin(cycle*2)*.011*movement*motion
+	var lowest_ground := minf(minf(foot_ground[0],foot_ground[1]),minf(foot_ground[2],foot_ground[3]))
+	target_height-=maxf(0,-lowest_ground-.012)
+	if rabbit and moving:target_height+=sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*.055*movement*motion
+	if resting:target_height=(.20 if rabbit else .42 if kind=="deer" else .29 if kind=="fox" else .34)+sin(time*1.6)*.007*motion
 	torso.position.y=lerpf(torso.position.y,target_height,blend)
-	var bow := -0.18 if mood=="spielen" and not moving else 0.0
-	torso.rotation.x=lerp_angle(torso.rotation.x,bow+sin(gait)*0.07*movement*motion if rabbit else bow,blend)
-	torso.rotation.z=lerp_angle(torso.rotation.z,sin(gait)*0.023*movement*motion,blend)
-	for i in range(legs.size()):
-		var wave := sin(gait+(0.0 if i in [0,3] else PI))
-		if rabbit:wave=sin(gait+(0.0 if i<2 else PI*0.8))
-		var upper_angle := wave*0.48*movement*motion
-		var knee_angle := maxf(0.0,-wave)*0.68*movement*motion
+	var bow := -.14 if mood=="spielen" and not moving else -.055 if escaping else 0.0
+	torso.rotation.x=lerp_angle(torso.rotation.x,bow+(sin(cycle)*.065*movement*motion if rabbit else 0.0),blend)
+	torso.rotation.z=lerp_angle(torso.rotation.z,sin(cycle)*.012*movement*motion,blend)
+	var offsets: Array=[0.0,PI,PI,0.0] if speed>=80 else [0.0,PI,PI*.65,PI*1.65]
+	if escaping and kind=="deer":offsets=[0.0,.25,PI,PI+.25]
+	if rabbit:offsets=[PI,PI+.12,0.0,.12]
+	for i in range(4):
+		var phase_value := fposmod(cycle+offsets[i],TAU)/TAU
+		var planted := not moving or phase_value<duty
+		var stride := stride_length()*duty
+		var z_offset := 0.0
+		var lift := 0.0
+		if moving:
+			if planted:z_offset=lerpf(-stride*.5,stride*.5,phase_value/duty)
+			else:
+				var swing := (phase_value-duty)/(1.0-duty)
+				z_offset=lerpf(stride*.5,-stride*.5,smoothstep(0,1,swing))
+				lift=sin(swing*PI)*(.15 if rabbit else .12 if kind=="deer" else .095)*movement
+		foot_planted[i]=planted
+		var geometry: Vector3=limb_geometry[i]
+		var target := Vector3(legs[i].position.x,foot_ground[i]+paw_sizes[i].y+lift,legs[i].position.z+geometry.z-.082+z_offset)
 		if resting:
-			upper_angle=(0.81 if kind=="deer" else 1.10) if i<2 else 0.80
-			knee_angle=(0.76 if kind=="deer" else 0.48) if i<2 else -2.40
+			# Folded legs, but planted front pads remain above the soil.
+			target.z+=(-.16 if i<2 else -.22)
 		elif mood=="spielen" and not moving:
-			upper_angle=-0.32 if i<2 else 0.16
-			knee_angle=0.35 if i<2 else 0.0
-		legs[i].rotation.x=lerp_angle(legs[i].rotation.x,upper_angle,blend)
-		knees[i].rotation.x=lerp_angle(knees[i].rotation.x,knee_angle,blend)
-	var neck_angle := -0.025+sin(time*1.65)*0.015*motion
-	var head_angle := -0.045+sin(time*1.1)*0.012*motion
-	var head_turn := sin(time*0.7+phase)*0.095*motion if not moving else sin(gait)*0.025*motion
+			target.z+=-.10 if i<2 else .07
+		foot_targets[i]=target
+	# Let the planted limbs support the body. This is especially necessary
+	# during a low escape stance: a rear hip can otherwise rise just beyond
+	# its reach even though the torso centre is at a sensible height.
+	var supported_height := torso.position.y
+	for i in range(4):
+		if not foot_planted[i]:continue
+		var geometry: Vector3=limb_geometry[i]
+		var reach := Vector2(geometry.x,geometry.z).length()+Vector2(geometry.y,.082).length()-.006
+		var hip_offset := torso.basis*legs[i].position
+		var horizontal := foot_targets[i].z-hip_offset.z
+		var vertical := sqrt(maxf(.001,reach*reach-horizontal*horizontal))
+		supported_height=minf(supported_height,foot_targets[i].y-hip_offset.y+vertical)
+	torso.position.y=supported_height
+	for i in range(4):
+		# Solve the current blended torso pose so body breathing cannot push
+		# planted feet into the ground. Locomotion uses the exact distance phase.
+		_solve_leg(i,foot_targets[i],1.0 if foot_planted[i] else blend)
+	var neck_angle := -.025+sin(time*1.65)*.015*motion
+	var head_angle := -.045+sin(time*1.1)*.012*motion
+	var alert := clampf(maxf(attention,.6 if greeting else 0.0),0,1)
+	var head_turn := lerpf(sin(time*.7+phase)*.08*motion,clampf(look_angle,-.65,.65),alert)
+	if escaping:neck_angle=-.12;head_angle=-.06
 	if not moving:
 		if mood in ["grasen","schnüffeln","trinken"]:
-			neck_angle=-0.58+sin(time*2.0)*0.035*motion
-			head_angle=-0.27
-		elif mood=="heulen":neck_angle=0.53;head_angle=0.24;head_turn=0
-		elif resting:neck_angle=-0.22;head_angle=-0.18;head_turn=-0.45 if not rabbit else 0.12
+			neck_angle=-.58+sin(time*2)*.025*motion
+			head_angle=-.27
+		elif mood=="heulen":neck_angle=.53;head_angle=.24;head_turn=0.0
+		elif resting:neck_angle=-.22;head_angle=-.18;head_turn=-.35 if not rabbit else .12
+		elif greeting:neck_angle=-.08+sin(time*2.3)*.025*motion;head_angle=-.06
+		elif alert>.35:neck_angle=.04+alert*.06;head_angle=.035
 	neck.rotation.x=lerp_angle(neck.rotation.x,neck_angle,blend)
 	head.rotation.x=lerp_angle(head.rotation.x,head_angle,blend)
 	head.rotation.y=lerp_angle(head.rotation.y,head_turn,blend)
-	jaw.rotation.x=lerp_angle(jaw.rotation.x,-0.12 if mood=="heulen" else -0.018*movement,blend)
-	tail.rotation.y=lerp_angle(tail.rotation.y,sin(time*(4.2 if mood=="spielen" else 1.4))*(0.40 if mood=="spielen" else 0.09)*motion,blend)
-	tail.rotation.x=lerp_angle(tail.rotation.x,-0.23 if resting else -0.20 if mood=="spielen" else sin(time*1.7)*0.025*motion,blend)
+	jaw.rotation.x=lerp_angle(jaw.rotation.x,-.12 if mood=="heulen" else -.018*movement,blend)
+	var tail_amount := .34 if mood=="spielen" else .22 if greeting else .025 if escaping else .07
+	tail.rotation.y=lerp_angle(tail.rotation.y,sin(time*(3.4 if greeting or mood=="spielen" else 1.4))*tail_amount*motion,blend)
+	tail.rotation.x=lerp_angle(tail.rotation.x,-.23 if resting else -.20 if greeting or mood=="spielen" else .08 if escaping else sin(time*1.7)*.025*motion,blend)
 	for i in range(ears.size()):
-		var twitch := pow(maxf(0.0,sin(time*0.81+float(i)*2.5)),12)*0.13*motion
-		ears[i].rotation.z=lerp_angle(ears[i].rotation.z,(-0.10 if i==0 else 0.10) if resting else twitch*(1 if i==0 else -1),blend)
-		ears[i].rotation.x=lerp_angle(ears[i].rotation.x,-0.26 if resting else 0.16 if mood=="spielen" else 0.0,blend)
-	for i in range(eyes.size()):
-		var blink := fposmod(time+float(i)*0.025+phase,5.8)<0.14
-		eyes[i].scale.y=lerpf(eyes[i].scale.y,0.09 if resting or blink else 1.0,blend)
+		var twitch := pow(maxf(0,sin(time*.81+float(i)*2.5)),12)*.11*motion
+		ears[i].rotation.z=lerp_angle(ears[i].rotation.z,(-.1 if i==0 else .1) if resting else twitch*(1 if i==0 else -1),blend)
+		ears[i].rotation.x=lerp_angle(ears[i].rotation.x,-.26 if resting else -.18 if escaping else .12 if greeting else alert*.055,blend)
+		ears[i].rotation.y=lerp_angle(ears[i].rotation.y,clampf(look_angle,-.6,.6)*alert*.35,blend)
+	for eye in eyes:
+		var blink := fposmod(time+phase,7.0 if alert>.35 else 5.8)<.13
+		eye.scale.y=lerpf(eye.scale.y,.09 if resting or blink else 1.0,blend)

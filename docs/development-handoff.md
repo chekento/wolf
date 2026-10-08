@@ -1,6 +1,6 @@
 # Entwicklungsübergabe · Wolf
 
-Stand **0.5.0**, 8. Oktober 2026. Repository `chekento/wolf`; Veröffentlichung getesteter Änderungen auf main ist vom Nutzer autorisiert. Zieltermin: 8. Oktober 2026, 10:00 Europe/Berlin. Genau zwei vorhandene Entwicklungsagenten sind autorisiert: Welt/Gameplay und Grafik/Animation. Hauptagent übernimmt Integration, UI, Tests und APK; keine weiteren Agenten.
+Stand **0.6.0**, 8. Oktober 2026. Repository `chekento/wolf`; Veröffentlichung getesteter Änderungen auf main ist vom Nutzer autorisiert. Genau zwei vorhandene Entwicklungsagenten waren autorisiert: Welt/Gameplay und Grafik/Animation. Hauptagent übernahm Integration, UI, Tests und APK; keine weiteren Agenten.
 
 ## Arbeitsstand
 
@@ -8,9 +8,11 @@ Stand **0.5.0**, 8. Oktober 2026. Repository `chekento/wolf`; Veröffentlichung 
 
 0.5 ergänzt tatsächliche Tierwege um Felsen und über Brücken ohne Aufholteleport, Heimkehr vor Nacht-Ruhe, artspezifische Aktivität, gespeicherten kompakten HUD-Modus, sichtbaren Einstiegsstart und fortlaufende Begegnungsziele. Zwei-Finger-Bewegung/Blick, emulierte Mausduplikate, Kamerapointer und nahe Kontextaktionen sind geprüft. Grafik erhält gebackene 2D-Bodenflora, 3D-Instanzfarben, native Distanzgeometrie, natürlichere Palette und biomeigene Naturorte. Menüs und Hintergrund stoppen Audio; draußen startet der Naturklang neu.
 
+0.6 ergänzt in allen 256 Gebieten tatsächliche Deckungs-, Futter- und trockene Uferziele, artspezifische Aufmerksamkeit/Flucht und vier neue mehrstufige Begegnungen. Sichere Kartenwege umgehen Hindernisse und nutzen reale Brücken. Die Karte hat Ebenen, Ausgänge, Naturortlisten und am Finger verankertes Aufziehen. 3D-Tiere setzen vier eigenständige Pfoten auf die Geländeform; Kopf, Ohren und Rute reagieren auf Blickziel, Flucht und Begrüßung. Saves bleiben v4, alte IDs und Seeds unverändert.
+
 Die Grundlage dieses Durchgangs war der frisch gefetchte main-Commit `a0c0e961d9172f53e85c6ffca45e6ee95dfd20b3`, Baum `c0c30df4d9d9fcfd359bb5d70f99ace78abf90b5`. Weiterarbeit immer mit **frischem main** in isoliertem Checkout beginnen. Bei Veröffentlichung erwartete main-SHA prüfen und atomar per Compare-and-swap aktualisieren; bei konkurrierender Änderung zuerst Inhalt/Konflikte prüfen.
 
-Aktueller lokaler Checkout: `/workspace/scratch/7d54411ab077/wolf-ready-05`, isolierter Branch `wolf-05-delivery`. `wolf-ready-04` ist der frühere geprüfte 0.4-Stand, die ältere Arbeitskopie `wolf` ein unveröffentlichtes Zwischencheckpoint; nichts daraus darüberkopieren. Beide vorhandenen Agenten haben 0.5 eingefroren. Bei der nächsten Entwicklung dieselben zwei Agenten wiederverwenden.
+Aktueller lokaler Checkout: `/workspace/scratch/7d54411ab077/wolf-ready-06`, isolierter Branch `wolf-06-delivery`. Er basiert auf dem zuvor veröffentlichten main `1589a7ec252ff77641d12ce0dcfb0e15617f4b5e`. `wolf-ready-05` ist der geprüfte 0.5-Rückfallstand. Nichts aus älteren Zwischenkopien darüberkopieren.
 
 ## Relevante Architektur
 
@@ -28,7 +30,7 @@ Aktueller lokaler Checkout: `/workspace/scratch/7d54411ab077/wolf-ready-05`, iso
 
 Godot 4.5.1: `/workspace/scratch/7d54411ab077/tool-cache/godot/Godot_v4.5.1-stable_linux.x86_64`. Android SDK: `tool-cache/android-sdk`; JDK17: `/usr/lib/jvm/java-17-openjdk-amd64`; Vorlagen: `tool-cache/godot/templates/4.5.1.stable`. Offizielle Downloads und Aufbau im Workflow; bei Umgebungsausfall wiederherstellen.
 
-Import und alle **fünf** Tests aus README bestanden: **2503 Prüfungen**, volle Logs ohne Parser-/Enginefehler, Warnungen, Fehlprüfungen oder Leaks. [Prüfbericht](validation-0.5.0.md), [maschinelle Prüfdaten](validation-0.5.0.json). Tests verwenden eigene Spielstanddateien. Bei Godot immer Logs prüfen: Scriptfehler können trotz Exit0 auftreten.
+Import und alle **neun** Tests aus README bestanden: **2652 Prüfungen**, volle Logs ohne Parser-/Enginefehler, Warnungen, Fehlprüfungen oder Leaks. [Prüfbericht](validation-0.6.0.md), [maschinelle Prüfdaten](validation-0.6.0.json). Tests verwenden eigene Spielstanddateien. Bei Godot immer Logs prüfen: Scriptfehler können trotz Exit0 auftreten.
 
 0.4-Actions scheiterte nach grünen Grafikchecks an einer intermittierenden Audio-Freigabewarnung. 0.5 prüft weiterhin streng und trennt reine Grafikchecks ohne Audio von echten UI-/Audioabläufen. Fünf zusätzliche vollständige UI-Läufe mit Playback und schnellen Menüwechseln waren sauber; Fehlerfilter nicht abschwächen.
 
@@ -38,14 +40,14 @@ Xvfb aus Debian-Paketen liegt in `tool-cache/display`. Braucht `LD_LIBRARY_PATH=
 
 ## Signierung und Download
 
-Aktuelle dauerhaft gesicherte APK: **Wolf-0.5.0-debug.apk**, lokale Datei `wolf-ready-05/builds/Wolf-0.5.0-debug.apk`. SHA-256 `aad54966e4a815bf97e927a134170cd047de853763529034189f95ec6080b9a7`.
+Aktuelle dauerhaft gesicherte APK: **Wolf-0.6.0-debug.apk**, lokale Datei `wolf-ready-06/builds/Wolf-0.6.0-debug.apk`. Größe 32.268.995 Bytes, SHA-256 `a726a697d37ca92603a83ee8f626ea4019f2a7befaadbc3b99d7d73a7cf4ff33`.
 
 **Wolf-Android-debug.keystore** liegt außerhalb von git in `/workspace/scratch/7d54411ab077/wolf-android-signing/` und wurde dauerhaft als gleichnamige Datei gesichert. Bei Verlust genau diese Datei wiederherstellen, **keinen weiteren neuen Schlüssel erzeugen**. Standard-Debug-Alias `androiddebugkey`, Standard-Debug-Passwort; Editor-Konfiguration außerhalb des Repositorys.
 
 Zertifikat-SHA256 `08b255aa8a68369a40d089d7a5bb0e0c5e058d6ddb358f9ef449630a81bd3f1c`. Nach Export `apksigner verify --verbose --print-certs`, AAPT-Manifest/ABI, ZIP-CRC, SHA256 und `zipalign -c -P 16 4` prüfen. Package `cloud.kosch.wolf`, nur ARM64, minSdk24, target35, offline.
 
-0.5 verwendet denselben lokalen Schlüssel wie 0.4 und kann diese aktualisieren. Ältere lokale Builds bis 0.3 hatten eine andere nicht mehr verfügbare Signatur. Keine Deinstallation ohne Save-Backup empfehlen; [ADB-Hinweise](android-install.md) sind noch nicht auf einem Gerät geprüft. Actions-APKs besitzen temporäre Schlüssel und setzen die lokale APK-Signatur nicht fort.
+0.6 verwendet denselben lokalen Schlüssel wie 0.4 und 0.5 und kann diese aktualisieren. Ältere lokale Builds bis 0.3 hatten eine andere nicht mehr verfügbare Signatur. Keine Deinstallation ohne Save-Backup empfehlen; [ADB-Hinweise](android-install.md) sind noch nicht auf einem Gerät geprüft. Actions-APKs besitzen temporäre Schlüssel und setzen die lokale APK-Signatur nicht fort.
 
-## Weitere Arbeit bis zum Zieltermin
+## Offene Grenzen
 
 Tatsächlicher Android-Start, Touchgefühl und Geräteperformance bleiben mangels Gerät/Emulator offen. 2D ist die Standardansicht, 3D eine frei umschaltbare Erkundungssicht. Der Stand ist ein spielfähiger Prototyp; vollständige Partnersuche, eigene Nachwuchspflege und kooperative Jagd sind noch nicht enthalten. Sinnvoll sind weitere eigenständige Landschafts-/Tierdetails, abwechslungsreiche echte Begegnungen und mögliche Geräteprofilierung; größere Gebietsanzahl allein ist weniger wert als begehbare Vielfalt und angenehme Darstellung. Saves, natürliches langsames Altern, offline Nutzung und friedliches Rudelleben erhalten. Ungetestete Änderungen nicht auf main veröffentlichen.

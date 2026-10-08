@@ -145,7 +145,7 @@ func _draw() -> void:
 		if item.has("object"):_draw_object(item.object,biome)
 		elif item.has("animal"):
 			var a: Dictionary=item.animal
-			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"))
+			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),a.get("attention",0.0))
 		else:_draw_animal(game.state.pos,"wolf",game.state.facing,true,true,game.player_gait,game.player_speed,game.player_mood)
 	for foot in game.state.pawsteps:
 		if bounds.has_point(foot.p):
@@ -339,22 +339,30 @@ func _draw_track(p: Vector2,c: Color,species: String="Wolf") -> void:
 	if game.scent_time>0:
 		draw_arc(p,21,0,TAU,24,Color(c,0.24),2)
 
-func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen") -> void:
+static func animal_pose(kind: String,facing: Vector2,gait: float,speed: float,mood: String,reduced: bool=false,attention: float=0.0) -> Dictionary:
+	var cycle := gait*(22.0*.032*TAU)/(.90 if kind=="deer" else .53 if kind=="fox" else .42 if kind=="rabbit" else .65)
+	var resting := speed<1 and mood=="ruhen"
+	var feeding := speed<1 and mood in ["grasen","schnüffeln","trinken"]
+	var lift := sin(clampf((fposmod(cycle/TAU,1.0)-.28)/.30,0,1)*PI)*5 if kind=="rabbit" and speed>1 else sin(cycle*2)*1.1 if speed>1 else 0.0
+	if reduced:lift=0.0
+	return {"scale":Vector2(1.04,.74) if resting else Vector2(1.03,.94) if mood=="fliehen" else Vector2.ONE,"lift":lift,"head_angle":.27 if feeding else -.10 if attention>.35 else .07 if mood=="begrüßen" else .0,"head_drop":8.0 if feeding else 0.0,"tilt":clampf(facing.y,-1,1)*(-.10 if facing.x>0 else .10),"frame":posmod(int(cycle*2/PI),4) if speed>1 else 1 if kind=="wolf" else 0}
+
+func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bool=false,gait: float=0,speed: float=0,mood: String="lauschen",attention: float=0.0) -> void:
 	_shadow(p+Vector2(0,18),29 if kind!="rabbit" else 17)
 	var index := 12 if kind=="deer" else 13 if kind=="rabbit" else 14 if kind=="fox" else 8
 	if kind=="wolf":
 		index=10 if absf(facing.x)>absf(facing.y) and facing.x<0 else 11 if absf(facing.x)>absf(facing.y) else 8 if facing.y<0 else 9
-	var bob := sin(gait*2)*1.3 if speed>1 else sin(game.clock*2)*0.5
-	if game.state.reduced_motion:bob=0
+	var pose := animal_pose(kind,facing,gait,speed,mood,game.state.reduced_motion,attention)
+	var bob: float=-pose.lift
 	var dimensions := Vector2(104,112) if kind=="wolf" else Vector2(112,107) if kind=="deer" else Vector2(67,68) if kind=="rabbit" else Vector2(96,84)
 	if index==8:dimensions.x=65
 	if kind=="wolf" and not young:dimensions*=1.30
 	if player:dimensions*=game.state.growth()/0.72
 	if kind=="wolf":
-		var texture := WolfAtlas.walking(facing,int(gait*2/PI)%4 if speed>1 else 1)
+		var texture := WolfAtlas.walking(facing,pose.frame)
 		var special := -1
 		if speed<1:
-			special=0 if mood in ["schnüffeln","trinken"] else 1 if mood=="heulen" else 2 if mood=="ruhen" else 3 if mood=="spielen" else -1
+			special=0 if mood in ["schnüffeln","trinken"] else 1 if mood=="heulen" else 2 if mood=="ruhen" else 3 if mood in ["spielen","begrüßen"] else -1
 		if special>=0:texture=WolfAtlas.wildlife(3,special)
 		var walk_size := Vector2(124,124)*(1.25 if not young else 1.0)
 		if special<0 and absf(facing.y)>absf(facing.x):walk_size=Vector2(108,133)*(1.25 if not young else 1.0)
@@ -364,11 +372,25 @@ func _draw_animal(p: Vector2,kind: String,facing: Vector2,player: bool,young: bo
 		draw_texture_rect(texture,rect,false)
 	else:
 		var row := 0 if kind=="deer" else 1 if kind=="rabbit" else 2
-		var frame := int(gait*2/PI)%4 if speed>1 else 0
-		var texture := WolfAtlas.wildlife(row,frame)
-		var rect := Rect2(p+Vector2(0,-12+bob)-dimensions*0.5,dimensions)
-		if facing.x>0:rect.position.x+=rect.size.x;rect.size.x=-rect.size.x
-		draw_texture_rect(texture,rect,false)
+		var texture := WolfAtlas.wildlife(row,pose.frame)
+		dimensions*=pose.scale
+		if absf(facing.y)>absf(facing.x):dimensions.x*=.87
+		var camera_base: Vector2=get_viewport_rect().size*Vector2(.5,.48)-game.state.pos*zoom
+		var anchor := p+Vector2(0,-12+bob+(10.0 if mood=="ruhen" else 0.0))
+		var transform := Transform2D(pose.tilt,camera_base+anchor*zoom).scaled_local(Vector2(-zoom if facing.x>0 else zoom,zoom))
+		draw_set_transform_matrix(transform)
+		var full := Rect2(-dimensions*.5,dimensions)
+		var source := Rect2(Vector2.ZERO,texture.get_size())
+		# Repose the existing illustrated head separately from the body; retain
+		# the original fur and clear outline instead of rotating an entire deer.
+		var cut_x := .46
+		var cut_y := .64
+		draw_texture_rect_region(texture,Rect2(full.position+Vector2(dimensions.x*cut_x,0),Vector2(dimensions.x*(1-cut_x),dimensions.y*cut_y)),Rect2(Vector2(source.size.x*cut_x,0),Vector2(source.size.x*(1-cut_x),source.size.y*cut_y)))
+		draw_texture_rect_region(texture,Rect2(full.position+Vector2(0,dimensions.y*cut_y),Vector2(dimensions.x,dimensions.y*(1-cut_y))),Rect2(Vector2(0,source.size.y*cut_y),Vector2(source.size.x,source.size.y*(1-cut_y))))
+		var pivot := Vector2(-dimensions.x*.10,-dimensions.y*.10)
+		draw_set_transform_matrix(transform*Transform2D(pose.head_angle,pivot+Vector2(0,pose.head_drop)))
+		draw_texture_rect_region(texture,Rect2(full.position-pivot,Vector2(dimensions.x*cut_x,dimensions.y*cut_y)),Rect2(Vector2.ZERO,Vector2(source.size.x*cut_x,source.size.y*cut_y)))
+		draw_set_transform(camera_base,0,Vector2.ONE*zoom)
 
 	if player:
 		draw_arc(p+Vector2(0,20),32,0,TAU,32,Color(0.99,0.84,0.41,0.58),2)

@@ -34,3 +34,10 @@ Die bestehenden PNG-Atlanten werden unverändert weiterverwendet. Neue Darstellu
 - Distanzgeometrie entsteht aus denselben Originalvertices von Bäumen und Felsen; keine fremden LOD-Modelle.
 - Räumlich zusammengefasste 2D-Bodenflora, eigene ruhige Shader-Laubmarken und abgestimmte Fell-/Bodenfarben. Die bisherigen Spriteatlanten bleiben unverändert.
 - Alle erneuerten Bilder in `docs/` stammen aus dem tatsächlichen finalen Spiel; die Rendering-Vergleiche verwenden feste Spielszenen und keinen Konzeptbildgenerator.
+
+## Erweiterung 0.6.0
+
+- Die prozeduralen 3D-Tiermodelle besitzen vier eigenständige Pfoten-/Sprunggelenkflächen. Eine zweigliedrige Laufberechnung setzt jede Pfote auf Gelände- oder Hanghöhe und unterscheidet Stand- und Schwungphase nach Art und Fluchtzustand.
+- Kopf, Ohren, Blick und Rute reagieren auf Aufmerksamkeit, Flucht und freundliche Begrüßung. Reh, Hase, Fuchs und Wolf erhalten unterschiedliche Schrittweiten, Standzeiten und Körperbewegungen.
+- Die vorhandenen originalen 2D-Tieratlanten bleiben unverändert. Laufdistanz, Ruhe, Nahrungssuche, Flucht und Aufmerksamkeit werden über geteilte Körper-/Kopfposen deutlicher dargestellt.
+- Die gemessenen zusätzlichen Gelenkflächen erhöhen die 3D-Zeichenaufrufe. Feste 540×960-Software-GL-Szenen blieben ausführbar; diese Werte sind keine Android-Gerätemessung.

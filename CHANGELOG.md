@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 — 2026-10-08
+
+- Wirkliche artspezifische Deckungs-, Futter- und Trinkziele in allen 256 Gebieten; Aufmerksamkeit und Flucht reagieren auf Abstand, Sicht, Bewegung und Rudelruf. Tiere kehren über begehbare Wege in die Deckung zurück und beruhigen sich vor ihrer nächsten Routine.
+- Vier zusätzliche Begegnungsarten mit echten, gespeicherten Handlungsschritten: Versorgung in Reihenfolge, zwei Tierarten, zwölf aktive Sekunden ruhige Beobachtung und Naturort mit eigener Duftmarke.
+- Sichere lokale Kartenwege um Hindernisse und über Brücken, passende Kompassrichtung und Pfotenschritte. Neue Kartenebenen für Naturorte, bekannte Spuren und Wege; Gebietsausgänge und anklickbare Naturortliste.
+- Am Fingerpunkt verankertes Aufziehen, nahtloses Weiterziehen nach Loslassen eines Fingers und konsistente Gebiets-/Suchauswahl.
+- Illustriertes Menü für Wasser, Nahrung, Schutz und Heimkehr; sichtbare Annahme-/Belohnungstasten bei Begegnungen und direkte Umschaltung zum Wolfsblick für Tieraufgaben.
+- Die Naturortprüfung hat bei einer angenommenen Ortsaufgabe Vorrang vor einer zu weit entfernten Höhle. Duftmarken lassen sich am tatsächlichen Ort erneuern, ohne doppelte Ortsbelohnung.
+- Zusätzliche Prüfungen für Kartenbedienung, ökologische Tierziele, echte Begegnungsaktionen und Save4-Validierung. Langsames Altern, alte Gebiets-IDs und offline Spiel bleiben erhalten.
+- Android-Build mit demselben dauerhaft gesicherten lokalen Schlüssel wie 0.4.0 und 0.5.0.
+
 ## 0.5.0 — 2026-10-08
 
 - Elternwölfe folgen tatsächlich begehbaren Wegen um Felsen und über bestehende Flussbrücken. Auch nahe, verdeckte Jungwölfe werden erreicht; keine Versetzung zum Aufholen.
