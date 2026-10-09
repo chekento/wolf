@@ -5,7 +5,7 @@
 
 Die APK unterstützt Android 7 oder neuer und ARM64-Geräte. Sie spielt offline und benötigt keine Internetberechtigung. Android muss die Installation aus der verwendeten Downloadquelle erlauben.
 
-**Die lokal bereitgestellte 0.12.0 verwendet denselben vorhandenen Signierschlüssel wie 0.4.0, 0.5.0, 0.6.0, 0.7.0, 0.8.0 und 0.9.0.** Für diese lokalen Builds ist eine Installation als Update vorgesehen. Die folgenden Sicherungshinweise betreffen ältere lokale Builds bis 0.3.0 beziehungsweise APKs mit anderer Signatur.
+**Die lokal signierte 0.10.0 verwendet denselben vorhandenen Signierschlüssel wie 0.4.0 bis 0.9.0.** GitHub Actions baut 0.12.0 jedoch mit einem separaten temporären Schlüssel. Deshalb ist der neue CI-Build nicht direkt über die lokale 0.10.0 installierbar; eine Deinstallation kann den Spielstand löschen.
 
 ## Vorhandene Installation
 
