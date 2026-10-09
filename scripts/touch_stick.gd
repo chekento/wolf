@@ -31,7 +31,10 @@ func _gui_input(event: InputEvent) -> void:
 		accept_event()
 
 func _update_vector(p: Vector2) -> void:
-	vector=((p-size*0.5)/48.0).limit_length(1)
+	# The joystick becomes narrower on a phone; its usable travel must scale
+	# with the actual touch region rather than a fixed 48-pixel desktop radius.
+	var travel := maxf(28.0,minf(size.x,size.y)*0.32)
+	vector=((p-size*0.5)/travel).limit_length(1)
 	if vector.length()<0.12:vector=Vector2.ZERO
 	queue_redraw()
 
@@ -43,9 +46,12 @@ func reset() -> void:
 
 func _draw() -> void:
 	var p := size*0.5
-	draw_circle(p,63,Color(0.05,0.15,0.15,0.68))
-	draw_arc(p,62,0,TAU,60,Color(0.86,0.89,0.76,0.6),2)
+	var radius := minf(63.0,minf(size.x,size.y)*0.43)
+	var travel := maxf(28.0,minf(size.x,size.y)*0.32)
+	var knob := maxf(15.0,radius*0.38)
+	draw_circle(p,radius,Color(0.05,0.15,0.15,0.68))
+	draw_arc(p,radius-1,0,TAU,60,Color(0.86,0.89,0.76,0.6),2)
 	for d in [Vector2.UP,Vector2.DOWN,Vector2.LEFT,Vector2.RIGHT]:
-		draw_circle(p+d*46,3,Color("#bfcbbb"))
-	draw_circle(p+vector*44,25,Color("#d6d7bc"))
-	draw_circle(p+vector*44-Vector2(4,5),16,Color("#ede9cc"))
+		draw_circle(p+d*(radius*.74),maxf(2.0,radius*.045),Color("#bfcbbb"))
+	draw_circle(p+vector*travel,knob,Color("#d6d7bc"))
+	draw_circle(p+vector*travel-Vector2(3,4),knob*.62,Color("#ede9cc"))
