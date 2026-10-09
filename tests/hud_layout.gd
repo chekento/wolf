@@ -8,6 +8,12 @@ func check(ok: bool,message: String) -> void:
 	else:push_error("FAIL: "+message);failures+=1
 func settled() -> void:
 	for i in range(5):await process_frame
+func find_scroll(node: Node) -> ScrollContainer:
+	if node is ScrollContainer:return node
+	for child in node.get_children():
+		var found := find_scroll(child)
+		if found!=null:return found
+	return null
 func inside(child: Control,parent: Control) -> bool:
 	var box := parent.get_global_rect().grow(.1)
 	return box.encloses(child.get_global_rect())
@@ -86,6 +92,26 @@ func run() -> void:
 	check(is_instance_valid(game.overlay),"the bottom Story action opens the actual campaign menu")
 	game.close_overlay();game._refresh_status();await settled()
 	check(game.toast.max_lines_visible==3 and game.toast_lane.size.y<=70 and game.toast_lane.clip_contents,"long toasts are bounded to their reserved three-line lane")
+	game.show_intro();await settled()
+	var intro_scroll := find_scroll(game.overlay)
+	check(intro_scroll!=null,"welcome screen has a real scrollable content viewport")
+	if intro_scroll!=null:
+		check(intro_scroll.scroll_deadzone<=8,"swipes over welcome cards scroll with a short drag")
+		var cards := 0
+		for child in intro_scroll.get_child(0).get_children():
+			if child is PanelContainer:
+				cards+=1
+				check(child.mouse_filter==Control.MOUSE_FILTER_PASS,"welcome text card passes drag gestures to the parent scroller")
+				for text_panel in child.get_children():
+					if text_panel is Control:check(text_panel.mouse_filter==Control.MOUSE_FILTER_PASS,"text card body also permits finger scrolling")
+			elif child is WolfMenuArt:
+				check(child.mouse_filter==Control.MOUSE_FILTER_IGNORE,"swipes over introduction art also reach the scroller")
+		check(cards>=4,"intro keeps its several scrollable information cards")
+		intro_scroll.scroll_vertical=250
+		await settled()
+		check(intro_scroll.scroll_vertical>0,"welcome content genuinely scrolls beyond the first screen")
+	game.close_overlay();await settled()
+
 	game._release_audio();root.remove_child(game);game.queue_free();await settled();await create_timer(.15).timeout
 	for path in [WolfState.save_path,WolfState.save_path+".wildlife.json"]:
 		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)
