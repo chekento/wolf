@@ -41,6 +41,7 @@ var encounter_button: Button
 var camera_button: Button
 var header: PanelContainer
 var header_details: VBoxContainer
+var header_portrait: TextureRect
 var compact_needs: Label
 var fold_button: Button
 var action_button: Button
@@ -186,35 +187,61 @@ func _build_ui() -> void:
 	header=PanelContainer.new()
 	ui.add_child(header)
 	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	header.offset_left=14
-	header.offset_right=-14
-	header.offset_top=14
-	header.add_theme_stylebox_override("panel",panel_style(Color(0.045,0.13,0.11,0.95),20))
+	header.offset_left=8
+	header.offset_right=-8
+	header.offset_top=6
+	# The default HUD must be a true single-line ribbon, not a tall
+	# panel with hidden details beneath permanent quest shortcuts.
+	var ribbon_style := panel_style(Color(0.035,0.12,0.10,0.90),12)
+	ribbon_style.content_margin_left=7
+	ribbon_style.content_margin_right=7
+	ribbon_style.content_margin_top=4
+	ribbon_style.content_margin_bottom=4
+	ribbon_style.set_border_width_all(1)
+	ribbon_style.shadow_size=2
+	header.add_theme_stylebox_override("panel",ribbon_style)
 	var stack := VBoxContainer.new()
 	header.add_child(stack)
-	stack.add_theme_constant_override("separation",5)
+	stack.add_theme_constant_override("separation",3)
 	var top := HBoxContainer.new()
 	stack.add_child(top)
-	var portrait := TextureRect.new()
-	portrait.texture=WolfAtlas.sprite(15)
-	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.custom_minimum_size=Vector2(48,48)
-	portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	top.add_child(portrait)
+	header_portrait=TextureRect.new()
+	header_portrait.texture=WolfAtlas.sprite(15)
+	header_portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	header_portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header_portrait.custom_minimum_size=Vector2(38,38)
+	header_portrait.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	top.add_child(header_portrait)
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	top.add_child(titles)
-	title=label("",21)
+	title=label("",16)
+	title.clip_text=true
+	title.max_lines_visible=1
+	title.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
+	title.autowrap_mode=TextServer.AUTOWRAP_OFF
 	titles.add_child(title)
 	location_hint=label("",12)
 	titles.add_child(location_hint)
+	compact_needs=label("",11)
+	compact_needs.autowrap_mode=TextServer.AUTOWRAP_OFF
+	compact_needs.clip_text=true
+	compact_needs.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	top.add_child(compact_needs)
 	fold_button=button("⌄",func():set_hud_compact(not state.compact_hud))
-	fold_button.custom_minimum_size=Vector2(38,46)
-	top.add_child(fold_button)
 	var menu := button("☰",show_menu)
-	menu.custom_minimum_size=Vector2(46,46)
-	top.add_child(menu)
+	for control in [fold_button,menu]:
+		control.custom_minimum_size=Vector2(39,39)
+		control.add_theme_font_size_override("font_size",17)
+		for key in ["normal","hover","pressed"]:
+			var control_style := panel_style(Color("#284c43"),9)
+			control_style.set_border_width_all(1)
+			control_style.content_margin_left=4
+			control_style.content_margin_right=4
+			control_style.content_margin_top=2
+			control_style.content_margin_bottom=2
+			control.add_theme_stylebox_override(key,control_style)
+		top.add_child(control)
 	header_details=VBoxContainer.new()
 	stack.add_child(header_details)
 	var row := HBoxContainer.new()
@@ -251,10 +278,8 @@ func _build_ui() -> void:
 	row.add_child(minimap)
 	level_label=label("",12)
 	header_details.add_child(level_label)
-	compact_needs=label("",12)
-	stack.add_child(compact_needs)
 	var shortcuts := HBoxContainer.new()
-	stack.add_child(shortcuts)
+	header_details.add_child(shortcuts)
 	encounter_button=button("Neue Begegnung",show_encounter)
 	encounter_button.custom_minimum_size.y=32
 	encounter_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
@@ -267,7 +292,7 @@ func _build_ui() -> void:
 	shortcuts.add_child(camera_button)
 	quest_hint=label("",13)
 	quest_hint.max_lines_visible=2;quest_hint.clip_text=true;quest_hint.custom_minimum_size.y=20
-	stack.add_child(quest_hint)
+	header_details.add_child(quest_hint)
 	stats=label("",12)
 	stats.hide()
 	header_details.add_child(stats)
@@ -347,14 +372,17 @@ func _build_ui() -> void:
 	stick=WolfTouchStick.new()
 	lower.add_child(stick)
 	var actions := GridContainer.new()
-	actions.columns=2
+	actions.columns=3
 	actions.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	actions.add_theme_constant_override("h_separation",7)
 	actions.add_theme_constant_override("v_separation",7)
 	lower.add_child(actions)
-	for item in [["Schnüffeln",sniff],["Aktion",interact],["Heulen",howl],["Geschichte",show_main_story]]:
+	# Six permanent actions remain usable even during an active mission.
+	# Context action still selects water, food, tracks, greetings and watching.
+	for item in [["Schnüffeln",sniff,"Zeigt frische Fährten"],["Aktion",interact,"Interagiert mit dem nächsten Tier oder Naturort"],["Heulen",howl,"Rufe das Rudel"],["Ruhen",rest,"Ruhen an einer sicheren Höhle"],["Rudel",show_pack,"Rudel, Begleitung und gemeinsames Spielen"],["Geschichte",show_main_story,"Hauptgeschichte und aktive Missionsziele"]]:
 		var b := button(item[0],item[1])
 		b.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		b.tooltip_text=item[2]
 		actions.add_child(b)
 		hud_action_controls.append(b)
 		if item[0]=="Aktion":action_button=b
@@ -377,21 +405,46 @@ func _build_ui() -> void:
 	var atlas_button := button("Karte",show_map)
 	bottom.add_child(atlas_button)
 	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button]
+	# Do not let the short labels turn the three right-hand navigation
+	# controls into 35px slivers on a narrow phone.
+	for control in [sprint_button,sneak_button,atlas_button]:
+		control.custom_minimum_size.x=52
 	set_hud_compact(state.compact_hud,false)
 
 func set_hud_compact(compact: bool,persist: bool=true) -> void:
 	state.compact_hud=compact
-	header_details.visible=not compact
-	compact_needs.visible=compact
-	fold_button.text="⌄" if compact else "⌃"
-	fold_button.tooltip_text="Bedürfnisse und Minikarte öffnen" if compact else "Mehr Platz für die Wildnis"
-	header.queue_sort()
-	_fit_header.call_deferred()
+	_apply_header_display()
 	if persist:_save_game()
 
+func _apply_header_display() -> void:
+	if not is_instance_valid(header) or not is_instance_valid(ui):return
+	# On small screens the player can still open the status ribbon.
+	# The mission strip temporarily yields space and returns when folded.
+	var expanded := not state.compact_hud
+	header_details.visible=expanded
+	header_portrait.visible=expanded
+	location_hint.visible=expanded
+	compact_needs.visible=not expanded
+	fold_button.text="⌃" if expanded else "⌄"
+	fold_button.tooltip_text="Status, Minikarte und Aufgaben einklappen" if expanded else "Status und Minikarte aufklappen"
+	header.queue_sort()
+	_fit_header.call_deferred()
+
 func _fit_header() -> void:
-	if is_instance_valid(header):header.size=Vector2(header.size.x,header.get_combined_minimum_size().y)
-	if is_instance_valid(look_area):look_area.offset_top=header.position.y+header.size.y+10
+	if is_instance_valid(header):
+		header.size=Vector2(header.size.x,header.get_combined_minimum_size().y)
+	if is_instance_valid(look_area):
+		look_area.offset_top=header.position.y+header.size.y+10
+
+func _update_bottom_labels() -> void:
+	if hud_action_controls.size()!=6 or not is_instance_valid(mode_button):return
+	var narrow := ui.size.x<440
+	hud_action_controls[0].text="Nase" if narrow else "Schnüffeln"
+	hud_action_controls[5].text="Story" if narrow else "Geschichte"
+	mode_button.text=("2D" if first_person else "3D") if narrow else ("2D · Draufsicht" if first_person else "3D · Folgekamera" if state.camera_follow else "3D · Wolfsblick")
+	var interaction := context_action()
+	action_button.tooltip_text=interaction
+	action_button.text={"Ort prüfen":"Prüfen","Spur lesen":"Spur","Duft setzen":"Duft","Beobachten":"Sehen"}.get(interaction,interaction) if narrow else interaction
 
 func _process(dt: float) -> void:
 	if app_idle or is_instance_valid(overlay):return
@@ -613,7 +666,7 @@ func toggle_view() -> void:
 	camera_button.visible=first_person
 	camera_button.text="Wolfsblick" if state.camera_follow else "Folgekamera"
 	_apply_quality()
-	mode_button.text="2D · Draufsicht" if first_person else "3D · Folgekamera" if state.camera_follow else "3D · Wolfsblick"
+	_update_bottom_labels()
 	notify("Wische über die Landschaft zum Umsehen. Untersuchen entdeckt sichtbare Tiere." if first_person else "Du siehst die Karte wieder von oben. Bewege dich in alle Richtungen.")
 
 func switch_camera() -> void:
@@ -622,7 +675,7 @@ func switch_camera() -> void:
 	state.camera_follow=not state.camera_follow
 	if first_person:world_view.set_follow_camera(state.camera_follow)
 	camera_button.text="Wolfsblick" if state.camera_follow else "Folgekamera"
-	mode_button.text="2D · Draufsicht" if first_person else "3D · Folgekamera" if state.camera_follow else "3D · Wolfsblick"
+	_update_bottom_labels()
 	_save_game()
 	notify("Die Kamera folgt deinen Pfoten. Wische zum Umsehen." if state.camera_follow else "Du siehst die Wildnis wieder aus den Augen deines Wolfs.")
 
@@ -656,6 +709,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_E:interact()
 		KEY_H:howl()
 		KEY_R:rest()
+		KEY_P:show_pack()
+		KEY_G:show_main_story()
 		KEY_M:show_map()
 
 func notify(message: String) -> void:
@@ -897,9 +952,8 @@ func _refresh_status() -> void:
 	level_label.text="%d Wochen · Rang %d · Wildnis %d/%d"%[state.age_weeks(),state.level(),state.visited.size(),WolfWorldData.REGIONS.size()]
 	title.text=WolfWorldData.REGIONS[state.region].name
 	location_hint.text="Tag %d · %02d:%02d · %s"%[state.day(),int(state.hour()),int(fmod(state.hour(),1)*60),state.weather()]
-	compact_needs.text="Nahrung %d · Wasser %d · Kraft %d · Rudel %d"%[state.hunger,state.thirst,state.energy,state.bond]
+	compact_needs.text="N%d  W%d  K%d  R%d"%[int(state.hunger),int(state.thirst),int(state.energy),int(state.bond)]
 	compact_needs.add_theme_color_override("font_color",Color("#f3ca7f") if minf(state.hunger,minf(state.thirst,state.energy))<25 else Color("#d4d9c0"))
-	action_button.text=context_action()
 	var encounter: Dictionary=state.encounter_status()
 	if encounter_button!=null:encounter_button.text="Begegnung ✓" if encounter.done else "Begegnung · "+encounter.progress if encounter.accepted else "Neue Begegnung"
 	var story := state.main_story_status()
@@ -930,7 +984,9 @@ func _refresh_status() -> void:
 	else:
 		_refresh_nature_journey_hud()
 		_refresh_main_story_presence_hud()
+
 	_layout_mission_hud()
+	_update_bottom_labels()
 
 func wildlife_activity_name(activity: String) -> String:
 	return {"forage":"Nahrung suchen","drink":"Trinken","shelter":"Geschützt ruhen","roaming":"Unterwegs","wandern":"Unterwegs","lauschen":"Lauschen","fliehen":"Aufgeschreckt","fressen":"Fressen","grasen":"Grasen","schnüffeln":"Duft prüfen","trinken":"Trinken","ruhen":"Ruhen","laufen":"Unterwegs"}.get(activity,"Lauschen")
@@ -2080,10 +2136,8 @@ func _layout_mission_hud() -> void:
 	elif hint.contains("dasselbe") or hint.contains("freie Sicht"):status="Dasselbe Tier im Blick"
 	elif hint.contains("Ruhen") or hint.contains("liegen"):status="Geschützt liegen bleiben"
 	observation_summary.text=("%.1f / %.0f s · "%[observation_progress.value,observation_progress.max_value] if observation_progress.visible else "")+status
-	var constrained := ui.size.y<760 and observation_panel.visible
-	header_details.visible=not state.compact_hud and not constrained
-	compact_needs.visible=state.compact_hud or constrained
-	header.queue_sort();_fit_header.call_deferred()
+	if ui.size.y<760 and not state.compact_hud:observation_panel.hide()
+	_apply_header_display()
 	observation_hint.max_lines_visible=2 if ui.size.y<720 else 3
 	observation_hint.custom_minimum_size.y=0
 	var height := clampf(observation_panel.get_combined_minimum_size().y,86,154) if mission_hud_expanded else 86.0
@@ -2092,15 +2146,17 @@ func _layout_mission_hud() -> void:
 	# Toast has its own fixed, clipped three-line lane above the movement controls.
 	toast_lane.offset_top=-316;toast_lane.offset_bottom=-246
 	var narrow := ui.size.x<440
-	if is_instance_valid(stick):stick.custom_minimum_size.x=minf(144,ui.size.x*.25)
+	if is_instance_valid(stick):stick.custom_minimum_size.x=clampf(ui.size.x*.28,96,140)
 	if hud_layout_width_mode!=int(narrow):
 		hud_layout_width_mode=int(narrow)
 		for control in hud_action_controls+hud_bottom_controls:
-			control.add_theme_font_size_override("font_size",14 if narrow else 17)
+			control.add_theme_font_size_override("font_size",12 if narrow else 15)
 			for key in ["normal","hover","pressed"]:
 				var style: StyleBoxFlat=control.get_theme_stylebox(key).duplicate()
-				style.content_margin_left=9 if narrow else 16
-				style.content_margin_right=9 if narrow else 16
+				style.content_margin_left=4 if narrow else 9
+				style.content_margin_right=4 if narrow else 9
+				style.content_margin_top=6
+				style.content_margin_bottom=6
 				control.add_theme_stylebox_override(key,style)
 	observation_panel.queue_sort()
 	_fit_mission_panel.call_deferred()

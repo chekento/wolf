@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0 · Schlanke Statusleiste und vollständige Spielaktionen
+
+- Standardmäßig nur eine schmale Statusleiste mit Gebietsname, vier Kurzbedürfnissen, Aufklapp- und Menüknopf. Das Wolfsporträt, die große Minikarte, ausführliche Bedürfnisse, Begegnung und Aufgaben erscheinen erst beim Aufklappen.
+- Auf kleinen Displays darf die obere Leiste ebenfalls aufgeklappt werden; das aktive Missionspanel macht dort vorübergehend Platz und kehrt beim Einklappen zurück. Kamera-Gesten beginnen stets direkt unter dem aktuellen Header.
+- Zwei mal drei untere Aktionsknöpfe: Schnüffeln, dynamische Kontextaktion, Heulen, Ruhen, Rudel und Geschichte. Direkte Rudel- und Erholungsaktionen erfordern keinen Umweg über das Hauptmenü.
+- Responsive kürzere Beschriftungen (Nase/Story/2D/3D) bei engen Bildschirmbreiten, kleinere Button-Innenabstände und dynamischer Touch-Stick-Radius statt eines auf kleinen Geräten abgeschnittenen 140-Pixel-Joysticks.
+- Zusätzliche Layoutregressionen für 540×960, 432×768 und 360×640, ein-/ausgeklappten Status, getrennte Missionshinweise, 10 Bedienelemente und direkte Aktionsaufrufe.
+- Die 0.11-Spielwelt, Missionen, Spielstände und Tier-Körperbewegungen bleiben erhalten. GitHub Actions signiert Debug-Builds weiterhin mit einem temporären Schlüssel: einen bisherigen lokal signierten Spielstand vor einer anderen Installation sichern.
+
+
 ## 0.11.0 · Gemeinsames Rudelspiel (Testbuild)
 
 - Neue optionale Spielaufforderung im Familienmenü, wenn ein echter Rudelwolf in Reichweite steht.

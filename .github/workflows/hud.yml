@@ -1,0 +1,25 @@
+name: Wolf — responsive HUD checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  hud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.5.1
+        run: |
+          curl -fsSL --retry 3 -o /tmp/wolf-godot.zip https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/wolf-godot.zip -d /tmp/wolf-godot
+          sudo install /tmp/wolf-godot/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Import and run actual mobile Control layouts
+        run: |
+          set -euo pipefail
+          godot --headless --editor --import --quit 2>&1 | tee /tmp/hud-import.log
+          XDG_DATA_HOME=/tmp/wolf-fast-hud godot --headless --audio-driver Dummy --script tests/hud_layout.gd 2>&1 | tee /tmp/hud-test.log
+          if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|FAIL:|resources still in use|instances leaked' /tmp/hud-import.log /tmp/hud-test.log; then exit 1; fi
