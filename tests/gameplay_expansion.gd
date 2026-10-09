@@ -135,7 +135,7 @@ func run() -> void:
 	for quest in quest_state.quests():
 		if ids.has(quest.id) or not quest.progress is String or not quest.done is bool:quests_valid=false
 		ids.append(quest.id)
-	check(quests_valid and ids.size()==40,"forty playable quests expose unique IDs and valid progress")
+	check(quests_valid and ids.size()==42,"forty-two playable quests expose unique IDs and valid progress")
 	var routine := WolfState.new()
 	check(routine.pack_routine().target is Vector2 and routine.pack_routine().speed is float,"pack routines expose local target positions and movement speeds")
 	check(WolfPackLife.routine(14,"Mutter").mood=="ruhen" and WolfPackLife.routine(9,"Geschwister").mood=="spielen","pack activity changes between midday rest and young-wolf play")
