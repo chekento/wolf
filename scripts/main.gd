@@ -44,7 +44,6 @@ var camera_button: Button
 var header: PanelContainer
 var header_details: VBoxContainer
 var header_portrait: TextureRect
-var compact_needs: Label
 var compact_stats: HBoxContainer
 var compact_stat_labels: Dictionary={}
 var compact_stat_bars: Dictionary={}
@@ -269,9 +268,6 @@ func _build_ui() -> void:
 		mini_bar.add_theme_stylebox_override("fill",mini_fill)
 		item.add_child(mini_bar)
 		compact_stat_bars[entry[0]]=mini_bar
-	# Legacy HUD reference still identifies the always-visible brief stat line.
-	compact_needs=label("",11)
-	compact_needs.hide()
 	fold_button=button("⌄",func():set_hud_compact(not state.compact_hud))
 	menu_button=button("☰",show_menu)
 	for control in [fold_button,menu_button]:
@@ -490,7 +486,6 @@ func _apply_header_display() -> void:
 	header_portrait.visible=expanded
 	location_hint.visible=expanded
 	compact_stats.visible=not expanded
-	compact_needs.hide()
 	fold_button.text="⌃" if expanded else "⌄"
 	fold_button.tooltip_text="Status, Minikarte und Aufgaben einklappen" if expanded else "Status und Minikarte aufklappen"
 	header.queue_sort()
