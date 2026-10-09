@@ -1468,7 +1468,11 @@ func _invite_pack_play() -> void:
 		notify("Dein Rudel verschnauft kurz. Lausche auf die nächsten Pfoten.")
 		return
 	last_pack_play = clock
-	state.pack_signal = {"action":"play","region":state.region,"pos":state.pos,"at":state.elapsed,"serial":Time.get_ticks_usec()}
+	state.note_action("play")
+	state.bond = minf(100,state.bond+1)
+	state.record("Rudelmoment · Du lädst die Familie zum Toben ein und wartest auf ihre echten Schritte.")
+	_save_game()
+	check_quests()
 	player_mood = "spielen"
 	action_timer = 2.5
 	notify("Spielzeit! Bleib bei deiner Familie und beobachte das Pfotenspiel.")
