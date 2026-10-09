@@ -101,7 +101,7 @@ Die aktuelle Fassung enthält:
 
 - **8 neue Hauptkapitel mit 21 Handlungsschritten**
 - **18 zusätzliche Rudelerinnerungen**
-- **40 Erlebnisse**
+- **42 Erlebnisse**
 - wiederholbare regionale Wildnisbegegnungen
 - mehrere Aufgaben mit tatsächlicher gemeinsamer Ankunft und Tierbeobachtung
 - Fortschritt, der nur durch wirklich ausgeführte Aktionen zählt
@@ -351,7 +351,7 @@ The current build includes:
 
 - **8 new main-story chapters with 21 physical objectives**
 - **18 additional pack memories**
-- **40 experiences**
+- **42 experiences**
 - repeatable regional wilderness encounters
 - objectives based on real joint arrival and wildlife observation
 - progress that only counts when the required action truly happens
