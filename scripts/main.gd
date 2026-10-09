@@ -1407,6 +1407,7 @@ func card(parent: VBoxContainer,heading: String,body: String,accent: Color=Color
 func hero(parent: VBoxContainer,caption: String,height: float=180) -> void:
 	var art := WolfMenuArt.new()
 	art.game=self;art.caption=caption
+	art.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	art.custom_minimum_size=Vector2(0,height)
 	parent.add_child(art)
 
