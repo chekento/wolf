@@ -32,7 +32,7 @@ jobs:
           set -o pipefail
           godot --headless --editor --import --quit 2>&1 | tee /tmp/wolf-import.log
           if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|resources still in use|instances leaked' /tmp/wolf-import.log; then exit 1; fi
-          for suite in smoke gameplay_expansion graphics_expansion ui_expansion animal_behavior atlas_expansion ecology_expansion encounter_controls locomotion_expansion living_world landscape_expansion atlas_observation path_expansion animation_expansion main_story main_story_controls story_journey habitat_details animal_detail nature_journeys nature_journey_controls nature_journey_integration action_anchors main_story_first_mission hud_layout pack_interactions first_mission_controller; do
+          for suite in smoke gameplay_expansion graphics_expansion ui_expansion animal_behavior atlas_expansion ecology_expansion encounter_controls locomotion_expansion living_world landscape_expansion atlas_observation path_expansion animation_expansion main_story main_story_controls story_journey habitat_details animal_detail nature_journeys nature_journey_controls nature_journey_integration action_anchors main_story_first_mission hud_layout multitouch pack_interactions first_mission_controller; do
             XDG_DATA_HOME="/tmp/wolf-test-data/$suite" godot --headless --verbose --audio-driver Dummy --script "tests/$suite.gd" 2>&1 | tee "/tmp/wolf-$suite.log"
             if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|^FAIL:|resources still in use|instances leaked' "/tmp/wolf-$suite.log"; then exit 1; fi
           done
@@ -63,21 +63,21 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p builds/web
-          godot --headless --export-debug Android builds/Wolf-0.12.0-debug.apk 2>&1 | tee /tmp/wolf-android-export.log
+          godot --headless --export-debug Android builds/Wolf-0.12.1-debug.apk 2>&1 | tee /tmp/wolf-android-export.log
           godot --headless --export-release Web builds/web/index.html 2>&1 | tee /tmp/wolf-web-export.log
           if grep -Eq 'SCRIPT ERROR|^ERROR:' /tmp/wolf-android-export.log /tmp/wolf-web-export.log; then exit 1; fi
           cd builds
-          zip -qr Wolf-0.12.0-web.zip web
-          sha256sum Wolf-0.12.0-debug.apk Wolf-0.12.0-web.zip > SHA256SUMS.txt
-          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs Wolf-0.12.0-debug.apk > Android-verification.txt
-          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Wolf-0.12.0-debug.apk >> Android-verification.txt
-          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 Wolf-0.12.0-debug.apk
+          zip -qr Wolf-0.12.1-web.zip web
+          sha256sum Wolf-0.12.1-debug.apk Wolf-0.12.1-web.zip > SHA256SUMS.txt
+          "$ANDROID_HOME/build-tools/35.0.1/apksigner" verify --verbose --print-certs Wolf-0.12.1-debug.apk > Android-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.1/aapt" dump badging Wolf-0.12.1-debug.apk >> Android-verification.txt
+          "$ANDROID_HOME/build-tools/35.0.1/zipalign" -c -P 16 4 Wolf-0.12.1-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Wolf-0.12.0-Android-and-Web
+          name: Wolf-0.12.1-Android-and-Web
           path: |
-            builds/Wolf-0.12.0-debug.apk
-            builds/Wolf-0.12.0-web.zip
+            builds/Wolf-0.12.1-debug.apk
+            builds/Wolf-0.12.1-web.zip
             builds/SHA256SUMS.txt
             builds/Android-verification.txt
           retention-days: 30

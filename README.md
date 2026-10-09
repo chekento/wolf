@@ -1,12 +1,14 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-[![Android APK 0.12.0](https://img.shields.io/badge/Android-APK%200.12.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
-[![Version](https://img.shields.io/badge/Version-0.12.0-5865F2?style=for-the-badge)](CHANGELOG.md)
+[![Android APK 0.12.1](https://img.shields.io/badge/Android-APK%200.12.1-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
+[![Version](https://img.shields.io/badge/Version-0.12.1-5865F2?style=for-the-badge)](CHANGELOG.md)
 [![Godot](https://img.shields.io/badge/Godot-4.5.1-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org/)
 
 **[🇩🇪 Deutsch](#-deutsch) · [🇬🇧 English](#-english)**
 
-**Neu in 0.12.0 / New in 0.12.0:** Ein wirklich schmaler, aufklappbarer Statusstreifen ersetzt den alten hohen Kopfbereich. Die vollständige Karte, Bedürfnisse und Begegnungen sind erst beim Aufklappen sichtbar. Die untere Steuerung bietet sechs feste Aktionen (Nase, Aktion, Heulen, Ruhen, Rudel, Geschichte) und vier Navigationstasten. Kleinere Telefone erhalten angepasste Beschriftungen und einen korrekt skalierten Touch-Joystick. / A true one-line foldable status ribbon, six permanent gameplay actions, responsive joystick and compact labels on small screens.
+**Neu in 0.12.1 / New in 0.12.1:** Multitouch: unabhängige Finger für Joystick, 3D-Kamerablick, gleichzeitig erreichbare Aktionstasten und Sprint/Leise, mit Finger-ID-Verfolgung und zuverlässigem Abbruch bei Menüwechsel oder App-Wechsel. In Menüs bleibt das normale Tippen und Scrollen erhalten. / Independent multitouch finger ownership for stick, 3D look, action taps and movement toggles; gesture cleanup on pause/menu, normal menu scrolling preserved.
+
+**0.12.0:** Ein wirklich schmaler, aufklappbarer Statusstreifen ersetzt den alten hohen Kopfbereich. Die vollständige Karte, Bedürfnisse und Begegnungen sind erst beim Aufklappen sichtbar. Die untere Steuerung bietet sechs feste Aktionen (Nase, Aktion, Heulen, Ruhen, Rudel, Geschichte) und vier Navigationstasten. Kleinere Telefone erhalten angepasste Beschriftungen und einen korrekt skalierten Touch-Joystick. / A true one-line foldable status ribbon, six permanent gameplay actions, responsive joystick and compact labels on small screens.
 
 
 > **Wichtiger Installationshinweis / Important install note:** GitHub Actions uses an ephemeral Android debug signing key. A newly downloaded APK cannot update a locally signed 0.10.0 install without a matching certificate. Keep your existing install/save until a same-key release is available. / GitHub Actions verwendet einen temporären Debug-Schlüssel. Die bestehende 0.10.0 für den Spielstand behalten, statt sie ohne Sicherung zu deinstallieren.
@@ -14,7 +16,7 @@
 **Neu in 0.11.0:** Optionales gemeinsames Rudelspiel über **Deine Familie**. Nahe Geschwister und Eltern laufen tatsächlich zu freien Spielpositionen, zeigen ihre Spielhaltung und hören auf, wenn du fortläufst. / **New in 0.11.0:** Invite nearby family members to play; they approach using real movement and stop when you leave.
 
 
-> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.12.0-Android-and-Web** herunter. Darin liegt `Wolf-0.12.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
+> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.12.1-Android-and-Web** herunter. Darin liegt `Wolf-0.12.1-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
 
 ---
 
@@ -154,7 +156,7 @@ Seit Version 0.9.0 gibt es:
 
 Dazu kommen bewegtes Wasser, Wolken, Mond, Sterne, Regen, Schnee, Nebel und jahreszeitliche Farbänderungen.
 
-Version 0.12.0 korrigiert den seitlichen Versatz bei Wolfaktionen. Die erste Hauptmission verwendet den erreichbaren Höhleneingang und tatsächliche ruhige Mutternähe. Ein kompakter einklappbarer Missionshinweis hält Toasttexte getrennt; Details bleiben über **?** erreichbar. Rudelmitglieder nutzen getrennte körperlich erreichbare Näheziele.
+Version 0.12.1 korrigiert den seitlichen Versatz bei Wolfaktionen. Die erste Hauptmission verwendet den erreichbaren Höhleneingang und tatsächliche ruhige Mutternähe. Ein kompakter einklappbarer Missionshinweis hält Toasttexte getrennt; Details bleiben über **?** erreichbar. Rudelmitglieder nutzen getrennte körperlich erreichbare Näheziele.
 
 ## 📸 Echte Spielaufnahmen
 
@@ -227,13 +229,13 @@ Wetter, Licht und Umgebung verändern die Atmosphäre über:
 
 ## 📱 Android-Download
 
-**Aktuelle Version: 0.12.0 · Rudelnähe & HUD**
+**Aktuelle Version: 0.12.1 · Rudelnähe & HUD**
 
-1. Oben auf **Android APK 0.12.0** klicken.
+1. Oben auf **Android APK 0.12.1** klicken.
 2. Den neuesten erfolgreichen grünen Workflow-Lauf auf `main` öffnen.
-3. Unter **Artifacts** `Wolf-0.12.0-Android-and-Web` herunterladen.
+3. Unter **Artifacts** `Wolf-0.12.1-Android-and-Web` herunterladen.
 4. ZIP entpacken.
-5. `Wolf-0.12.0-debug.apk` installieren.
+5. `Wolf-0.12.1-debug.apk` installieren.
 
 Technik:
 
@@ -249,7 +251,7 @@ Technik:
 
 ## 🧪 Entwicklungsstand
 
-Version **0.12.0** wurde laut aktuellem Prüfbericht mit **3513 Prüfungen** validiert.
+Version **0.12.1** wurde laut aktuellem Prüfbericht mit **3513 Prüfungen** validiert.
 
 Noch nicht vollständig umgesetzt sind unter anderem:
 
@@ -261,7 +263,7 @@ Noch nicht vollständig umgesetzt sind unter anderem:
 Weitere Dokumentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validierung 0.12.0](docs/validation-0.12.0.md)
+- [Validierung 0.12.1](docs/validation-0.12.1.md)
 - [Android-Installation](docs/android-install.md)
 - [Grafikherkunft & Schriftlizenz](docs/art-assets.md)
 - [Entwicklungsübergabe](docs/development-handoff.md)
@@ -404,7 +406,7 @@ Since version 0.9.0:
 
 Animated water, clouds, moon, stars, rain, snow, fog and seasonal colour changes add atmosphere.
 
-Version 0.12.0 fixes the sideways jump when wolf actions change. The first main mission uses the reachable den entrance and actual calm proximity to the mother. A compact collapsible mission hint separates toast messages; full details remain available through **?**. Pack members use separate physically reachable nearby goals.
+Version 0.12.1 fixes the sideways jump when wolf actions change. The first main mission uses the reachable den entrance and actual calm proximity to the mother. A compact collapsible mission hint separates toast messages; full details remain available through **?**. Pack members use separate physically reachable nearby goals.
 
 ## 📸 Real gameplay screenshots
 
@@ -477,13 +479,13 @@ Atmosphere changes through:
 
 ## 📱 Android download
 
-**Current version: 0.12.0 · Pack proximity & HUD**
+**Current version: 0.12.1 · Pack proximity & HUD**
 
-1. Click **Android APK 0.12.0** at the top.
+1. Click **Android APK 0.12.1** at the top.
 2. Open the newest successful green workflow run on `main`.
-3. Download the artifact `Wolf-0.12.0-Android-and-Web`.
+3. Download the artifact `Wolf-0.12.1-Android-and-Web`.
 4. Extract the ZIP.
-5. Install `Wolf-0.12.0-debug.apk`.
+5. Install `Wolf-0.12.1-debug.apk`.
 
 Technical requirements:
 
@@ -499,7 +501,7 @@ Technical requirements:
 
 ## 🧪 Development status
 
-Version **0.12.0** is documented as validated with **3,513 checks** in the current validation report.
+Version **0.12.1** is documented as validated with **3,513 checks** in the current validation report.
 
 Not yet fully implemented:
 
@@ -511,7 +513,7 @@ Not yet fully implemented:
 Further documentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validation 0.12.0](docs/validation-0.12.0.md)
+- [Validation 0.12.1](docs/validation-0.12.1.md)
 - [Android installation](docs/android-install.md)
 - [Art assets & font licence](docs/art-assets.md)
 - [Development handoff](docs/development-handoff.md)
@@ -544,7 +546,7 @@ godot --headless --script tests/animal_detail.gd
 godot --headless --script tests/nature_journeys.gd
 godot --headless --script tests/nature_journey_controls.gd
 godot --headless --script tests/nature_journey_integration.gd
-godot --headless --export-debug Android builds/Wolf-0.12.0-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.12.1-debug.apk
 ```
 
 Idea and direction / Idee und Ausrichtung: **KoSch / Kolja Werner Schumann**.

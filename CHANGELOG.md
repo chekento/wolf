@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.12.1 · Echtes Multitouch auf Android
+
+- Zwei unabhängige Finger steuern gleichzeitig Bewegungs-Joystick und 3D-Kamera; weitere Finger können HUD-Aktionen und Sprint/Leise bedienen.
+- Finger-ID-Zuordnung schützt vor übernommener Steuerung, mehrfach ausgelösten Aktionen, ungewollten Klicks nach Drag und verwaisten Gesten.
+- Menüs behalten die reguläre Touch-Bedienung inklusive Scrollen; bei Rückkehr, Android-Hintergrundbetrieb und Ansichtswechsel werden aktive Gameplay-Berührungen sauber freigegeben.
+- Automatisierte Multitouch-Regressionstests für simultane Eingaben und fehlertolerante Freigabe. Vorhandene Spielstände bleiben kompatibel.
+
+
 ## 0.12.0 · Schlanke Statusleiste und vollständige Spielaktionen
 
 - Standardmäßig nur eine schmale Statusleiste mit Gebietsname, vier Kurzbedürfnissen, Aufklapp- und Menüknopf. Das Wolfsporträt, die große Minikarte, ausführliche Bedürfnisse, Begegnung und Aufgaben erscheinen erst beim Aufklappen.

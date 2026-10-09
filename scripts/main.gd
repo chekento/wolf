@@ -24,6 +24,8 @@ var toast_time := 0.0
 var howl_cooldown := 0.0
 var status_timer := 0.0
 var look_pointer := -1
+var touch_owners: Dictionary = {}
+var previous_touch_mouse_emulation := true
 var looking_mouse := false
 var sneak_button: Button
 var minimap: WolfMinimap
@@ -44,6 +46,8 @@ var header_details: VBoxContainer
 var header_portrait: TextureRect
 var compact_needs: Label
 var fold_button: Button
+var menu_button: Button
+var atlas_button: Button
 var action_button: Button
 var story_button: Button
 var player_speed := 0.0
@@ -96,6 +100,8 @@ func _ready() -> void:
 	add_child(map_view)
 	sound=AudioStreamPlayer.new()
 	add_child(sound)
+	previous_touch_mouse_emulation=Input.emulate_mouse_from_touch
+	Input.emulate_mouse_from_touch=false
 	_build_ui()
 	_apply_quality()
 	_build_ambient()
@@ -145,6 +151,8 @@ func _sync_audio() -> void:
 	if is_instance_valid(sound) and not audible:sound.stop()
 
 func _exit_tree() -> void:
+	_cancel_touch_inputs()
+	Input.emulate_mouse_from_touch=previous_touch_mouse_emulation
 	_release_audio()
 
 func label(text_value: String,font_size: int=18) -> Label:
@@ -229,8 +237,8 @@ func _build_ui() -> void:
 	compact_needs.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	top.add_child(compact_needs)
 	fold_button=button("⌄",func():set_hud_compact(not state.compact_hud))
-	var menu := button("☰",show_menu)
-	for control in [fold_button,menu]:
+	menu_button=button("☰",show_menu)
+	for control in [fold_button,menu_button]:
 		control.custom_minimum_size=Vector2(39,39)
 		control.add_theme_font_size_override("font_size",17)
 		for key in ["normal","hover","pressed"]:
@@ -402,7 +410,7 @@ func _build_ui() -> void:
 	sneak_button=button("Leise",func():pass)
 	sneak_button.toggle_mode=true
 	bottom.add_child(sneak_button)
-	var atlas_button := button("Karte",show_map)
+	atlas_button=button("Karte",show_map)
 	bottom.add_child(atlas_button)
 	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button]
 	# Do not let the short labels turn the three right-hand navigation
@@ -655,7 +663,7 @@ func _update_animals(dt: float) -> void:
 func toggle_view() -> void:
 	state.clear_encounter_presence()
 	first_person=not first_person
-	look_pointer=-1;looking_mouse=false
+	_cancel_touch_inputs()
 	world_view.visible=first_person
 	map_view.visible=not first_person
 	stick.reset()
@@ -682,19 +690,79 @@ func switch_camera() -> void:
 func _apply_quality() -> void:
 	get_viewport().msaa_3d=Viewport.MSAA_2X if first_person and state.smooth_edges else Viewport.MSAA_DISABLED
 
+# Desktop mouse look remains intact. Touch is routed before the GUI using finger IDs.
 func _look_input(event: InputEvent) -> void:
 	if not first_person or app_idle or is_instance_valid(overlay):return
-	# Touch is already handled directly; its synthesized mouse event is a duplicate.
-	if event.device==InputEvent.DEVICE_ID_EMULATION and (event is InputEventMouseButton or event is InputEventMouseMotion):return
-	if event is InputEventScreenTouch:
-		if event.pressed and look_pointer==-1:look_pointer=event.index
-		elif not event.pressed and event.index==look_pointer:look_pointer=-1
-	elif event is InputEventScreenDrag and event.index==look_pointer:
-		world_view.look(event.relative)
-	elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
+	if event.device==InputEvent.DEVICE_ID_EMULATION:return
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
 		looking_mouse=event.pressed
 	elif event is InputEventMouseMotion and looking_mouse:
 		world_view.look(event.relative)
+
+# A finger owns exactly one surface for its lifetime: joystick, 3D look,
+# or a HUD button. No finger may hijack another finger's gesture.
+func _touch_button_at(pos: Vector2) -> Button:
+	var controls: Array[Button]=[fold_button,menu_button,encounter_button,camera_button,observation_fold,observation_details]
+	controls.append_array(hud_action_controls)
+	controls.append_array(hud_bottom_controls)
+	for control in controls:
+		if is_instance_valid(control) and control.is_visible_in_tree() and not control.disabled and control.get_global_rect().has_point(pos):
+			return control
+	return null
+
+func _cancel_touch_inputs() -> void:
+	for target in touch_owners.values():
+		if is_instance_valid(target) and target is Button:target.modulate=Color.WHITE
+	touch_owners.clear()
+	look_pointer=-1
+	looking_mouse=false
+	if is_instance_valid(stick):stick.reset()
+
+func _input(event: InputEvent) -> void:
+	if app_idle or is_instance_valid(overlay):return
+	if not (event is InputEventScreenTouch or event is InputEventScreenDrag):return
+	# This prevents the GUI from firing a second action for the same real tap.
+	# Desktop mouse clicks and normal scrolling inside menus are unaffected.
+	get_viewport().set_input_as_handled()
+	if event is InputEventScreenTouch:
+		var tap: InputEventScreenTouch=event
+		if tap.pressed and not tap.canceled:
+			if touch_owners.has(tap.index):return
+			var target := _touch_button_at(tap.position)
+			if target!=null:
+				# Prevent two fingers from activating the same button twice.
+				if touch_owners.values().has(target):return
+				touch_owners[tap.index]=target
+				target.modulate=Color(0.78,0.94,0.81)
+			elif is_instance_valid(stick) and stick.get_global_rect().has_point(tap.position):
+				if stick.begin_touch(tap.index,tap.position-stick.get_global_rect().position):
+					touch_owners[tap.index]=stick
+			elif first_person and look_pointer==-1 and look_area.get_global_rect().has_point(tap.position):
+				look_pointer=tap.index
+				touch_owners[tap.index]=look_area
+			return
+		if not touch_owners.has(tap.index):return
+		var owner: Control=touch_owners[tap.index]
+		touch_owners.erase(tap.index)
+		if not is_instance_valid(owner):return
+		if owner==stick:
+			stick.release_touch(tap.index)
+		elif owner==look_area:
+			if look_pointer==tap.index:look_pointer=-1
+		elif owner is Button:
+			owner.modulate=Color.WHITE
+			if not tap.canceled and owner.is_visible_in_tree() and owner.get_global_rect().grow(12).has_point(tap.position):
+				if owner.toggle_mode:owner.set_pressed_no_signal(not owner.button_pressed)
+				owner.pressed.emit()
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag=event
+		if not touch_owners.has(drag.index):return
+		var owner: Control=touch_owners[drag.index]
+		if not is_instance_valid(owner):return
+		if owner==stick:
+			stick.drag_touch(drag.index,drag.position-stick.get_global_rect().position)
+		elif owner==look_area and first_person and look_pointer==drag.index:
+			world_view.look(drag.relative)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:return
@@ -1159,6 +1227,8 @@ func set_waypoint(region: int,point: Vector2) -> void:
 	if is_instance_valid(map_selection):map_selection.text="Duftziel: "+WolfWorldData.REGIONS[region].name+"\n"+navigation_summary()
 
 func close_overlay(resume_audio: bool=true) -> void:
+	_cancel_touch_inputs()
+	Input.emulate_mouse_from_touch=false
 	if is_instance_valid(overlay):
 		ui.remove_child(overlay)
 		overlay.queue_free()
@@ -1173,6 +1243,7 @@ func close_overlay(resume_audio: bool=true) -> void:
 
 func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 	close_overlay(false)
+	Input.emulate_mouse_from_touch=true
 	observation_panel.hide()
 	toast.hide()
 	stick.reset()
@@ -1846,9 +1917,7 @@ func _notification(what: int) -> void:
 		app_idle=true
 		if state!=null:state.clear_encounter_presence()
 		if state!=null:_save_game()
-		if stick!=null:stick.reset()
-		looking_mouse=false
-		look_pointer=-1
+		_cancel_touch_inputs()
 		_sync_audio()
 	elif what==NOTIFICATION_APPLICATION_FOCUS_IN or what==NOTIFICATION_APPLICATION_RESUMED:
 		app_idle=false

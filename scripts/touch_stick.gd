@@ -9,17 +9,28 @@ func _ready() -> void:
 	custom_minimum_size=Vector2(140,140)
 	mouse_filter=Control.MOUSE_FILTER_STOP
 
+# Finger IDs are independent of desktop mouse input.
+# The game forwards global touches after reserving ownership in _input().
+func begin_touch(index: int,local_position: Vector2) -> bool:
+	if pointer!=-1:return false
+	pointer=index
+	_update_vector(local_position)
+	return true
+
+func drag_touch(index: int,local_position: Vector2) -> void:
+	if pointer==index:_update_vector(local_position)
+
+func release_touch(index: int) -> void:
+	if pointer==index:reset()
+
 func _gui_input(event: InputEvent) -> void:
 	if event.device==InputEvent.DEVICE_ID_EMULATION and (event is InputEventMouseButton or event is InputEventMouseMotion):return
 	if event is InputEventScreenTouch:
-		if event.pressed and pointer==-1:
-			pointer=event.index
-			_update_vector(event.position)
-		elif not event.pressed and pointer==event.index:
-			reset()
+		if event.pressed and not event.canceled:begin_touch(event.index,event.position)
+		else:release_touch(event.index)
 		accept_event()
 	elif event is InputEventScreenDrag and event.index==pointer:
-		_update_vector(event.position)
+		drag_touch(event.index,event.position)
 		accept_event()
 	elif event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT:
 		mouse_down=event.pressed
