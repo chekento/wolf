@@ -2329,15 +2329,7 @@ func _layout_mission_hud() -> void:
 	_layout_bottom_controls()
 	if hud_layout_width_mode!=int(narrow):
 		hud_layout_width_mode=int(narrow)
-		for control in hud_action_controls+hud_bottom_controls:
-			control.add_theme_font_size_override("font_size",12 if narrow else 15)
-			for key in ["normal","hover","pressed"]:
-				var style: StyleBoxFlat=control.get_theme_stylebox(key).duplicate()
-				style.content_margin_left=4 if narrow else 9
-				style.content_margin_right=4 if narrow else 9
-				style.content_margin_top=6
-				style.content_margin_bottom=6
-				control.add_theme_stylebox_override(key,style)
+		_update_bottom_labels()
 	observation_panel.queue_sort()
 	_fit_mission_panel.call_deferred()
 
