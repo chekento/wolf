@@ -47,7 +47,7 @@ func run() -> void:
 		var action_areas: Array[Rect2]=[]
 		for control in game.hud_action_controls+game.hud_bottom_controls:
 			check(inside(control,game.ui),"responsive movement/action button fits viewport at %s"%portrait)
-			check(control.size.x>=45 and control.size.y>=44,"action or navigation button has a usable touch target at %s"%portrait)
+			check(control.size.x>=45 and control.size.y>=44,"touch target %s = %s at %s"%[control.text,control.size,portrait])
 			for area in action_areas:
 				check(not area.intersects(control.get_global_rect().grow(-.5)),"independent bottom buttons do not overlap at %s"%portrait)
 			action_areas.append(control.get_global_rect())
