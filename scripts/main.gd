@@ -414,9 +414,9 @@ func set_hud_compact(compact: bool,persist: bool=true) -> void:
 
 func _apply_header_display() -> void:
 	if not is_instance_valid(header) or not is_instance_valid(ui):return
-	# On very short screens an active mission cannot safely share the vertical
-	# strip with the expanded header, so it remains folded until room returns.
-	var expanded := not state.compact_hud and not (ui.size.y<760 and is_instance_valid(observation_panel) and observation_panel.visible)
+	# On small screens the player can still open the status ribbon.
+	# The mission strip temporarily yields space and returns when folded.
+	var expanded := not state.compact_hud
 	header_details.visible=expanded
 	header_portrait.visible=expanded
 	location_hint.visible=expanded
@@ -2132,6 +2132,7 @@ func _layout_mission_hud() -> void:
 	elif hint.contains("dasselbe") or hint.contains("freie Sicht"):status="Dasselbe Tier im Blick"
 	elif hint.contains("Ruhen") or hint.contains("liegen"):status="Geschützt liegen bleiben"
 	observation_summary.text=("%.1f / %.0f s · "%[observation_progress.value,observation_progress.max_value] if observation_progress.visible else "")+status
+	if ui.size.y<760 and not state.compact_hud:observation_panel.hide()
 	_apply_header_display()
 	observation_hint.max_lines_visible=2 if ui.size.y<720 else 3
 	observation_hint.custom_minimum_size.y=0
