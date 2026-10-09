@@ -405,6 +405,10 @@ func _build_ui() -> void:
 	var atlas_button := button("Karte",show_map)
 	bottom.add_child(atlas_button)
 	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button]
+	# Do not let the short labels turn the three right-hand navigation
+	# controls into 35px slivers on a narrow phone.
+	for control in [sprint_button,sneak_button,atlas_button]:
+		control.custom_minimum_size.x=52
 	set_hud_compact(state.compact_hud,false)
 
 func set_hud_compact(compact: bool,persist: bool=true) -> void:
