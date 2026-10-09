@@ -11,7 +11,7 @@
 
 > **Wichtiger Installationshinweis / Important install note:** GitHub Actions uses an ephemeral Android debug signing key. A newly downloaded APK cannot update a locally signed 0.10.0 install without a matching certificate. Keep your existing install/save until a same-key release is available. / GitHub Actions verwendet einen temporären Debug-Schlüssel. Die bestehende 0.10.0 für den Spielstand behalten, statt sie ohne Sicherung zu deinstallieren.
 
-**Neu in 0.12.0:** Optionales gemeinsames Rudelspiel über **Deine Familie**. Nahe Geschwister und Eltern laufen tatsächlich zu freien Spielpositionen, zeigen ihre Spielhaltung und hören auf, wenn du fortläufst. / **New in 0.12.0:** Invite nearby family members to play; they approach using real movement and stop when you leave.
+**Neu in 0.11.0:** Optionales gemeinsames Rudelspiel über **Deine Familie**. Nahe Geschwister und Eltern laufen tatsächlich zu freien Spielpositionen, zeigen ihre Spielhaltung und hören auf, wenn du fortläufst. / **New in 0.11.0:** Invite nearby family members to play; they approach using real movement and stop when you leave.
 
 
 > **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.12.0-Android-and-Web** herunter. Darin liegt `Wolf-0.12.0-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
