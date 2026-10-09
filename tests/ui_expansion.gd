@@ -76,7 +76,7 @@ func run() -> void:
 		await process_frame
 	game.close_overlay()
 	check(game.ambient.playing and not game.ambient.stream_paused,"repeated menu changes return to one active unpaused ambience")
-	check(game.state.compact_hud and not game.header_details.visible and game.compact_needs.visible,"compact HUD starts with needs and encounter controls visible")
+	check(game.state.compact_hud and not game.header_details.visible and game.compact_stats.visible,"compact HUD starts with needs and encounter controls visible")
 	var compact_height: float=game.header.size.y
 	game.set_hud_compact(false)
 	await process_frame
