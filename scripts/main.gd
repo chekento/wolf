@@ -31,6 +31,7 @@ var need_bars: Dictionary = {}
 var need_labels: Dictionary = {}
 var level_label: Label
 var last_pack_visit := -30.0
+var last_pack_play := -100.0
 var sound: AudioStreamPlayer
 var ambient: AudioStreamPlayer
 var world_cache: Dictionary = {}
@@ -1453,6 +1454,25 @@ func guide_new_region(unmarked: bool=false) -> void:
 			if not (state.marked.has(target) if unmarked else state.visited.has(target)):
 				set_waypoint(target,Vector2(1600,1600));return
 
+func _invite_pack_play() -> void:
+	var nearby := false
+	for animal in world.animals:
+		if animal.kind == "wolf" and animal.p.distance_to(state.pos) < 210:
+			nearby = true
+			break
+	close_overlay()
+	if not nearby:
+		notify("Zum Spielen brauchst du einen Wolf in deiner Nähe.")
+		return
+	if clock-last_pack_play < 18.0:
+		notify("Dein Rudel verschnauft kurz. Lausche auf die nächsten Pfoten.")
+		return
+	last_pack_play = clock
+	state.pack_signal = {"action":"play","region":state.region,"pos":state.pos,"at":state.elapsed,"serial":Time.get_ticks_usec()}
+	player_mood = "spielen"
+	action_timer = 2.5
+	notify("Spielzeit! Bleib bei deiner Familie und beobachte das Pfotenspiel.")
+
 func show_pack() -> void:
 	var v := modal("Deine Familie")
 	hero(v,"VERTRAUTE STIMMEN · GEMEINSAME WEGE",180)
@@ -1460,6 +1480,15 @@ func show_pack() -> void:
 	for role in ["Mutter","Vater","Geschwister"]:
 		var routine: Dictionary=state.pack_routine(role)
 		card(v,role+" · "+routine.label,routine.hint)
+	var family_near := false
+	for animal in world.animals:
+		if animal.kind == "wolf" and animal.p.distance_to(state.pos) < 210:
+			family_near = true
+			break
+	var play_button := button("🐾 Gemeinsam mit dem Rudel spielen",_invite_pack_play)
+	play_button.disabled = not family_near
+	v.add_child(play_button)
+	if not family_near:v.add_child(label("Zum Spielen musst du deiner Familie nahe sein.",16))
 	v.add_child(label("Bindung: %d / 100"%state.bond,20))
 	var follow := button("Begleitung beenden" if state.escort else "Mit der Mutter die Wildnis erkunden",func():
 		state.escort=not state.escort
