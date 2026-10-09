@@ -26,6 +26,7 @@ func simulate(members: Array,motion: WolfAnimalMotion,ctx: Dictionary,ticks: int
 	var bodies := true
 	var greeted: Dictionary = {}
 	var approached: Dictionary = {}
+	var played: Dictionary = {}
 	for tick in range(ticks):
 		ctx.now += dt;ctx.elapsed += dt
 		for member in members:
@@ -40,7 +41,8 @@ func simulate(members: Array,motion: WolfAnimalMotion,ctx: Dictionary,ticks: int
 			member.p = next;member.mood = plan.mood;member.behavior = plan.behavior;member.target_pos = plan.look_target
 			if plan.mood == "begrüßen":greeted[WolfPackLife.animal_key(member)] = true
 			if plan.behavior == "approach":approached[WolfPackLife.animal_key(member)] = true
-	return {"safe":safe,"bounded":bounded,"bodies":bodies,"greeted":greeted,"approached":approached,"microseconds":Time.get_ticks_usec()-began}
+			if plan.behavior == "play":played[WolfPackLife.animal_key(member)] = true
+	return {"safe":safe,"bounded":bounded,"bodies":bodies,"greeted":greeted,"approached":approached,"played":played,"microseconds":Time.get_ticks_usec()-began}
 
 func clear_bodies(members: Array,motion: WolfAnimalMotion,player: Vector2) -> bool:
 	for member in members:
@@ -216,6 +218,34 @@ func run() -> void:
 	var howl_ctx := context(invited.p+Vector2(90,0));howl_ctx.now = 1;howl_ctx.howling = true
 	var howl_plan: Dictionary = PACK.plan(invited,invitation,motion,howl_ctx)
 	check(howl_plan.mood == "heulen" and howl_plan.speed == 0,"a real nearby call receives a brief pack reply ahead of ordinary greeting")
+
+	# Optional shared play uses the same local body-aware navigation as greeting.
+	# It must neither move the pup nor forge a mission/escort checkpoint.
+	var playful := wolf(Vector2(1450,1600),"Geschwister",2.4,true)
+	var play_group: Array = [playful]
+	var play_ctx := context(Vector2(1600,1600))
+	play_ctx.signal = {"action":"play","region":0,"serial":91,"at":0.0}
+	var first_play: Dictionary = PACK.plan(playful,play_group,motion,play_ctx)
+	check(first_play.behavior == "play_approach" and first_play.speed > 0,"a deliberate play signal calls a nearby sibling along a real path")
+	var play_result := simulate(play_group,motion,play_ctx,165)
+	check(play_result.played.size() == 1,"sibling actually reaches a playful animation position")
+	check(play_result.safe and play_result.bounded and play_result.bodies and clear_bodies(play_group,motion,play_ctx.player_pos),"play remains body-safe and moves at bounded speed")
+	var play_until: float = playful._play_until
+	PACK.plan(playful,play_group,motion,play_ctx)
+	check(is_equal_approx(float(playful._play_until),play_until),"the same play signal cannot extend its duration frame by frame")
+	play_ctx.signal = {"action":"play","region":0,"serial":92,"at":play_ctx.elapsed}
+	PACK.plan(playful,play_group,motion,play_ctx)
+	check(float(playful._play_until) > play_until,"a fresh deliberate play event can start a new short turn")
+	play_ctx.player_pos += Vector2(350,0)
+	play_ctx.player_speed = 90
+	var departed: Dictionary = PACK.plan(playful,play_group,motion,play_ctx)
+	check(departed.behavior not in ["play","play_approach"],"the wolf stops playing and does not follow indefinitely when the pup runs off")
+	var mission_play := context(Vector2(1580,2320))
+	mission_play.meeting = true;mission_play.meeting_center = Vector2(1580,2180)
+	mission_play.signal = {"action":"play","region":0,"serial":93,"at":0.0}
+	var mission_parent := wolf(Vector2(1570,2280))
+	var mission_plan: Dictionary = PACK.plan(mission_parent,[mission_parent],home_motion,mission_play)
+	check(mission_plan.behavior == "meeting","home mission proximity outranks optional play invitations")
 
 	var hashes := ""
 	for region in range(WolfWorldData.REGIONS.size()):hashes += JSON.stringify(WolfWorldData.generate(region)).sha256_text()
