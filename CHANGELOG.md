@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0 · Gemeinsames Rudelspiel (Testbuild)
+
+- Neue optionale Spielaufforderung im Familienmenü, wenn ein echter Rudelwolf in Reichweite steht.
+- Geschwister und Eltern in der Nähe gehen eigenständig zu freien Plätzen um den Jungwolf und zeigen eine bestehende körperliche Spielpose; weder Spieler noch Tiere werden an einen Zielpunkt versetzt.
+- Zeitlich begrenzte Aufforderungen, ehrliche Tierbewegung und Abbruch, wenn der Jungwolf wegläuft. Gemeinsamer Missionshalt und aktive Begleitung haben Vorrang.
+- Zwei zusätzliche gespeicherte Spielerlebnisse für drei und zwölf echte Spielaufforderungen; freundliche Rudelbindung als kleine Belohnung.\n- Controllerprüfungen für tatsächliches Annähern, körperfreie Plätze, Wiederholungsschutz, Abbruch und Missionspriorität.
+- Hauptgeschichte, regionale Naturreisen, alte Spielstände, Offline-Betrieb und Alterung bleiben unverändert.
+- **Hinweis:** GitHub-Actions-Debugbuilds werden mit eigenem temporärem Signierschlüssel gebaut und sind deshalb nicht direkt als Update der lokal signierten 0.10.0 installierbar. Bis eine signaturkompatible 0.11-APK verfügbar ist, die bestehende Installation für den Spielstand behalten.
+
 ## 0.10.0 · Aktionsanker, Höhlenmission und Rudelnähe
 
 - Wolfaktionsgrafiken werden um denselben Bodenanker gespiegelt; keine Verschiebung um eine ganze Atlasbreite.

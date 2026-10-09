@@ -44,6 +44,15 @@ static func plan(animal: Dictionary,members: Array,navigation: WolfAnimalMotion,
 			animal._social_until = now+4.5
 			animal._social_anchor = player
 			animal._social_cooldown = now+30.0+float(animal.get("phase",0))*2
+	# A deliberate family play invitation is an ephemeral, local signal.
+	# Wolves travel to safe individual play spots instead of teleporting
+	# into an animation, and unrelated animals do not react.
+	if not invitation.is_empty() and invitation.get("action","") == "play" and int(invitation.get("region",-1)) == int(context.region) and float(context.elapsed)-float(invitation.get("at",-100)) >= 0 and float(context.elapsed)-float(invitation.get("at",-100)) < 4 and distance < 210:
+		var play_event := "%d:%d" % [int(invitation.region),int(invitation.serial)]
+		if play_event != str(animal.get("_play_event","")):
+			animal._play_event = play_event
+			animal._play_until = now+7.0
+			animal._play_anchor = player
 	if bool(context.get("howling",false)) and distance < 500 and not meeting:
 		result.target = position;result.speed = 0.0;result.mood = "heulen";result.look_target = player;result.attention = 0.7
 		return result
@@ -69,6 +78,28 @@ static func plan(animal: Dictionary,members: Array,navigation: WolfAnimalMotion,
 		result.look_target = player
 		result.attention = 0.65
 		return result
+	# Mission halts and escort navigation outrank play. Otherwise a playful
+	# invitation produces a real approach, a bow and a wagging tail. Releasing
+	# the player position or beginning to run cancels the play naturally.
+	if now < float(animal.get("_play_until",-1)):
+		var play_anchor: Vector2 = animal.get("_play_anchor",player)
+		if play_anchor.distance_to(player) > 155 or float(context.player_speed) > 55:
+			animal._play_until = -1.0
+		else:
+			var radius := maxf(88.0 if not animal.get("young",false) else 76.0,navigation.body_radius(animal)+player_radius+15.0)
+			var away := player.direction_to(position)
+			if away.length_squared() < 0.01:away = Vector2.from_angle(float(animal.get("phase",0))+.4)
+			var preferred := player+away*radius
+			animal._near_active_until = now+0.2
+			var target := _near_target(animal,members,navigation,player,preferred,radius,"play",now,Vector2(INF,INF),INF,player_radius)
+			var arrived: bool = position.distance_to(target) < 8 and visible
+			result.target = position if arrived else target
+			result.speed = 0.0 if arrived else 64.0
+			result.mood = "spielen" if arrived else "wandern"
+			result.behavior = "play" if arrived else "play_approach"
+			result.look_target = player
+			result.attention = 0.95
+			return result
 	# Nearby quiet family members first notice the pup, then make a short
 	# invitation. It ends naturally; this is not a second permanent escort.
 	var may_notice: bool = visible and distance < 210 and quiet and now >= float(animal.get("_social_cooldown",-1))

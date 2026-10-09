@@ -135,7 +135,7 @@ func run() -> void:
 	for quest in quest_state.quests():
 		if ids.has(quest.id) or not quest.progress is String or not quest.done is bool:quests_valid=false
 		ids.append(quest.id)
-	check(quests_valid and ids.size()==40,"forty playable quests expose unique IDs and valid progress")
+	check(quests_valid and ids.size()==42,"forty-two playable quests expose unique IDs and valid progress")
 	var routine := WolfState.new()
 	check(routine.pack_routine().target is Vector2 and routine.pack_routine().speed is float,"pack routines expose local target positions and movement speeds")
 	check(WolfPackLife.routine(14,"Mutter").mood=="ruhen" and WolfPackLife.routine(9,"Geschwister").mood=="spielen","pack activity changes between midday rest and young-wolf play")
@@ -152,6 +152,14 @@ func run() -> void:
 	check(tracks.encounter_status().done and tracks.complete_encounter(),"three new regional clues complete a track encounter")
 	var rewarded_xp: int=tracks.xp
 	check(not tracks.complete_encounter() and tracks.xp==rewarded_xp and tracks.completed_encounters.size()==1,"a completed experience awards its reward exactly once")
+	var player_games := WolfState.new()
+	check(player_games.action_counts.play == 0 and int(player_games.action_counts.play) == 0,"new pack play quest begins unearned")
+	for i in range(3):player_games.note_action("play")
+	check(player_games.action_counts.play == 3 and player_games.pack_signal.action == "play" and player_games.pack_signal.serial == 3,"pack play invitations are distinct real signals and count persistently")
+	var games_earned := false
+	for quest in player_games.quests():
+		if quest.id == "play3":games_earned = quest.done and quest.progress == "3/3"
+	check(games_earned,"three deliberate pack games finish a finite new quest")
 	var observer := WolfState.new()
 	observer.note_action("observe","Reh")
 	check(choose_task(observer,"observe") and not observer.encounter_status().done,"old observations do not fulfil a new wildlife experience")
