@@ -1,6 +1,12 @@
 # 🐺 Wolf · Wildnis & Rudel
 
-[![Android APK 0.12.1](https://img.shields.io/badge/Android-APK%200.12.1-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/actions/workflows/build.yml?query=branch%3Amain)
+[![Wolf – Download Android APK](docs/download-android-apk.svg)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
+
+### 📱 [**Download Android APK – Wolf 0.12.1 direkt herunterladen**](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
+
+[🇬🇧 Download latest Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk) · [Alle Releases / All releases](https://github.com/chekento/wolf/releases)
+
+[![Android APK 0.12.1](https://img.shields.io/badge/Android-APK%200.12.1-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
 [![Version](https://img.shields.io/badge/Version-0.12.1-5865F2?style=for-the-badge)](CHANGELOG.md)
 [![Godot](https://img.shields.io/badge/Godot-4.5.1-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org/)
 
@@ -16,7 +22,7 @@
 **Neu in 0.11.0:** Optionales gemeinsames Rudelspiel über **Deine Familie**. Nahe Geschwister und Eltern laufen tatsächlich zu freien Spielpositionen, zeigen ihre Spielhaltung und hören auf, wenn du fortläufst. / **New in 0.11.0:** Invite nearby family members to play; they approach using real movement and stop when you leave.
 
 
-> **APK-Download:** Der grüne Android-Button führt zu den aktuellen GitHub-Actions-Builds. Öffne den neuesten erfolgreichen Lauf auf `main` und lade das Artefakt **Wolf-0.12.1-Android-and-Web** herunter. Darin liegt `Wolf-0.12.1-debug.apk` inklusive Web-Build und SHA-256-Prüfsummen.
+> **APK-Download / APK download:** Der Banner und der Textlink oben laden die **Android-APK direkt** vom neuesten GitHub-Release herunter – ohne ZIP-Entpacken und ohne Workflow-Navigation. / The banner and text link above download the **Android APK directly** from the latest GitHub Release.
 
 ---
 
@@ -231,11 +237,10 @@ Wetter, Licht und Umgebung verändern die Atmosphäre über:
 
 **Aktuelle Version: 0.12.1 · Rudelnähe & HUD**
 
-1. Oben auf **Android APK 0.12.1** klicken.
-2. Den neuesten erfolgreichen grünen Workflow-Lauf auf `main` öffnen.
-3. Unter **Artifacts** `Wolf-0.12.1-Android-and-Web` herunterladen.
-4. ZIP entpacken.
-5. `Wolf-0.12.1-debug.apk` installieren.
+1. **[Download Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)** antippen (oder den Banner oben).
+2. Die heruntergeladene Datei `Wolf-android.apk` auf Android öffnen und installieren.
+
+Der Download-Link zeigt automatisch auf die als **Latest** markierte Veröffentlichung. Alternativ: [Alle Releases](https://github.com/chekento/wolf/releases).
 
 Technik:
 
@@ -481,11 +486,10 @@ Atmosphere changes through:
 
 **Current version: 0.12.1 · Pack proximity & HUD**
 
-1. Click **Android APK 0.12.1** at the top.
-2. Open the newest successful green workflow run on `main`.
-3. Download the artifact `Wolf-0.12.1-Android-and-Web`.
-4. Extract the ZIP.
-5. Install `Wolf-0.12.1-debug.apk`.
+1. Tap **[Download Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)** (or the banner above).
+2. Open the downloaded `Wolf-android.apk` file on Android and install it.
+
+The link always points to the release marked **Latest**. Alternatively, browse [all releases](https://github.com/chekento/wolf/releases).
 
 Technical requirements:
 

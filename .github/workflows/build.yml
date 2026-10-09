@@ -5,7 +5,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -81,3 +81,22 @@ jobs:
             builds/SHA256SUMS.txt
             builds/Android-verification.txt
           retention-days: 30
+      - name: Publish direct APK download to GitHub Releases
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          apk_path="$(find builds -maxdepth 1 -name 'Wolf-*-debug.apk' -type f | head -n 1)"
+          test -n "$apk_path" && test -s "$apk_path"
+          filename="${apk_path##*/}"
+          version="${filename#Wolf-}"
+          version="${version%-debug.apk}"
+          tag="v${version}"
+          cp "$apk_path" builds/Wolf-android.apk
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" builds/Wolf-android.apk --clobber
+            gh release edit "$tag" --latest
+          else
+            gh release create "$tag" builds/Wolf-android.apk --title "Wolf ${version} – Android APK" --notes "Direct Android debug APK download for Wolf ${version}. Offline playable. Back up your existing game saves before reinstalling if Android reports a signing-certificate mismatch." --latest
+          fi
