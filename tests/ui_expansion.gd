@@ -184,13 +184,14 @@ func run() -> void:
 	game.state.active_encounter={}
 	game.toggle_view()
 	var steering := InputEventScreenTouch.new()
-	steering.index=0;steering.pressed=true;steering.position=game.stick.size*.5+Vector2(36,0)
-	game.stick._gui_input(steering)
+	steering.index=0;steering.pressed=true;steering.position=game.stick.get_global_rect().get_center()+Vector2(36,0)
+	game._input(steering)
 	var looking := InputEventScreenTouch.new();looking.index=4;looking.pressed=true
-	game._look_input(looking)
-	var drag := InputEventScreenDrag.new();drag.index=4;drag.relative=Vector2(12,0)
+	looking.position=game.look_area.get_global_rect().get_center()
+	game._input(looking)
+	var drag := InputEventScreenDrag.new();drag.index=4;drag.position=looking.position+Vector2(12,0);drag.relative=Vector2(12,0)
 	var yaw_before: float=game.world_view.yaw
-	game._look_input(drag)
+	game._input(drag)
 	check(game.stick.vector.x>0 and game.world_view.yaw!=yaw_before,"two touch pointers steer and look independently")
 	yaw_before=game.world_view.yaw
 	var emulated_press := InputEventMouseButton.new()
@@ -201,10 +202,10 @@ func run() -> void:
 	game._look_input(emulated_motion)
 	game.stick._gui_input(emulated_press)
 	check(game.world_view.yaw==yaw_before and game.stick.vector.x>0,"synthesized mouse events do not double touch look or reset steering")
-	drag.index=0;game._look_input(drag)
+	drag.index=0;drag.position=steering.position+Vector2(12,0);game._input(drag)
 	check(game.world_view.yaw==yaw_before,"joystick pointer cannot rotate the look camera")
 	game.toggle_view();game.toggle_view()
-	looking.index=8;game._look_input(looking)
+	looking.index=8;looking.position=game.look_area.get_global_rect().get_center();game._input(looking)
 	check(game.look_pointer==8 and not game.looking_mouse,"view switching releases stale look pointers")
 	game.stick.reset()
 	game.state.pos=WolfWorldData.water_bank(0)
