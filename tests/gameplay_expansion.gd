@@ -160,7 +160,7 @@ func run() -> void:
 	for quest in player_games.quests():
 		if quest.id == "play3":games_earned = quest.done and quest.progress == "3/3"
 	check(games_earned,"three deliberate pack games finish a finite new quest")
-		var observer := WolfState.new()
+	var observer := WolfState.new()
 	observer.note_action("observe","Reh")
 	check(choose_task(observer,"observe") and not observer.encounter_status().done,"old observations do not fulfil a new wildlife experience")
 	observer.note_action("observe",str(observer.active_encounter.detail))
