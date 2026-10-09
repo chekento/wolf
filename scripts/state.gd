@@ -45,7 +45,7 @@ var camera_follow := false
 var smooth_edges := true
 var compact_hud := true
 var pawsteps: Array[Dictionary] = []
-var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
+var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"play":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
 var active_encounter: Dictionary = {}
 var completed_encounters: Array[String] = []
 var encounter_serial := 0
@@ -118,6 +118,8 @@ func quests() -> Array[Dictionary]:
 		{"id":"encounters8","name":"Die Wildnis erzählt weiter","hint":"Erlebe acht vollständige Wildnisbegegnungen.","done":completed_encounters.size()>=8,"progress":"%d/8"%mini(completed_encounters.size(),8)},
 		{"id":"encounters24","name":"Vertraut mit der Wildnis","hint":"Erlebe 24 vollständige Begegnungen. Alte Aktionen erfüllen keine neue Aufgabe.","done":completed_encounters.size()>=24,"progress":"%d/24"%mini(completed_encounters.size(),24)},
 		{"id":"routine","name":"Der Rhythmus des Rudels","hint":"Besuche die Familie zu fünf Tagesphasen. Die Zeit vergeht nur beim Spielen.","done":routine_seen.size()>=5,"progress":"%d/5"%routine_seen.size()},
+		{"id":"play3","name":"Kleine Pfotenspiele","hint":"Lade das Rudel dreimal zum Spielen ein, während ihr euch wirklich nahe seid.","done":int(action_counts.play)>=3,"progress":"%d/3"%mini(int(action_counts.play),3)},
+		{"id":"play12","name":"Unzertrennliche Gefährten","hint":"Erlebt zwölf gemeinsame Spielaufforderungen. Dazwischen braucht die Familie eine Verschnaufpause.","done":int(action_counts.play)>=12,"progress":"%d/12"%mini(int(action_counts.play),12)},
 		{"id":"pack10","name":"Vertraute Nähe","hint":"Begrüße deine Familie zehnmal mit ruhigen Abständen.","done":int(action_counts.greet)>=10,"progress":"%d/10"%mini(int(action_counts.greet),10)},
 		{"id":"care","name":"Wasser, Nahrung und Ruhe","hint":"Trinke, friss und ruhe jeweils dreimal an sicheren Plätzen.","done":int(action_counts.drink)>=3 and int(action_counts.feed)>=3 and int(action_counts.rest)>=3,"progress":"%d/9"%[mini(int(action_counts.drink),3)+mini(int(action_counts.feed),3)+mini(int(action_counts.rest),3)]},
 		{"id":"story18","name":"Eine wachsende Rudelgeschichte","hint":"Erlebe alle achtzehn Kapitel; deine tatsächlichen Wege öffnen neue Geschichten.","done":story_step>=18,"progress":"%d/18"%mini(story_step,18)},
@@ -247,7 +249,7 @@ func note_action(action: String,detail: String="") -> void:
 	action_counts[key]=mini(100000000,int(action_counts[key])+1)
 	note_main_story_action(action,detail)
 	note_nature_journey_action(action,detail)
-	if action in ["greet","rest","howl"]:
+	if action in ["greet","rest","howl","play"]:
 		pack_signal={"action":action,"region":region,"pos":pos,"at":elapsed,"serial":int(action_counts[key])}
 	if active_encounter.is_empty():return
 	if active_encounter.task=="water_rest" and region==int(active_encounter.region):
