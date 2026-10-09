@@ -1,8 +1,11 @@
-# Android-Installation · 0.10.0
+# Android-Installation · 0.12.0
+
+**Hinweis:** Der GitHub-Actions-Build 0.12.0 nutzt einen temporären Signierschlüssel und ist nicht direkt aktualisierungskompatibel mit der lokal signierten 0.10.0. Die bisherige App keinesfalls ohne verlässliche Sicherung deinstallieren.
+
 
 Die APK unterstützt Android 7 oder neuer und ARM64-Geräte. Sie spielt offline und benötigt keine Internetberechtigung. Android muss die Installation aus der verwendeten Downloadquelle erlauben.
 
-**Die lokal bereitgestellte 0.10.0 verwendet denselben vorhandenen Signierschlüssel wie 0.4.0, 0.5.0, 0.6.0, 0.7.0, 0.8.0 und 0.9.0.** Für diese lokalen Builds ist eine Installation als Update vorgesehen. Die folgenden Sicherungshinweise betreffen ältere lokale Builds bis 0.3.0 beziehungsweise APKs mit anderer Signatur.
+**Die lokal bereitgestellte 0.12.0 verwendet denselben vorhandenen Signierschlüssel wie 0.4.0, 0.5.0, 0.6.0, 0.7.0, 0.8.0 und 0.9.0.** Für diese lokalen Builds ist eine Installation als Update vorgesehen. Die folgenden Sicherungshinweise betreffen ältere lokale Builds bis 0.3.0 beziehungsweise APKs mit anderer Signatur.
 
 ## Vorhandene Installation
 
@@ -25,7 +28,7 @@ tar -tf wolf-save-backup.tar
 
 ```sh
 adb uninstall cloud.kosch.wolf
-adb install Wolf-0.10.0-debug.apk
+adb install Wolf-0.12.0-debug.apk
 adb shell run-as cloud.kosch.wolf tar -xf - < wolf-save-backup.tar
 ```
 
