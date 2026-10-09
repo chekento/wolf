@@ -8,6 +8,12 @@ func check(ok: bool,message: String) -> void:
 	else:push_error("FAIL: "+message);failures+=1
 func settled() -> void:
 	for i in range(5):await process_frame
+func find_scroll(node: Node) -> ScrollContainer:
+	if node is ScrollContainer:return node
+	for child in node.get_children():
+		var found := find_scroll(child)
+		if found!=null:return found
+	return null
 func inside(child: Control,parent: Control) -> bool:
 	var box := parent.get_global_rect().grow(.1)
 	return box.encloses(child.get_global_rect())
@@ -24,11 +30,16 @@ func run() -> void:
 		root.size=portrait;root.content_scale_size=portrait
 		game.set_hud_compact(true,false);game._refresh_status();await settled()
 		game._layout_mission_hud();await settled()
-		check(game.header.size.y<=64,"folded header is a single thin ribbon at %s"%portrait)
-		check(not game.header_portrait.visible and not game.location_hint.visible and game.compact_needs.visible,"folded header hides portrait, verbose subtitle and large detail rows at %s"%portrait)
+		check(game.header.size.y<=83,"folded header keeps a slim title and a compact four-stat row at %s"%portrait)
+		check(not game.header_portrait.visible and not game.location_hint.visible and game.compact_stats.visible,"folded header shows all four stat mini-bars instead of portrait and verbose subtitle at %s"%portrait)
+		check(game.compact_stat_labels.size()==4 and game.compact_stat_bars.size()==4,"all four compact needs have independent visible labels and bars at %s"%portrait)
+		for key in ["hunger","thirst","energy","bond"]:
+			check(game.compact_stat_labels[key].is_visible_in_tree() and str(game.compact_stat_labels[key].text).contains(str(int(game.state.get(key)))),"stat %s remains numerically visible while folded at %s"%[key,portrait])
+			check(game.compact_stat_bars[key].value==game.state.get(key),"mini progress for %s is synchronized at %s"%[key,portrait])
 		check(not game.quest_hint.is_visible_in_tree() and not game.encounter_button.is_visible_in_tree(),"folded header hides mission shortcuts and encounter button at %s"%portrait)
-		check(game.hud_action_controls.size()==6 and game.hud_bottom_controls.size()==4,"all six gameplay actions and four navigation buttons are available at %s"%portrait)
-		check(game.hud_action_controls[3].text=="Ruhen" and game.hud_action_controls[4].text=="Rudel","rest and pack have direct bottom actions at %s"%portrait)
+		check(game.hud_action_controls.size()==4 and game.hud_bottom_controls.size()==6,"four physical actions and six secondary menu controls remain visible at %s"%portrait)
+		check(game.hud_action_controls[3].text=="Rast" and game.pack_button in game.hud_bottom_controls and game.story_button in game.hud_bottom_controls,"rest stays physical while Rudel and Story move to the lower utility row at %s"%portrait)
+		check(game.hud_actions_grid.columns==4 and not game.actions_expanded,"four primary actions begin folded in one line at %s"%portrait)
 		check(game.observation_panel.visible,"joint mission feedback remains visible at %s"%portrait)
 		check(game.observation_panel.size.y<=90,"default mission HUD is compact at %s"%portrait)
 		check(not game.observation_hint.visible,"long mission instruction is folded by default at %s"%portrait)
@@ -47,18 +58,25 @@ func run() -> void:
 		var action_areas: Array[Rect2]=[]
 		for control in game.hud_action_controls+game.hud_bottom_controls:
 			check(inside(control,game.ui),"responsive movement/action button fits viewport at %s"%portrait)
-			check(control.size.x>=45 and control.size.y>=44,"touch target %s = %s at %s"%[control.text,control.size,portrait])
+			check(control.size.x>=41 and control.size.y>=40,"folded touch target %s = %s at %s"%[control.text,control.size,portrait])
 			for area in action_areas:
 				check(not area.intersects(control.get_global_rect().grow(-.5)),"independent bottom buttons do not overlap at %s"%portrait)
 			action_areas.append(control.get_global_rect())
-		check(inside(game.stick,game.ui) and game.stick.size.x>=95,"joystick remains visible and sufficiently wide at %s"%portrait)
+		check(inside(game.stick,game.ui) and game.stick.size.x>=88,"joystick remains visible and sufficiently wide at %s"%portrait)
+		game.actions_fold.pressed.emit();await settled()
+		check(game.actions_expanded and game.hud_actions_grid.columns==2,"action tray opens a comfortable two-column 2x2 layout at %s"%portrait)
+		check(not game.hud_lower.get_global_rect().intersects(game.toast_lane.get_global_rect()),"expanded action tray still leaves room for toast at %s"%portrait)
+		for action in game.hud_action_controls:
+			check(inside(action,game.ui) and action.size.y>=50,"expanded primary action stays readable and on screen at %s"%portrait)
+		game.actions_fold.pressed.emit();await settled()
+		check(not game.actions_expanded and game.hud_actions_grid.columns==4,"folding action tray restores slim four-button row at %s"%portrait)
 		game.set_hud_compact(false,false);game._refresh_status();await settled()
-		check(game.header_portrait.visible and game.header_details.visible and not game.compact_needs.visible,"expanded status reveals portrait, minimap and meters at %s"%portrait)
+		check(game.header_portrait.visible and game.header_details.visible and not game.compact_stats.visible,"expanded status reveals portrait, minimap and meters at %s"%portrait)
 		check(game.header.size.y>100 and game.header.get_global_rect().end.y<game.toast_lane.get_global_rect().position.y,"expanded status remains above the separate toast lane at %s"%portrait)
 		if portrait.y<760:
 			check(not game.observation_panel.visible,"small-screen expanded status temporarily hides mission strip at %s"%portrait)
 		game.set_hud_compact(true,false);game._refresh_status();await settled()
-		check(game.header.size.y<=64 and game.observation_panel.visible,"folding restores thin ribbon and mission feedback at %s"%portrait)
+		check(game.header.size.y<=83 and game.observation_panel.visible,"folding restores thin ribbon and mission feedback at %s"%portrait)
 	check(game.observation_panel.mouse_filter==Control.MOUSE_FILTER_IGNORE and game.observation_hint.mouse_filter==Control.MOUSE_FILTER_IGNORE and game.observation_summary.mouse_filter==Control.MOUSE_FILTER_IGNORE,"passive mission surfaces leave landscape gestures and stick available")
 	check(game.observation_details.mouse_filter==Control.MOUSE_FILTER_STOP,"only explicit details control accepts a tap")
 	game.observation_details.pressed.emit();await settled()
@@ -67,13 +85,33 @@ func run() -> void:
 	game.close_overlay();game._refresh_status();await settled()
 	check(game.observation_panel.visible and game.toast.visible,"closing details restores mission HUD and active toast")
 	check(absf(game.look_area.offset_top-game.header.get_global_rect().end.y-10)<.1,"camera swipe area follows the current folded header immediately")
-	game.hud_action_controls[4].pressed.emit();await settled()
+	game.pack_button.pressed.emit();await settled()
 	check(is_instance_valid(game.overlay),"the bottom Rudel action opens the actual family menu")
 	game.close_overlay();game._refresh_status();await settled()
-	game.hud_action_controls[5].pressed.emit();await settled()
+	game.story_button.pressed.emit();await settled()
 	check(is_instance_valid(game.overlay),"the bottom Story action opens the actual campaign menu")
 	game.close_overlay();game._refresh_status();await settled()
 	check(game.toast.max_lines_visible==3 and game.toast_lane.size.y<=70 and game.toast_lane.clip_contents,"long toasts are bounded to their reserved three-line lane")
+	game.show_intro();await settled()
+	var intro_scroll := find_scroll(game.overlay)
+	check(intro_scroll!=null,"welcome screen has a real scrollable content viewport")
+	if intro_scroll!=null:
+		check(intro_scroll.scroll_deadzone<=8,"swipes over welcome cards scroll with a short drag")
+		var cards := 0
+		for child in intro_scroll.get_child(0).get_children():
+			if child is PanelContainer:
+				cards+=1
+				check(child.mouse_filter==Control.MOUSE_FILTER_PASS,"welcome text card passes drag gestures to the parent scroller")
+				for text_panel in child.get_children():
+					if text_panel is Control:check(text_panel.mouse_filter==Control.MOUSE_FILTER_PASS,"text card body also permits finger scrolling")
+			elif child is WolfMenuArt:
+				check(child.mouse_filter==Control.MOUSE_FILTER_IGNORE,"swipes over introduction art also reach the scroller")
+		check(cards>=4,"intro keeps its several scrollable information cards")
+		intro_scroll.scroll_vertical=250
+		await settled()
+		check(intro_scroll.scroll_vertical>0,"welcome content genuinely scrolls beyond the first screen")
+	game.close_overlay();await settled()
+
 	game._release_audio();root.remove_child(game);game.queue_free();await settled();await create_timer(.15).timeout
 	for path in [WolfState.save_path,WolfState.save_path+".wildlife.json"]:
 		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)

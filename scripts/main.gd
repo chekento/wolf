@@ -44,7 +44,9 @@ var camera_button: Button
 var header: PanelContainer
 var header_details: VBoxContainer
 var header_portrait: TextureRect
-var compact_needs: Label
+var compact_stats: HBoxContainer
+var compact_stat_labels: Dictionary={}
+var compact_stat_bars: Dictionary={}
 var fold_button: Button
 var menu_button: Button
 var atlas_button: Button
@@ -78,6 +80,11 @@ var observation_fold: Button
 var observation_details: Button
 var mission_hud_expanded := false
 var hud_action_controls: Array[Button]=[]
+var hud_actions_grid: GridContainer
+var hud_lower: HBoxContainer
+var actions_fold: Button
+var actions_expanded := false
+var pack_button: Button
 var hud_bottom_controls: Array[Button]=[]
 var hud_layout_width_mode := -1
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
@@ -231,11 +238,36 @@ func _build_ui() -> void:
 	titles.add_child(title)
 	location_hint=label("",12)
 	titles.add_child(location_hint)
-	compact_needs=label("",11)
-	compact_needs.autowrap_mode=TextServer.AUTOWRAP_OFF
-	compact_needs.clip_text=true
-	compact_needs.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	top.add_child(compact_needs)
+	# Four explicit live stats remain visible even while the status is folded.
+	# They sit in a slim second row; the map/title row never squeezes them out.
+	compact_stats=HBoxContainer.new()
+	compact_stats.add_theme_constant_override("separation",7)
+	stack.add_child(compact_stats)
+	for entry in [["hunger","Hunger","#ceac69"],["thirst","Durst","#72c4d4"],["energy","Kraft","#91c387"],["bond","Rudel","#cf9292"]]:
+		var item := VBoxContainer.new()
+		item.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		item.add_theme_constant_override("separation",1)
+		compact_stats.add_child(item)
+		var text_value := label("",11)
+		text_value.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+		text_value.autowrap_mode=TextServer.AUTOWRAP_OFF
+		text_value.clip_text=true
+		item.add_child(text_value)
+		compact_stat_labels[entry[0]]=text_value
+		var mini_bar := ProgressBar.new()
+		mini_bar.custom_minimum_size=Vector2(0,3)
+		mini_bar.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		mini_bar.show_percentage=false
+		mini_bar.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		var mini_bg := panel_style(Color("#142d24"),2)
+		mini_bg.set_border_width_all(0)
+		mini_bg.content_margin_top=0;mini_bg.content_margin_bottom=0
+		mini_bar.add_theme_stylebox_override("background",mini_bg)
+		var mini_fill: StyleBoxFlat=mini_bg.duplicate()
+		mini_fill.bg_color=Color(entry[2])
+		mini_bar.add_theme_stylebox_override("fill",mini_fill)
+		item.add_child(mini_bar)
+		compact_stat_bars[entry[0]]=mini_bar
 	fold_button=button("⌄",func():set_hud_compact(not state.compact_hud))
 	menu_button=button("☰",show_menu)
 	for control in [fold_button,menu_button]:
@@ -371,38 +403,54 @@ func _build_ui() -> void:
 	toast.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
 	toast.add_theme_color_override("font_shadow_color",Color("#102b23"))
 	toast.add_theme_constant_override("shadow_outline_size",6)
-	var lower := HBoxContainer.new()
-	ui.add_child(lower)
-	lower.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	lower.offset_left=14;lower.offset_right=-14
-	lower.offset_top=-234;lower.offset_bottom=-90
-	lower.add_theme_constant_override("separation",12)
+
+	# Player controls: four physical actions are distinct from six small
+	# utility controls. The action tray folds without hiding the controls.
+	hud_lower=HBoxContainer.new()
+	ui.add_child(hud_lower)
+	hud_lower.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	hud_lower.offset_left=10;hud_lower.offset_right=-10
+	hud_lower.offset_bottom=-77
+	hud_lower.add_theme_constant_override("separation",9)
 	stick=WolfTouchStick.new()
-	lower.add_child(stick)
-	var actions := GridContainer.new()
-	actions.columns=3
-	actions.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	actions.add_theme_constant_override("h_separation",7)
-	actions.add_theme_constant_override("v_separation",7)
-	lower.add_child(actions)
-	# Six permanent actions remain usable even during an active mission.
-	# Context action still selects water, food, tracks, greetings and watching.
-	for item in [["Schnüffeln",sniff,"Zeigt frische Fährten"],["Aktion",interact,"Interagiert mit dem nächsten Tier oder Naturort"],["Heulen",howl,"Rufe das Rudel"],["Ruhen",rest,"Ruhen an einer sicheren Höhle"],["Rudel",show_pack,"Rudel, Begleitung und gemeinsames Spielen"],["Geschichte",show_main_story,"Hauptgeschichte und aktive Missionsziele"]]:
-		var b := button(item[0],item[1])
-		b.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		b.tooltip_text=item[2]
-		actions.add_child(b)
-		hud_action_controls.append(b)
-		if item[0]=="Aktion":action_button=b
-		if item[0]=="Geschichte":story_button=b
+	stick.size_flags_vertical=Control.SIZE_SHRINK_END
+	hud_lower.add_child(stick)
+	var action_column := VBoxContainer.new()
+	action_column.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	action_column.add_theme_constant_override("separation",4)
+	hud_lower.add_child(action_column)
+	actions_fold=button("⌃  Mehr Aktionen",func():set_actions_expanded(not actions_expanded))
+	actions_fold.custom_minimum_size.y=28
+	actions_fold.add_theme_font_size_override("font_size",12)
+	for key in ["normal","hover","pressed"]:
+		var fold_style := panel_style(Color("#234739"),8)
+		fold_style.content_margin_left=6;fold_style.content_margin_right=6
+		fold_style.content_margin_top=2;fold_style.content_margin_bottom=2
+		fold_style.set_border_width_all(1)
+		actions_fold.add_theme_stylebox_override(key,fold_style)
+	action_column.add_child(actions_fold)
+	hud_actions_grid=GridContainer.new()
+	hud_actions_grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	hud_actions_grid.add_theme_constant_override("h_separation",5)
+	hud_actions_grid.add_theme_constant_override("v_separation",5)
+	action_column.add_child(hud_actions_grid)
+	for item in [["Schnüffeln",sniff,"Zeigt frische Fährten"],["Aktion",interact,"Interagiert mit dem nächsten Tier oder Naturort"],["Heulen",howl,"Rufe das Rudel"],["Ruhen",rest,"Ruhen an einer sicheren Höhle"]]:
+		var action := button(item[0],item[1])
+		action.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		action.clip_text=true
+		action.tooltip_text=item[2]
+		hud_actions_grid.add_child(action)
+		hud_action_controls.append(action)
+		if item[0]=="Aktion":action_button=action
 	var bottom := HBoxContainer.new()
 	ui.add_child(bottom)
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	bottom.offset_left=14;bottom.offset_right=-14
-	bottom.offset_top=-76;bottom.offset_bottom=-18
-	bottom.add_theme_constant_override("separation",7)
-	mode_button=button("3D · Wolfsblick",toggle_view)
+	bottom.offset_left=8;bottom.offset_right=-8
+	bottom.offset_top=-71;bottom.offset_bottom=-18
+	bottom.add_theme_constant_override("separation",4)
+	mode_button=button("3D",toggle_view)
 	mode_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	mode_button.tooltip_text="Zwischen 2D-Draufsicht und 3D-Wolfsblick wechseln"
 	bottom.add_child(mode_button)
 	sprint_button=button("Trab",func():pass)
 	sprint_button.toggle_mode=true
@@ -412,11 +460,16 @@ func _build_ui() -> void:
 	bottom.add_child(sneak_button)
 	atlas_button=button("Karte",show_map)
 	bottom.add_child(atlas_button)
-	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button]
-	# Do not let the short labels turn the three right-hand navigation
-	# controls into 35px slivers on a narrow phone.
-	for control in [sprint_button,sneak_button,atlas_button]:
-		control.custom_minimum_size.x=52
+	pack_button=button("Rudel",show_pack)
+	bottom.add_child(pack_button)
+	story_button=button("Story",show_main_story)
+	bottom.add_child(story_button)
+	hud_bottom_controls=[mode_button,sprint_button,sneak_button,atlas_button,pack_button,story_button]
+	for control in hud_bottom_controls:
+		control.custom_minimum_size=Vector2(46,44)
+		control.clip_text=true
+		control.add_theme_font_size_override("font_size",12)
+	set_actions_expanded(false)
 	set_hud_compact(state.compact_hud,false)
 
 func set_hud_compact(compact: bool,persist: bool=true) -> void:
@@ -432,7 +485,7 @@ func _apply_header_display() -> void:
 	header_details.visible=expanded
 	header_portrait.visible=expanded
 	location_hint.visible=expanded
-	compact_needs.visible=not expanded
+	compact_stats.visible=not expanded
 	fold_button.text="⌃" if expanded else "⌄"
 	fold_button.tooltip_text="Status, Minikarte und Aufgaben einklappen" if expanded else "Status und Minikarte aufklappen"
 	header.queue_sort()
@@ -444,15 +497,58 @@ func _fit_header() -> void:
 	if is_instance_valid(look_area):
 		look_area.offset_top=header.position.y+header.size.y+10
 
-func _update_bottom_labels() -> void:
-	if hud_action_controls.size()!=6 or not is_instance_valid(mode_button):return
+func set_actions_expanded(expanded: bool) -> void:
+	actions_expanded=expanded
+	if not is_instance_valid(hud_lower):return
+	# Expanded: a relaxed 2x2 action pad; folded: four small one-row actions.
+	# The six secondary utilities always stay on their own unobtrusive row.
+	hud_actions_grid.columns=2 if expanded else 4
+	hud_lower.offset_top=-237 if expanded else -183
+	actions_fold.text="⌄  Weniger Aktionen" if expanded else "⌃  Mehr Aktionen"
+	actions_fold.tooltip_text="Aktionsmenü verkleinern" if expanded else "Aktionsmenü aufklappen"
 	var narrow := ui.size.x<440
-	hud_action_controls[0].text="Nase" if narrow else "Schnüffeln"
-	hud_action_controls[5].text="Story" if narrow else "Geschichte"
-	mode_button.text=("2D" if first_person else "3D") if narrow else ("2D · Draufsicht" if first_person else "3D · Folgekamera" if state.camera_follow else "3D · Wolfsblick")
+	for action in hud_action_controls:
+		action.custom_minimum_size.y=51 if expanded else 43
+		action.add_theme_font_size_override("font_size",14 if expanded else 12)
+		for key in ["normal","hover","pressed"]:
+			var style: StyleBoxFlat=action.get_theme_stylebox(key).duplicate()
+			style.content_margin_left=6 if expanded else 2
+			style.content_margin_right=6 if expanded else 2
+			style.content_margin_top=5 if expanded else 2
+			style.content_margin_bottom=5 if expanded else 2
+			action.add_theme_stylebox_override(key,style)
+	_update_bottom_labels()
+	_layout_bottom_controls()
+
+func _layout_bottom_controls() -> void:
+	if not is_instance_valid(stick) or not is_instance_valid(ui):return
+	var radius := clampf(ui.size.x*.26,102,138) if actions_expanded else clampf(ui.size.x*.25,88,104)
+	stick.custom_minimum_size=Vector2(radius,radius)
+	var narrow := ui.size.x<440
+	for control in hud_bottom_controls:
+		control.add_theme_font_size_override("font_size",11 if narrow else 12)
+		for key in ["normal","hover","pressed"]:
+			var style: StyleBoxFlat=control.get_theme_stylebox(key).duplicate()
+			style.content_margin_left=2
+			style.content_margin_right=2
+			style.content_margin_top=5
+			style.content_margin_bottom=5
+			control.add_theme_stylebox_override(key,style)
+
+func _update_bottom_labels() -> void:
+	if hud_action_controls.size()!=4 or not is_instance_valid(mode_button):return
+	var narrow := ui.size.x<440
+	hud_action_controls[0].text="Nase" if not actions_expanded or narrow else "Schnüffeln"
+	hud_action_controls[2].text="Ruf" if not actions_expanded else "Heulen"
+	hud_action_controls[3].text="Rast" if not actions_expanded else "Ruhen"
+	mode_button.text="2D" if first_person else "3D"
 	var interaction := context_action()
 	action_button.tooltip_text=interaction
-	action_button.text={"Ort prüfen":"Prüfen","Spur lesen":"Spur","Duft setzen":"Duft","Beobachten":"Sehen"}.get(interaction,interaction) if narrow else interaction
+	if not actions_expanded or narrow:
+		action_button.text={"Ort prüfen":"Ort","Spur lesen":"Spur","Duft setzen":"Duft","Beobachten":"Sehen","Begrüßen":"Gruß","Trinken":"Trink","Fressen":"Fress"}.get(interaction,"Aktion" if interaction.length()>7 else interaction)
+	else:action_button.text=interaction
+	story_button.text="Story •" if state.main_story_status().ready else "Story"
+
 
 func _process(dt: float) -> void:
 	if app_idle or is_instance_valid(overlay):return
@@ -702,7 +798,7 @@ func _look_input(event: InputEvent) -> void:
 # A finger owns exactly one surface for its lifetime: joystick, 3D look,
 # or a HUD button. No finger may hijack another finger's gesture.
 func _touch_button_at(pos: Vector2) -> Button:
-	var controls: Array[Button]=[fold_button,menu_button,encounter_button,camera_button,observation_fold,observation_details]
+	var controls: Array[Button]=[fold_button,menu_button,encounter_button,camera_button,observation_fold,observation_details,actions_fold]
 	controls.append_array(hud_action_controls)
 	controls.append_array(hud_bottom_controls)
 	for control in controls:
@@ -1020,8 +1116,11 @@ func _refresh_status() -> void:
 	level_label.text="%d Wochen · Rang %d · Wildnis %d/%d"%[state.age_weeks(),state.level(),state.visited.size(),WolfWorldData.REGIONS.size()]
 	title.text=WolfWorldData.REGIONS[state.region].name
 	location_hint.text="Tag %d · %02d:%02d · %s"%[state.day(),int(state.hour()),int(fmod(state.hour(),1)*60),state.weather()]
-	compact_needs.text="N%d  W%d  K%d  R%d"%[int(state.hunger),int(state.thirst),int(state.energy),int(state.bond)]
-	compact_needs.add_theme_color_override("font_color",Color("#f3ca7f") if minf(state.hunger,minf(state.thirst,state.energy))<25 else Color("#d4d9c0"))
+	for key in compact_stat_labels:
+		var names := {"hunger":"Hunger","thirst":"Durst","energy":"Kraft","bond":"Rudel"}
+		compact_stat_labels[key].text="%s %d"%[names[key],int(state.get(key))]
+		compact_stat_bars[key].value=state.get(key)
+		compact_stat_labels[key].add_theme_color_override("font_color",Color("#f3ca7f") if key!="bond" and state.get(key)<25 else Color("#d4d9c0"))
 	var encounter: Dictionary=state.encounter_status()
 	if encounter_button!=null:encounter_button.text="Begegnung ✓" if encounter.done else "Begegnung · "+encounter.progress if encounter.accepted else "Neue Begegnung"
 	var story := state.main_story_status()
@@ -1259,6 +1358,7 @@ func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 	for side in ["left","right"]:margin.add_theme_constant_override("margin_"+side,12 if full_bleed else 26)
 	for side in ["top","bottom"]:margin.add_theme_constant_override("margin_"+side,18 if full_bleed else 38)
 	var panel := PanelContainer.new()
+	panel.mouse_filter=Control.MOUSE_FILTER_PASS
 	margin.add_child(panel)
 	panel.add_theme_stylebox_override("panel",panel_style(Color("#193d31"),24))
 	var stack := VBoxContainer.new()
@@ -1271,10 +1371,13 @@ func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 	row.add_child(h)
 	row.add_child(button("×",close_overlay))
 	var scroll := ScrollContainer.new()
+	scroll.mouse_filter=Control.MOUSE_FILTER_STOP
 	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	scroll.scroll_deadzone=6
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	stack.add_child(scroll)
 	var content := VBoxContainer.new()
+	content.mouse_filter=Control.MOUSE_FILTER_PASS
 	content.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation",18)
 	scroll.add_child(content)
@@ -1282,9 +1385,12 @@ func modal(heading: String,full_bleed: bool=false) -> VBoxContainer:
 
 func card(parent: VBoxContainer,heading: String,body: String,accent: Color=Color("#587e59")) -> VBoxContainer:
 	var panel := PanelContainer.new()
+	# PASS lets touchscreen drags over the cards themselves reach ScrollContainer.
+	panel.mouse_filter=Control.MOUSE_FILTER_PASS
 	panel.add_theme_stylebox_override("panel",panel_style(Color("#274c3b"),18))
 	parent.add_child(panel)
 	var stack := VBoxContainer.new()
+	stack.mouse_filter=Control.MOUSE_FILTER_PASS
 	stack.add_theme_constant_override("separation",8)
 	panel.add_child(stack)
 	var title_label := label(heading,21)
@@ -1296,6 +1402,7 @@ func card(parent: VBoxContainer,heading: String,body: String,accent: Color=Color
 func hero(parent: VBoxContainer,caption: String,height: float=180) -> void:
 	var art := WolfMenuArt.new()
 	art.game=self;art.caption=caption
+	art.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	art.custom_minimum_size=Vector2(0,height)
 	parent.add_child(art)
 
@@ -2215,18 +2322,10 @@ func _layout_mission_hud() -> void:
 	# Toast has its own fixed, clipped three-line lane above the movement controls.
 	toast_lane.offset_top=-316;toast_lane.offset_bottom=-246
 	var narrow := ui.size.x<440
-	if is_instance_valid(stick):stick.custom_minimum_size.x=clampf(ui.size.x*.28,96,140)
+	_layout_bottom_controls()
 	if hud_layout_width_mode!=int(narrow):
 		hud_layout_width_mode=int(narrow)
-		for control in hud_action_controls+hud_bottom_controls:
-			control.add_theme_font_size_override("font_size",12 if narrow else 15)
-			for key in ["normal","hover","pressed"]:
-				var style: StyleBoxFlat=control.get_theme_stylebox(key).duplicate()
-				style.content_margin_left=4 if narrow else 9
-				style.content_margin_right=4 if narrow else 9
-				style.content_margin_top=6
-				style.content_margin_bottom=6
-				control.add_theme_stylebox_override(key,style)
+		_update_bottom_labels()
 	observation_panel.queue_sort()
 	_fit_mission_panel.call_deferred()
 

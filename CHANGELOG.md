@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.2 · Lesbare Statuswerte, scrollbare Texte, aufklappbare Aktionen
+
+- Begrüßungsbild und sämtliche Informationskarten geben vertikale Wischgesten an den Scrollcontainer weiter; Scrollen funktioniert jetzt auch direkt auf Textflächen und Hintergrundkarten.
+- Kompakter Header zeigt jederzeit **Hunger, Durst, Kraft und Rudel** inklusive Zahlen und vier kleinen farbigen Fortschrittsbalken. Große Statusleisten und Minikarte bleiben aufklappbar.
+- Vier sofortige Spielaktionen: Schnüffeln, kontextabhängige Aktion, Heulen und Ruhen. Geschichtemenü und Rudelmenü liegen nun in der unteren kleinen Navigationsleiste neben 2D/3D, Trab, Leise und Karte.
+- Der Aktionsbereich startet platzsparend mit einer Viererreihe; über **Mehr Aktionen** wird daraus eine größere 2×2-Tastenansicht. Klappzustand ist unabhängig vom Statusmenü; Joystick und sekundäre Leiste bleiben sichtbar.
+- Responsive Tests auf 540×960, 432×768 und 360×640, Scroll-Regression und Multitouch bleiben erhalten.
+- Dieselben gespeicherten Gebiete, Storyfortschritte, Tierverhalten und Spielstände wie zuvor.
+
+
 ## 0.12.1 · Echtes Multitouch auf Android
 
 - Zwei unabhängige Finger steuern gleichzeitig Bewegungs-Joystick und 3D-Kamera; weitere Finger können HUD-Aktionen und Sprint/Leise bedienen.
