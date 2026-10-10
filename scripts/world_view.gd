@@ -21,6 +21,7 @@ var sun: DirectionalLight3D
 var material_cache: Dictionary={}
 var decorative_nodes: Array[MultiMeshInstance3D]=[]
 var food_nodes: Array[Node3D]=[]
+var human_nodes: Array[Node3D]=[]
 var built_season := ""
 var follow_camera := false
 var player_model: WolfAnimalModel
@@ -291,6 +292,7 @@ func rebuild() -> void:
 	material_cache.clear()
 	decorative_nodes.clear()
 	food_nodes.clear()
+	human_nodes.clear()
 	built_season=game.state.season_name()
 	camera_initialized=false
 	food_node=null
@@ -385,6 +387,7 @@ func rebuild() -> void:
 				contents.add_child(food_node)
 				food_node.position=p
 				food_nodes.append(food_node)
+				food_node.set_meta("forage_id",game.state.food_key(obj))
 				sphere(food_node,Vector3(0,0.1,0),Vector3(0.9,0.4,0.7),Color("#bd8d6d"))
 	for i in range(game.world.tracks.size()):
 		var t: Dictionary=game.world.tracks[i]
@@ -404,6 +407,20 @@ func rebuild() -> void:
 		if a.get("young",false):n.scale*=0.73
 		contents.add_child(n)
 		animal_nodes.append(n)
+	if game.state.region==WolfVillageStealth.VILLAGE:
+		for index in range(4):
+			var person := Node3D.new()
+			contents.add_child(person)
+			var coat := Color("#54778b") if index%2==0 else Color("#96785b")
+			box(person,Vector3(0,1.20,0),Vector3(0.68,1.30,0.36),coat)
+			box(person,Vector3(-0.20,0.36,0),Vector3(0.24,0.70,0.28),Color("#384d53"))
+			box(person,Vector3(0.20,0.36,0),Vector3(0.24,0.70,0.28),Color("#384d53"))
+			box(person,Vector3(-0.48,1.25,0),Vector3(0.22,1.05,0.26),coat.darkened(.12))
+			box(person,Vector3(0.48,1.25,0),Vector3(0.22,1.05,0.26),coat.darkened(.12))
+			sphere(person,Vector3(0,2.08,0),Vector3(.35,.40,.34),Color("#dfb88e"))
+			box(person,Vector3(0,2.40,0),Vector3(0.74,.15,.59),Color("#514638"))
+			sphere(person,Vector3(0,2.12,-.31),Vector3(.10,.07,.05),Color("#2d403e"))
+			human_nodes.append(person)
 	player_model=make_animal("wolf")
 	contents.add_child(player_model)
 	player_model.visible=follow_camera
@@ -479,7 +496,14 @@ func sync_camera() -> void:
 		if not track_nodes[id].has_meta("known") or track_nodes[id].get_meta("known")!=known:
 			track_nodes[id].set_meta("known",known)
 			track_nodes[id].material_override=nature_material(Color("#889767") if known else Color("#e0c887"),6)
-	for n in food_nodes:n.visible=game.state.food_cooldown<=0
+	for n in food_nodes:
+		n.visible=game.state.food_cooldown<=0 and (game.state.region==0 or game.state.food_found.has(str(n.get_meta("forage_id",""))))
+	if game.state.region==WolfVillageStealth.VILLAGE:
+		var guards := WolfVillageStealth.guards(game.clock)
+		for i in range(mini(human_nodes.size(),guards.size())):
+			var person: Dictionary=guards[i]
+			human_nodes[i].position=world_pos(person.p)
+			human_nodes[i].rotation.y=atan2(-person.facing.x,-person.facing.y)
 	lighting_timer+=1
 	if lighting_timer>=12:
 		lighting_timer=0
