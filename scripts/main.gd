@@ -701,7 +701,8 @@ func _interact_guardian() -> bool:
 		if not state.take_guardian_relic(sector):continue
 		var title_value: String=object.title
 		_sync_guardian_entities()
-		world_view.region_built=-1
+		if first_person:world_view.rebuild()
+		else:world_view.region_built=-1
 		_save_game()
 		notify("Einmaliges Fundstück "+title_value+" gefunden! Bringe es dem Reviertier zurück.")
 		return true
@@ -1901,7 +1902,7 @@ func guide_new_region(unmarked: bool=false) -> void:
 func _invite_pack_play() -> void:
 	var nearby := false
 	for animal in world.animals:
-		if animal.kind == "wolf" and animal.p.distance_to(state.pos) < 210:
+		if animal.kind == "wolf" and not animal.get("guardian",false) and animal.p.distance_to(state.pos) < 210:
 			nearby = true
 			break
 	close_overlay()
@@ -1937,7 +1938,8 @@ func show_pack() -> void:
 	play_button.disabled = not family_near
 	v.add_child(play_button)
 	if not family_near:v.add_child(label("Zum Spielen musst du deiner Familie nahe sein.",16))
-	v.add_child(label("Bindung: %d / 100"%state.bond,20))
+	v.add_child(label("Bindung: %d / 100 · Rudelpunkte: %d · Neue Karten: %d"%[state.bond,state.pack_points,state.unreported_regions().size()],18))
+	v.add_child(button("Unsere Reviertiere & Sammelalbum",show_guardian_collection))
 	var follow := button("Begleitung beenden" if state.escort else "Mit der Mutter die Wildnis erkunden",func():
 		state.escort=not state.escort
 		_sync_companion()
@@ -1956,7 +1958,7 @@ func show_settings() -> void:
 	card(v,"Deine Wildnis","%s · Tag %d\nWähle die Atmosphäre, die zu dir passt. Menüs halten die Zeit an."%[state.season_name(),state.day()])
 	v.add_child(button("3D-Kamera: "+("Folgekamera" if state.camera_follow else "Wolfsblick"),func():switch_camera();show_settings()))
 	v.add_child(button(("✓  " if state.compact_hud else "○  ")+"Mehr Platz für die Wildnis",func():set_hud_compact(not state.compact_hud);show_settings()))
-	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"],["map_reveal","Alle Gebietsnamen in der Übersicht"]]:
+	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"],["map_reveal","Zusatzhinweise bei besuchten Orten"]]:
 		var setting: String=item[0]
 		var toggle := button(("✓  " if state.get(setting) else "○  ")+item[1],func():
 			state.set(setting,not state.get(setting));_save_game()
@@ -2170,7 +2172,7 @@ func select_map_region(index: int,details: bool=false) -> void:
 	map_selected=index;map_panel.selected=index
 	if details:map_panel.set_local(index)
 	var region: Dictionary=WolfWorldData.REGIONS[index]
-	map_selection.text=region.name+"\n"+region.subtitle+("\nErkundet · "+region.district if state.visited.has(index) else "\nNoch unerforscht")
+	map_selection.text=region.name+"\n"+region.subtitle+"\nErkundet · "+region.district if state.visited.has(index) else "Unbekanntes Gebiet\nBetrete dieses Kartenfeld, um Namen und Gelände aufzudecken."
 	refresh_map_places(index)
 	map_panel.queue_redraw()
 
@@ -2200,7 +2202,7 @@ func find_map_regions(query: String) -> Array[int]:
 	var text := query.strip_edges().to_lower()
 	if text.is_empty():return results
 	for index in range(WolfWorldData.REGIONS.size()):
-		if not state.map_reveal and not state.visited.has(index):continue
+		if not state.visited.has(index):continue
 		var region: Dictionary=WolfWorldData.REGIONS[index]
 		if (str(region.name)+" "+str(region.subtitle)).to_lower().contains(text):results.append(index)
 		if results.size()>=6:break
