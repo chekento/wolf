@@ -157,10 +157,14 @@ func _world() -> void:
 		var p: Vector2=origin+Vector2(region.coord)*cell
 		var rect := Rect2(p,Vector2.ONE*cell)
 		if not rect.intersects(Rect2(Vector2.ZERO,size)):continue
-		var known: bool=game.state.visited.has(index) or game.state.map_reveal
+		var known: bool=game.state.visited.has(index)
 		var c := Color(region.ground)
 		var paper := c.lerp(Color("#ded5ae"),0.30)
-		draw_rect(rect,paper.lerp(Color("#aaa98d"),0.60) if not known else paper)
+		if not known:
+			# The map itself grows with discoveries: no tile borders,
+			# terrain, names, markers or placeholders before first entry.
+			continue
+		draw_rect(rect,paper)
 		var locked: bool=not game.state.can_enter_region(index)
 		if locked:draw_rect(rect,Color(0.08,0.15,0.19,0.48))
 		var random := RandomNumberGenerator.new()
@@ -300,7 +304,7 @@ func _draw_exits(origin: Vector2,scale_value: float) -> void:
 		draw_circle(q,11,Color("#eee0b2") if game.state.can_enter_region(target) else Color("#9a6a65"))
 		draw_colored_polygon(PackedVector2Array([q+outward*7,q-outward*4+side*5,q-outward*4-side*5]),Color("#576b4a"))
 		if magnification<1.3:continue
-		var known: bool=game.state.visited.has(target) or game.state.map_reveal
+		var known: bool=game.state.visited.has(target)
 		var caption: String=WolfWorldData.REGIONS[target].name if known else "Neue Wildnis"
 		if not game.state.can_enter_region(target):caption="Gesperrt · "+WolfRegionGates.pass_name(target)
 		var font := ThemeDB.fallback_font

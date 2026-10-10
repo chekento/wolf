@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.0 · Neun Reviertiere, echte Entdeckung und Rudelfeiern
+
+- Neun individuelle, benannte Haupttiere als dauerhaft ansprechbare NPCs – exakt eines je Großgebiet (unterschiedliche bestehende Tierarten).
+- Sammlung mit neun Tierbegegnungen und neun einmaligen, regionalen Suchaufträgen. Jedes Tier fordert ein eigens benanntes Einzelstück in einem anderen Kartenfeld seines Großreviers; nur nach tatsächlicher Übergabe gibt es eine Belohnung.
+- Praktisch nutzbarer Belohnungsvorrat: Futterrationen erhöhen die Nahrung, Waldelixiere stärken Kraft und Durst. Keine mehrfachen Belohnungen oder doppelte Fundstücke; Inventar und Fortschritt bleiben gespeichert.
+- Noch nie betretene Kartenfelder im 16×16-Wildnisatlas bleiben vollständig unter Nebel – ohne sichtbare Geografie, Wege oder Ortsnamen, auch bei Kartenenthüllungseinstellungen.
+- Neu erkundete Felder werden erst bei der echten Rückkehr zur Rudelfamilie als Nachrichten überbracht. Das Rudel feiert sichtbar und vergibt einmalig +10 Rudelpunkte und +12 XP je neuem Gebiet sowie Bindung und Rudelerfahrung.
+- Vollständige Save-Kompatibilität mit Version 0.13: bisher erforschte Karten werden nicht nachträglich unverdient ausbezahlt. Regressionstests für alle neun NPCs, Aufgaben, Belohnungen und Rückkehr.
+
+
 ## 0.13.0 · Freischaltbare Reviere, Menschen und Nahrungssuche
 
 - Die 256 Gebiete bleiben mit stabilen IDs erhalten, gehören jedoch zu neun zusammenhängenden großen Landschaftssektoren. Provinzgrenzen haben jeweils nur einen gezielten Pass; das Menschendorf ist eine echte Ein-/Ausgangspassage.

@@ -91,6 +91,7 @@ var village_exposure := 0.0
 var last_gate_alert := -99.0
 var active_gate_trial := -1
 var gate_trial_stage := 0
+var pack_celebration_until := -1.0
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
 
 
@@ -101,6 +102,7 @@ func _ready() -> void:
 	world_cache=world_memory.worlds
 	collision_index.build(world.objects)
 	_sync_companion()
+	_sync_guardian_entities()
 	if not can_walk(state.pos):state.pos=WolfWorldData.SPAWN
 	world_view=WolfWorldView.new()
 	world_view.game=self
@@ -557,6 +559,7 @@ func _update_bottom_labels() -> void:
 func _process(dt: float) -> void:
 	if app_idle or is_instance_valid(overlay):return
 	clock+=dt
+	_maybe_pack_welcome()
 	if state.waypoint_region==state.region and state.pos.distance_to(state.waypoint_pos)<55:
 		state.waypoint_region=-1
 		notify("Dein Duftziel ist erreicht. Schau dich um und schnüffle nach neuen Spuren.")
@@ -661,6 +664,103 @@ func move_wolf(delta: Vector2) -> void:
 	else:
 		state.pos=state.pos.clamp(Vector2(14,14),WolfWorldData.SIZE-Vector2(14,14))
 
+func _sync_guardian_entities() -> void:
+	# Narrative NPCs and unique relics belong to the loaded region only.
+	world.animals=world.animals.filter(func(a: Dictionary):return not a.get("guardian",false))
+	world.objects=world.objects.filter(func(o: Dictionary):return o.kind!="guardian_relic")
+	for sector in range(WolfGuardianLore.GUARDIANS.size()):
+		if state.region==WolfGuardianLore.home_region(sector):
+			var info := WolfGuardianLore.data(sector)
+			var point := WolfGuardianLore.home_pos(sector)
+			world.animals.append({"kind":info.kind,"p":point,"home":point,"phase":float(sector)*0.8,"facing":Vector2.DOWN,"mood":"lauschen","speed":0.0,"gait":0.0,"guardian":true,"guardian_zone":sector,"role":info.name,"young":false})
+		if state.region==WolfGuardianLore.relic_region(sector) and state.guardian_quests.has(sector) and not state.guardian_relics.has(sector) and not state.guardian_completed.has(sector):
+			world.objects.append({"kind":"guardian_relic","p":WolfGuardianLore.relic_pos(sector),"scale":1.0,"variant":sector%3,"guardian_zone":sector,"title":WolfGuardianLore.data(sector).token})
+
+func _maybe_pack_welcome() -> void:
+	if state.region!=0 or state.pos.distance_to(Vector2(1580,2200))>405:return
+	var count := state.report_discoveries()
+	if count<=0:return
+	pack_celebration_until=clock+9.0
+	player_mood="spielen"
+	action_timer=2.0
+	for member in world.animals:
+		if member.kind=="wolf" and not member.get("guardian",false):
+			member.mood="spielen"
+			member.gait=float(member.get("gait",0))+1.0
+	notify("Das Rudel jubelt! %d neue Karten · +%d Rudelpunkte · +%d Erfahrung."%[count,count*10,count*12])
+	_save_game()
+
+func _interact_guardian() -> bool:
+	for animal in world.animals:
+		if animal.get("guardian",false) and animal.p.distance_to(state.pos)<165:
+			show_guardian(int(animal.guardian_zone))
+			return true
+	return false
+
+func _collect_guardian_relic() -> bool:
+	for object in world.objects:
+		if object.kind!="guardian_relic" or object.p.distance_to(state.pos)>=115:continue
+		var sector: int=int(object.guardian_zone)
+		if not state.take_guardian_relic(sector):continue
+		var title_value: String=object.title
+		_sync_guardian_entities()
+		if first_person:world_view.rebuild()
+		else:world_view.region_built=-1
+		_save_game()
+		notify("Einmaliges Fundstück "+title_value+" gefunden! Bringe es dem Reviertier zurück.")
+		return true
+	return false
+
+func show_guardian(zone: int) -> void:
+	if zone<0 or zone>=9:return
+	var info := WolfGuardianLore.data(zone)
+	state.meet_guardian(zone)
+	var content := modal("Besonderes Reviertier")
+	hero(content,"NEUN REVIERTIERE · NEUN GEHEIMNISSE",135)
+	card(content,info.name,info.story)
+	var status := "Auftrag abgeschlossen" if state.guardian_completed.has(zone) else "Einmaliges Fundstück im Gepäck!" if state.guardian_relics.has(zone) else "Suche nach "+str(info.token) if state.guardian_quests.has(zone) else "Eine besondere Aufgabe wartet"
+	card(content,"Die Suche",status+"\nSammlung: %d/9 Tiere · %d/9 Aufgaben"%[state.guardian_met.size(),state.guardian_completed.size()])
+	if state.guardian_completed.has(zone):
+		card(content,"Belohnung erhalten","Zwei Futterrationen" if info.reward=="food" else "Ein Waldelixier")
+	elif state.guardian_relics.has(zone):
+		content.add_child(button("Das einmalige Fundstück übergeben",func():
+			if state.complete_guardian_quest(zone):
+				_save_game()
+				show_guardian(zone)
+		))
+	elif state.guardian_quests.has(zone):
+		content.add_child(button("Zum Fundstück führen",func():
+			var destination: int=WolfGuardianLore.relic_region(zone)
+			set_waypoint(destination,WolfGuardianLore.relic_pos(zone))
+			close_overlay()
+			notify("Folge der Spur nach "+WolfWorldData.REGIONS[destination].name+".")
+		))
+	else:
+		content.add_child(button("Einmalige Suchaufgabe annehmen",func():
+			if state.accept_guardian_quest(zone):
+				_sync_guardian_entities()
+				_save_game()
+				show_guardian(zone)
+		))
+	content.add_child(button("Zurück in die Wildnis",close_overlay))
+
+func show_guardian_collection() -> void:
+	var content := modal("Haupttiere & Entdeckersammlung")
+	hero(content,"NEUN BESONDERE TIERE · 256 KARTEN",130)
+	card(content,"Dein Sammelalbum","%d/256 Gebiete besucht · %d/9 Haupttiere entdeckt · %d/9 Suchaufträge abgeschlossen\nRudelpunkte: %d · %d noch nicht gemeldete Karten"%[state.visited.size(),state.guardian_met.size(),state.guardian_completed.size(),state.pack_points,state.unreported_regions().size()])
+	for sector in range(9):
+		var info := WolfGuardianLore.data(sector)
+		var status := "✓ Aufgabe abgeschlossen" if state.guardian_completed.has(sector) else "Fundstück bringen" if state.guardian_relics.has(sector) else "Suche läuft" if state.guardian_quests.has(sector) else "Tier getroffen" if state.guardian_met.has(sector) else "Noch nicht entdeckt"
+		card(content,str(info.name) if state.guardian_met.has(sector) else "Unbekanntes Reviertier %d"%(sector+1),status+("\n"+str(info.token) if state.guardian_met.has(sector) else ""))
+	card(content,"Deine Vorräte","Futterrationen: %d · Waldelixiere: %d"%[state.provisions,state.tonics])
+	if state.provisions>0:content.add_child(button("Futterration essen (+45 Nahrung)",func():
+		if state.consume_provision():_save_game();show_guardian_collection()
+	))
+	if state.tonics>0:content.add_child(button("Waldelixier trinken (+55 Kraft, +30 Wasser)",func():
+		if state.consume_tonic():_save_game();show_guardian_collection()
+	))
+	content.add_child(button("Zurück zum Rudelmenü",show_menu))
+
 func change_region(index: int,entry: Vector2) -> void:
 	var origin := state.region
 	state.clear_encounter_presence()
@@ -677,6 +777,7 @@ func change_region(index: int,entry: Vector2) -> void:
 	collision_index.build(world.objects)
 	state.pawsteps.clear()
 	_sync_companion()
+	_sync_guardian_entities()
 	if not state.visited.has(index):
 		state.visited.append(index)
 		state.record("Neues Gebiet · "+WolfWorldData.REGIONS[index].name+". "+WolfWorldData.REGIONS[index].subtitle)
@@ -723,10 +824,13 @@ func _update_animals(dt: float) -> void:
 	var meeting_goal := WolfMainStory.current_stage(state.main_story_progress)
 	var pack_context := {"region":state.region,"hour":state.hour(),"now":clock,"elapsed":state.elapsed,"escort":state.escort,"player_pos":state.pos,"player_facing":state.facing,"player_speed":player_speed,"player_mood":player_mood,"signal":state.pack_signal,"player_radius":player_radius,"meeting":meeting,"meeting_center":meeting_goal.get("meeting_center",Vector2(INF,INF)) if meeting else Vector2(INF,INF),"meeting_radius":300.0,"howling":action_timer>0 and player_mood=="heulen"}
 	for member in world.animals:
+		if member.get("guardian",false):continue
 		if member.kind!="wolf" and not member.has("_ecology"):member._ecology=navigation.ecology_targets(member)
 	for member in world.animals:
+		if member.get("guardian",false):continue
 		if member.kind=="deer" and not member._ecology.has("group_forage"):member._ecology.group_forage=navigation.group_forage_target(member,world.animals)
 	for a in world.animals:
+		if a.get("guardian",false):continue
 		var distance: float=a.p.distance_to(state.pos)
 		var target: Vector2=a.home
 		var speed := 20.0
@@ -935,12 +1039,17 @@ func sniff() -> void:
 	notify("Frische Fährten werden goldfarben sichtbar. Folge ihrem Verlauf und untersuche sie." if nearest<500 else "Du riechst Wald, Wasser und ferne Tiere. Suche entlang der Wege weiter.")
 
 func interact() -> void:
+	# Active local mission actions take precedence over a passive named NPC.
+	# Otherwise a nearby guardian could steal a shelter/rest/water tap.
 	if state.nature_journey_status().accepted and guided_main_story.is_empty():
 		if _interact_nature_journey():return
 		if _interact_main_story():return
 	else:
 		if _interact_main_story():return
 		if _interact_nature_journey():return
+	# Once an NPC has assigned a unique relic it takes precedence over
+	# the ordinary nature discovery located at the same coordinates.
+	if _collect_guardian_relic():return
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
@@ -968,7 +1077,7 @@ func interact() -> void:
 			mark_territory()
 			return
 	for a in world.animals:
-		if a.kind=="wolf" and a.p.distance_to(state.pos)<135:
+		if a.kind=="wolf" and not a.get("guardian",false) and a.p.distance_to(state.pos)<135:
 			if state.elapsed-last_pack_visit<20:
 				notify("Das Rudel bleibt bei dir. Lass ihm einen Moment Ruhe.")
 				return
@@ -1025,6 +1134,7 @@ func interact() -> void:
 					notify("Ein alter Wegstein. Du prägst dir den Ort und seine Gerüche ein.")
 					check_quests()
 					return
+	if _interact_guardian():return
 	if first_person and observe():return
 	notify("Nichts in unmittelbarer Nähe. Schnüffle nach Spuren oder nähere dich Wasser und Wegsteinen.")
 
@@ -1259,6 +1369,10 @@ func context_action() -> String:
 	else:
 		if not main_action.is_empty():return main_action
 		if not nature_action.is_empty():return nature_action
+	for animal in world.animals:
+		if animal.get("guardian",false) and animal.p.distance_to(state.pos)<165:return "Reden"
+	for object in world.objects:
+		if object.kind=="guardian_relic" and object.p.distance_to(state.pos)<115:return "Finden"
 	if state.food_cooldown<=0:
 		for obj in world.objects:
 			if obj.kind=="food" and obj.p.distance_to(state.pos)<85 and state.food_visible(obj):return "Fressen"
@@ -1484,6 +1598,7 @@ func show_menu() -> void:
 	var grid := GridContainer.new()
 	grid.columns=2;grid.add_theme_constant_override("h_separation",10);grid.add_theme_constant_override("v_separation",10)
 	v.add_child(grid)
+	v.add_child(button("Haupttiere & Entdeckersammlung · %d/9"%state.guardian_met.size(),show_guardian_collection))
 	var chapters := state.story_scenes().size()
 	nav_tile(grid,"Rudelerinnerungen","Kapitel %d/%d"%[mini(state.story_step+1,chapters),chapters],"book",show_story)
 	nav_tile(grid,"Naturreisen","Sechs Wege für deine Nase","leaf",show_nature_journeys)
@@ -1505,7 +1620,7 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.13.0 · Neue Revierpässe",13))
+	v.add_child(label("Wolf 0.14.0 · Neun Reviertiere",13))
 
 func show_region_passes() -> void:
 	var v := modal("Revierpässe · Neun Landschaften")
@@ -1795,7 +1910,7 @@ func guide_new_region(unmarked: bool=false) -> void:
 func _invite_pack_play() -> void:
 	var nearby := false
 	for animal in world.animals:
-		if animal.kind == "wolf" and animal.p.distance_to(state.pos) < 210:
+		if animal.kind == "wolf" and not animal.get("guardian",false) and animal.p.distance_to(state.pos) < 210:
 			nearby = true
 			break
 	close_overlay()
@@ -1831,7 +1946,8 @@ func show_pack() -> void:
 	play_button.disabled = not family_near
 	v.add_child(play_button)
 	if not family_near:v.add_child(label("Zum Spielen musst du deiner Familie nahe sein.",16))
-	v.add_child(label("Bindung: %d / 100"%state.bond,20))
+	v.add_child(label("Bindung: %d / 100 · Rudelpunkte: %d · Neue Karten: %d"%[state.bond,state.pack_points,state.unreported_regions().size()],18))
+	v.add_child(button("Unsere Reviertiere & Sammelalbum",show_guardian_collection))
 	var follow := button("Begleitung beenden" if state.escort else "Mit der Mutter die Wildnis erkunden",func():
 		state.escort=not state.escort
 		_sync_companion()
@@ -1850,7 +1966,7 @@ func show_settings() -> void:
 	card(v,"Deine Wildnis","%s · Tag %d\nWähle die Atmosphäre, die zu dir passt. Menüs halten die Zeit an."%[state.season_name(),state.day()])
 	v.add_child(button("3D-Kamera: "+("Folgekamera" if state.camera_follow else "Wolfsblick"),func():switch_camera();show_settings()))
 	v.add_child(button(("✓  " if state.compact_hud else "○  ")+"Mehr Platz für die Wildnis",func():set_hud_compact(not state.compact_hud);show_settings()))
-	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"],["map_reveal","Alle Gebietsnamen in der Übersicht"]]:
+	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"]]:
 		var setting: String=item[0]
 		var toggle := button(("✓  " if state.get(setting) else "○  ")+item[1],func():
 			state.set(setting,not state.get(setting));_save_game()
@@ -2064,7 +2180,7 @@ func select_map_region(index: int,details: bool=false) -> void:
 	map_selected=index;map_panel.selected=index
 	if details:map_panel.set_local(index)
 	var region: Dictionary=WolfWorldData.REGIONS[index]
-	map_selection.text=region.name+"\n"+region.subtitle+("\nErkundet · "+region.district if state.visited.has(index) else "\nNoch unerforscht")
+	map_selection.text=region.name+"\n"+region.subtitle+"\nErkundet · "+region.district if state.visited.has(index) else "Unbekanntes Gebiet\nBetrete dieses Kartenfeld, um Namen und Gelände aufzudecken."
 	refresh_map_places(index)
 	map_panel.queue_redraw()
 
@@ -2094,7 +2210,7 @@ func find_map_regions(query: String) -> Array[int]:
 	var text := query.strip_edges().to_lower()
 	if text.is_empty():return results
 	for index in range(WolfWorldData.REGIONS.size()):
-		if not state.map_reveal and not state.visited.has(index):continue
+		if not state.visited.has(index):continue
 		var region: Dictionary=WolfWorldData.REGIONS[index]
 		if (str(region.name)+" "+str(region.subtitle)).to_lower().contains(text):results.append(index)
 		if results.size()>=6:break

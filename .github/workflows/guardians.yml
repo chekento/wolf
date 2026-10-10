@@ -1,0 +1,28 @@
+name: Wolf — guardian quests checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.5.1
+        run: |
+          curl -fsSL --retry 3 -o /tmp/wolf-godot.zip https://github.com/godotengine/godot-builds/releases/download/4.5.1-stable/Godot_v4.5.1-stable_linux.x86_64.zip
+          unzip -q /tmp/wolf-godot.zip -d /tmp/wolf-godot
+          sudo install /tmp/wolf-godot/Godot_v4.5.1-stable_linux.x86_64 /usr/local/bin/godot
+      - name: Test all guardians and one full in-game quest
+        run: |
+          set -euo pipefail
+          godot --headless --editor --import --quit 2>&1 | tee /tmp/wolf-import.log
+          timeout 240s godot --headless --audio-driver Dummy --script tests/guardian_collection.gd 2>&1 | tee /tmp/guardian-check.log
+          if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|FAIL:|resources still in use|instances leaked' /tmp/wolf-import.log /tmp/guardian-check.log; then exit 1; fi

@@ -227,7 +227,7 @@ func _draw() -> void:
 	var items: Array[Dictionary]=[]
 	for obj in game.world.objects:
 		if not bounds.has_point(obj.p):continue
-		if obj.kind in ["water","flowers","bridge","food","discovery"]:_draw_object(obj,biome)
+		if obj.kind in ["water","flowers","bridge","food","discovery","guardian_relic"]:_draw_object(obj,biome)
 		else:items.append({"p":obj.p,"object":obj})
 	for t in game.world.tracks:
 		if bounds.has_point(t.p) and (game.scent_time>0 or game.state.found.has(t.id)):
@@ -246,7 +246,16 @@ func _draw() -> void:
 		elif item.has("animal"):
 			var a: Dictionary=item.animal
 			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),a.get("attention",0.0),str(a.get("phase",0.0)))
+			if a.get("guardian",false):_draw_guardian(a)
 		else:_draw_animal(game.state.pos,"wolf",game.state.facing,true,true,game.player_gait,game.player_speed,game.player_mood)
+	if game.pack_celebration_until>game.clock and game.state.region==0:
+		var pulse := 1.0+sin(game.clock*7)*.14 if not game.state.reduced_motion else 1.0
+		for member in game.world.animals:
+			if member.kind=="wolf" and not member.get("guardian",false) and member.p.distance_to(Vector2(1580,2200))<450:
+				draw_arc(member.p+Vector2(0,-54),29*pulse,0,TAU,22,Color("#ffe18a"),2)
+				for i in range(4):
+					var spark: Vector2=member.p+Vector2(cos(game.clock*2+i*TAU/4),sin(game.clock*2+i*TAU/4))*35+Vector2(0,-58)
+					draw_circle(spark,4,Color("#ffebbb"))
 	for foot in game.state.pawsteps:
 		if bounds.has_point(foot.p):
 			var alpha: float=clampf(1.0-(game.state.elapsed-foot.time)/20.0,0,1)*0.22
@@ -393,11 +402,29 @@ func _draw_human(person: Dictionary) -> void:
 	draw_circle(pos-d*14+side*4+d*4,2,Color("#2b3834"))
 	draw_line(pos-d*22,pos-d*35,Color("#f7dda8"),2,true)
 
+func _draw_guardian(a: Dictionary) -> void:
+	var pos: Vector2=a.p
+	var zone: int=int(a.guardian_zone)
+	var known: bool=game.state.guardian_met.has(zone)
+	var pulse := 1.0 if game.state.reduced_motion else 1.0+sin(game.clock*2.3+zone)*.08
+	draw_arc(pos+Vector2(0,-13),53*pulse,0,TAU,44,Color("#ffdd82"),3)
+	for i in range(6):
+		var theta := i*TAU/6.0
+		draw_circle(pos+Vector2(cos(theta),sin(theta))*56*pulse+Vector2(0,-13),4,Color("#f8e4a3"))
+	var title_text: String=str(WolfGuardianLore.data(zone).name) if known else "★ Reviertier"
+	draw_string(ThemeDB.fallback_font,pos+Vector2(-85,-115),title_text,HORIZONTAL_ALIGNMENT_CENTER,170,16,Color("#fff2c4"))
+
 func _draw_object(obj: Dictionary,biome: String) -> void:
 	var p: Vector2=obj.p
 	var s: float=obj.scale
 	var snow := biome=="snow"
 	match obj.kind:
+		"guardian_relic":
+			var gleam := 1.0 if game.state.reduced_motion else 1.0+sin(game.clock*3.5)*.16
+			draw_arc(p,33*gleam,0,TAU,32,Color("#fff1a4"),3.5)
+			draw_colored_polygon(PackedVector2Array([p+Vector2(0,-30),p+Vector2(17,0),p+Vector2(0,22),p+Vector2(-17,0)]),Color("#b8e9d0"))
+			draw_circle(p,7,Color("#fffbd1"))
+			draw_string(ThemeDB.fallback_font,p+Vector2(-84,-43),str(obj.title),HORIZONTAL_ALIGNMENT_CENTER,170,15,Color("#ffeed0"))
 		"tree":
 			var sway := 0.0 if game.state.reduced_motion else sin(game.clock*0.7+p.y*0.02)*1.8
 			_sprite(obj.variant,p+Vector2(sway,-65*s),Vector2(165,225)*s,Color("#d3e5e5") if snow else seasonal_color(Color.WHITE,true))

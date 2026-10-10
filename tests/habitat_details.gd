@@ -131,8 +131,8 @@ func run() -> void:
 			if child.has_meta("habitat_kind"):
 				actual_groups+=child.multimesh.instance_count
 				distance_limited=distance_limited and child.visibility_range_end==26 and child.visibility_range_end_margin==3 and child.cast_shadow==GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	check(actual_instances==5448,"the live updated forest keeps the verified MultiMesh instance budget: 5448")
-	check(actual_batches<=197,"the live forest adds at most six spatial batches to the actual 191-batch baseline")
+	check(actual_instances==5450,"the living forest fits the verified baseline plus two unique guardian emblem instances: 5450")
+	check(actual_batches<=198,"the forest adds only one guardian emblem batch beyond the fixed habitat budget")
 	check(actual_groups==home.entries.size() and distance_limited,"the real 3D renderer shows shared low groups with 26m culling and no shadow overhead")
 	for region in range(23):WolfHabitatDetails.for_region(region,WolfWorldData.generate(region))
 	check(WolfHabitatDetails.cache.size()==16 and WolfHabitatDetails.recent.size()==16,"exploration evicts old habitat plans at the sixteen-region cache boundary")
