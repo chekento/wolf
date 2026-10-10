@@ -158,6 +158,10 @@ func pack_routine(role: String="Mutter") -> Dictionary:
 	return WolfPackLife.routine(hour(),role)
 
 func can_enter_region(target: int) -> bool:
+	if target<0 or target>=WolfWorldData.REGIONS.size():return false
+	# A pass unlocks a whole connected sector; it is never required again
+	# between its own tiles. This also preserves legacy saves in outer zones.
+	if WolfRegionGates.zone(target)==WolfRegionGates.zone(region):return true
 	return WolfRegionGates.accessible(region_items,target,visited)
 
 func collect_region_item(item: String) -> bool:
