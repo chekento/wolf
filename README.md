@@ -1,5 +1,7 @@
 # 🐺 Wolf · Wildnis & Rudel
 
+**Neu in 0.15.0:** Mama und Papa haben jetzt unterschiedliche, echte Gespräche mit sechs Übungen: Mutter erklärt das Rudel, Schnüffeln und gemeinsames Spielen; Vater übt Orientierung, Jagdfährten und das Erfüllen von Aufträgen. Bei Geschwistern erscheinen zwei zusätzliche, automatisch ein- und ausgeblendete Touchaktionen **Kuscheln** und **Spielen**. Mit den Eltern darf man ebenfalls kuscheln, mit kleinerem Bindungsbonus. Abgeschlossene Lektionen und ruhige Pausen werden gespeichert. / Mother and father offer six role-specific interactive tutorials. Two proximity touch actions enable sibling play/cuddle, with gentler adult cuddling and saved progress.
+
 **Neu in 0.14.0:** Neun besondere NPC-Reviertiere – je eines pro Großgebiet. Entdecke sie im Sammelalbum, sprich mit ihnen und suche für jedes Tier ein einzigartiges Fundstück in einem anderen Feld desselben Gebiets. Bei der Rückgabe gibt es Futterrationen oder ein Waldelixier. Der große Atlas zeigt nur selbst betretene Kartenfelder; neue Entdeckungen werden bei der tatsächlichen Heimkehr zur Rudelhöhle vom Rudel gefeiert und mit Rudelpunkten und XP belohnt. / Nine unique guardian NPCs with one-off fetch quests, usable provision/tonic rewards, true exploration fog and one-time pack homecoming celebrations.
 
 [![Wolf – Download Android APK](docs/download-android-apk.svg)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
