@@ -77,7 +77,7 @@ func run() -> void:
 		var relic_region: int=WolfGuardianLore.relic_region(sector)
 		game.change_region(relic_region,WolfGuardianLore.relic_pos(sector))
 		check(count_kind(game,"objects","guardian_relic")==1,"sector %d has exactly one collectible relic in separate map square"%sector)
-		check(game._interact_guardian() and game.state.guardian_relics.has(sector),"relic in sector %d can be picked up once"%sector)
+		check(game._collect_guardian_relic() and game.state.guardian_relics.has(sector),"relic in sector %d can be picked up once"%sector)
 		check(count_kind(game,"objects","guardian_relic")==0,"collected relic cannot respawn locally")
 		game.change_region(home,WolfGuardianLore.home_pos(sector))
 		check(game.state.complete_guardian_quest(sector),"relic delivery to sector %d completes unique assignment"%sector)
