@@ -26,6 +26,7 @@ jobs:
           godot --headless --editor --import --quit 2>&1 | tee /tmp/hud-import.log
           XDG_DATA_HOME=/tmp/wolf-fast-hud godot --headless --audio-driver Dummy --script tests/hud_layout.gd 2>&1 | tee /tmp/hud-test.log
           XDG_DATA_HOME=/tmp/wolf-fast-multitouch godot --headless --audio-driver Dummy --script tests/multitouch.gd 2>&1 | tee /tmp/hud-multitouch.log
+          XDG_DATA_HOME=/tmp/wolf-fast-family godot --headless --audio-driver Dummy --script tests/family_lessons.gd 2>&1 | tee /tmp/hud-family.log
           XDG_DATA_HOME=/tmp/wolf-fast-region godot --headless --audio-driver Dummy --script tests/region_progression.gd 2>&1 | tee /tmp/region-test.log
           XDG_DATA_HOME=/tmp/wolf-fast-path godot --headless --audio-driver Dummy --script tests/path_expansion.gd 2>&1 | tee /tmp/path-test.log
-          if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|FAIL:|resources still in use|instances leaked' /tmp/hud-import.log /tmp/hud-test.log /tmp/hud-multitouch.log /tmp/region-test.log /tmp/path-test.log; then exit 1; fi
+          if grep -Eq 'SCRIPT ERROR|^ERROR:|^WARNING:|FAIL:|resources still in use|instances leaked' /tmp/hud-import.log /tmp/hud-test.log /tmp/hud-multitouch.log /tmp/hud-family.log /tmp/region-test.log /tmp/path-test.log; then exit 1; fi
