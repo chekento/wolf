@@ -41,7 +41,10 @@ static func border_open(a: Vector2i,b: Vector2i) -> bool:
 	# Remove north and south village bypasses into the backcountry.
 	if zone_at(a)==zone_at(b):return true
 	if a.y==b.y:
-		return a.y==2 or a.y==13 or a.y==8 if a.x<5 and b.x<5 or a.x>10 and b.x>10 else a.y==9 if maxi(a.x,b.x)==11 else a.y==8
+		# Horizontal inter-zone portals. The central-to-east one starts
+		# behind the village at (10,9).
+		if maxi(a.x,b.x)==11:return a.y==9 if a.y>=5 and a.y<=10 else a.y in [2,13]
+		return a.y in [2,8,13]
 	return a.x in [2,7,13]
 
 static func requires(region: int) -> String:
