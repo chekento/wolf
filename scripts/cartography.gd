@@ -161,13 +161,8 @@ func _world() -> void:
 		var c := Color(region.ground)
 		var paper := c.lerp(Color("#ded5ae"),0.30)
 		if not known:
-			# Nothing from an unvisited square may be drawn: no topography,
-			# paths, names, landmarks or connections. Just untouched fog.
-			draw_rect(rect,Color("#20342f"))
-			draw_rect(rect,Color("#779184"),false,1.0)
-			if cell>36:
-				draw_string(ThemeDB.fallback_font,rect.get_center()+Vector2(-5,5),"?",
-					HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color("#98aaa3"))
+			# The map itself grows with discoveries: no tile borders,
+			# terrain, names, markers or placeholders before first entry.
 			continue
 		draw_rect(rect,paper)
 		var locked: bool=not game.state.can_enter_region(index)
