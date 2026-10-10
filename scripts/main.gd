@@ -695,6 +695,9 @@ func _interact_guardian() -> bool:
 		if animal.get("guardian",false) and animal.p.distance_to(state.pos)<165:
 			show_guardian(int(animal.guardian_zone))
 			return true
+	return false
+
+func _collect_guardian_relic() -> bool:
 	for object in world.objects:
 		if object.kind!="guardian_relic" or object.p.distance_to(state.pos)>=115:continue
 		var sector: int=int(object.guardian_zone)
@@ -1044,6 +1047,9 @@ func interact() -> void:
 	else:
 		if _interact_main_story():return
 		if _interact_nature_journey():return
+	# Once an NPC has assigned a unique relic it takes precedence over
+	# the ordinary nature discovery located at the same coordinates.
+	if _collect_guardian_relic():return
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
