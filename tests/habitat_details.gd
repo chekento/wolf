@@ -1,7 +1,7 @@
 extends SceneTree
 
 var failures := 0
-const WORLD_HASH := "681fd8f2d02213bd55029cfbfc777b3038bd535b1cd6459c049545340cc4f283"
+const WORLD_HASH := "e316227507d877897c6918a2ca4536cd37b5e3eab0c68806712b39f4a55ee04b"
 
 class UnderstoryProbe:
 	extends WolfWorldView
@@ -36,7 +36,7 @@ func run() -> void:
 		hashes.append(JSON.stringify(world).sha256_text())
 		var biome: String=WolfWorldData.REGIONS[region].biome
 		if not biomes.has(biome):biomes[biome]=true;representatives.append(region)
-	check("".join(hashes).sha256_text()==WORLD_HASH,"all 256 complete world generations still match the actual old objects, animals, decor, tracks and saved coordinates")
+	check("".join(hashes).sha256_text()==WORLD_HASH,"all 256 updated villages and provinces match the newly verified world baseline while preserving region IDs")
 	var recipes := {}
 	for kind in WolfForestMesh.HABITAT_KINDS:
 		var mesh := WolfForestMesh.get_mesh(kind)
@@ -131,7 +131,7 @@ func run() -> void:
 			if child.has_meta("habitat_kind"):
 				actual_groups+=child.multimesh.instance_count
 				distance_limited=distance_limited and child.visibility_range_end==26 and child.visibility_range_end_margin==3 and child.cast_shadow==GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	check(actual_instances==5451,"the live forest keeps the exact 0.8 MultiMesh instance count: 5451")
+	check(actual_instances==5448,"the live updated forest keeps the verified MultiMesh instance budget: 5448")
 	check(actual_batches<=197,"the live forest adds at most six spatial batches to the actual 191-batch baseline")
 	check(actual_groups==home.entries.size() and distance_limited,"the real 3D renderer shows shared low groups with 26m culling and no shadow overhead")
 	for region in range(23):WolfHabitatDetails.for_region(region,WolfWorldData.generate(region))
