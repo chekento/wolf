@@ -87,6 +87,10 @@ var actions_expanded := false
 var pack_button: Button
 var hud_bottom_controls: Array[Button]=[]
 var hud_layout_width_mode := -1
+var village_exposure := 0.0
+var last_gate_alert := -99.0
+var active_gate_trial := -1
+var gate_trial_stage := 0
 var serif: Font=preload("res://assets/fonts/DejaVuSerif.ttf")
 
 
@@ -584,6 +588,7 @@ func _process(dt: float) -> void:
 		var steps := maxi(1,ceili(movement_dt/0.035))
 		for step in range(steps):move_wolf(v*speed*movement_dt/steps)
 	player_speed=state.pos.distance_to(before)/maxf(dt,0.0001) if state.pos.distance_to(before)<100 else 0
+	_check_human_patrols(dt)
 	player_gait+=state.pos.distance_to(before)/22.0 if state.pos.distance_to(before)<100 else 0
 	if player_speed>1 and (state.pawsteps.is_empty() or state.pawsteps.back().p.distance_to(state.pos)>22):
 		state.pawsteps.append({"p":state.pos,"facing":state.facing,"time":state.elapsed})
@@ -613,6 +618,21 @@ func _process(dt: float) -> void:
 		save_timer=0
 		_save_game()
 
+func _check_human_patrols(dt: float) -> void:
+	if state.region!=WolfVillageStealth.VILLAGE:
+		village_exposure=0.0
+		return
+	var quiet := sneak_button.button_pressed or player_speed<30.0
+	if WolfVillageStealth.exposed(state.pos,quiet,world.objects,clock,player_speed):
+		village_exposure+=minf(dt,.15)
+		if village_exposure>=0.48:
+			state.pos=WolfVillageStealth.START
+			state.pawsteps.clear()
+			village_exposure=0
+			notify("Ein Mensch hat dich gesehen! Du flüchtest zum westlichen Dorfeingang. Nutze Leise, Deckung und die Blickrichtungen.")
+	else:
+		village_exposure=maxf(0,village_exposure-dt*.9)
+
 func can_walk(p: Vector2) -> bool:
 	if WolfWorldData.water_blocked(p,state.region):return false
 	return collision_index.walkable(p)
@@ -629,15 +649,30 @@ func move_wolf(delta: Vector2) -> void:
 	state.distance_walked+=state.pos.distance_to(before)
 	var direction := WolfWorldData.exit_at(state.pos,state.region)
 	if direction!="":
-		change_region(WolfWorldData.REGIONS[state.region].links[direction],WolfWorldData.entry_point(direction))
+		var destination: int=WolfWorldData.REGIONS[state.region].links[direction]
+		if state.can_enter_region(destination):
+			change_region(destination,WolfWorldData.entry_point(direction))
+		else:
+			var threshold := Vector2(3150,1600) if direction=="east" else Vector2(50,1600) if direction=="west" else Vector2(1600,50) if direction=="north" else Vector2(1600,3150)
+			state.pos=threshold
+			if state.elapsed-last_gate_alert>6:
+				last_gate_alert=state.elapsed
+				notify("Hier beginnt ein gesperrter Landstrich. Revierpass nötig: "+WolfRegionGates.pass_name(destination)+". Öffne Revierpässe im Menü.")
 	else:
 		state.pos=state.pos.clamp(Vector2(14,14),WolfWorldData.SIZE-Vector2(14,14))
 
 func change_region(index: int,entry: Vector2) -> void:
+	var origin := state.region
 	state.clear_encounter_presence()
 	if not world.is_empty():world_memory.capture(state.region,world)
 	state.region=index
 	state.pos=entry
+	village_exposure=0.0
+	if origin==WolfVillageStealth.VILLAGE and WolfWorldData.REGIONS[index].coord==Vector2i(9,9):
+		state.village_cleared=true
+		if state.collect_region_item("dorfpass"):
+			notify("Ungesehen durch das Dorf! Du hast den Dorfpass erhalten. Das Gebiet hinter den Menschen ist frei.")
+		_save_game()
 	world=world_memory.region_world(index)
 	world_cache=world_memory.worlds
 	collision_index.build(world.objects)
@@ -883,6 +918,16 @@ func notify(message: String) -> void:
 
 func sniff() -> void:
 	scent_time=22+float(state.skills.nose)/10.0
+	var newly_discovered := 0
+	for resource in world.objects:
+		if resource.kind=="food" and resource.p.distance_to(state.pos)<245 and not state.food_visible(resource):
+			var key := state.food_key(resource)
+			if not state.food_found.has(key):
+				state.food_found.append(key)
+				newly_discovered+=1
+	if newly_discovered>0:
+		notify("Du hast %d versteckte Nahrungsspur(en) unter Blättern oder Schnee aufgespürt. Nähere dich und sammle mit Aktion."%newly_discovered)
+		_save_game()
 	player_mood="schnüffeln"
 	action_timer=2
 	var nearest := 9999.0
@@ -900,7 +945,7 @@ func interact() -> void:
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
-			if obj.kind=="food" and obj.p.distance_to(state.pos)<85:
+			if obj.kind=="food" and obj.p.distance_to(state.pos)<85 and state.food_visible(obj):
 				state.hunger=minf(100,state.hunger+40)
 				state.food_cooldown=300
 				state.note_action("feed")
@@ -1217,7 +1262,7 @@ func context_action() -> String:
 		if not nature_action.is_empty():return nature_action
 	if state.food_cooldown<=0:
 		for obj in world.objects:
-			if obj.kind=="food" and obj.p.distance_to(state.pos)<85:return "Fressen"
+			if obj.kind=="food" and obj.p.distance_to(state.pos)<85 and state.food_visible(obj):return "Fressen"
 	if not state.active_encounter.is_empty() and state.active_encounter.task=="site_mark" and not state.active_encounter.get("site_checked",false):
 		for obj in world.objects:
 			if obj.kind=="discovery" and obj.site==state.active_encounter.site_id and obj.p.distance_to(state.pos)<140:return "Ort prüfen"
@@ -1234,7 +1279,7 @@ func context_action() -> String:
 	for obj in world.objects:
 		var d: float=obj.p.distance_to(state.pos)
 		if obj.kind=="water" and ((obj.variant==0 and d<190*obj.scale+90) or (obj.variant==1 and absf(state.pos.x-WolfWorldData.river_x(state.pos.y))<155)):return "Trinken"
-		if obj.kind=="food" and d<85 and state.food_cooldown<=0:return "Fressen"
+		if obj.kind=="food" and d<85 and state.food_cooldown<=0 and state.food_visible(obj):return "Fressen"
 		if obj.kind=="den" and d<190:return "Ruhen"
 		if (obj.kind=="landmark" and d<100) or (obj.kind=="discovery" and d<140):return "Entdecken"
 	return "Beobachten" if first_person else "Aktion"
@@ -1248,7 +1293,7 @@ func route_to(target: int) -> Array[int]:
 		var current: int=queue.pop_front()
 		if current==target:break
 		for neighbor in WolfWorldData.REGIONS[current].links.values():
-			if not previous.has(neighbor):previous[neighbor]=current;queue.append(neighbor)
+			if not previous.has(neighbor) and state.can_enter_region(int(neighbor)):previous[neighbor]=current;queue.append(neighbor)
 	if not previous.has(target):return path
 	var cursor := target
 	while cursor!=state.region:path.push_front(cursor);cursor=previous[cursor]
@@ -1446,6 +1491,7 @@ func show_menu() -> void:
 	nav_tile(grid,"Wildnisatlas","Wege, Naturorte & Ziele","map",show_map)
 	nav_tile(grid,"Deine Familie","Nähe & Begleitung","paw",show_pack)
 	nav_tile(grid,"Begegnungen","Neue Düfte und Aufgaben","compass",show_encounter)
+	nav_tile(grid,"Revierpässe","Neue Gebiete und Duftprüfungen","compass",show_region_passes)
 	nav_tile(grid,"Erlebnisse","%d Erinnerungen erfüllt"%state.completed.size(),"leaf",show_quests)
 	nav_tile(grid,"Naturtagebuch","Deine Wege bleiben","journal",show_journal)
 	nav_tile(grid,"Sichere Wege","Wasser, Nahrung & Rast","compass",show_travel_help)
@@ -1460,7 +1506,66 @@ func show_menu() -> void:
 		notify("Dein Spielstand wurde gespeichert." if saved else "Spielstand konnte nicht gespeichert werden.")
 	))
 	v.add_child(button("Neues Rudelleben starten",confirm_new_game))
-	v.add_child(label("Wolf 0.10.0 · Vertraute Wege",13))
+	v.add_child(label("Wolf 0.13.0 · Neue Revierpässe",13))
+
+func show_region_passes() -> void:
+	var v := modal("Revierpässe · Neun Landschaften")
+	hero(v,"DIE WILDNIS ÖFFNET SICH DURCH DEINE EIGENEN SPUREN",130)
+	card(v,"Vertrautes Revier","Die Mitte ist frei. Jenseits liegen acht große Landschaftsteile, die über einzelne Pässe erreichbar sind. Sammle echte Fährten und laufe eigene Wege. Anschließend gilt es, drei knifflige Duftfragen ohne Fehler zu lösen.")
+	for sector in WolfRegionGates.ITEMS:
+		var gate: Dictionary=WolfRegionGates.ITEMS[sector]
+		var unlocked: bool=state.region_items.has(str(gate.id))
+		var ready: bool=WolfRegionGates.trial_ready(gate,state.found.size(),state.distance_walked)
+		var content := card(v,("✓ " if unlocked else "○ ")+str(gate.name),str(gate.hint)+"\nSpuren %d/%d · Strecke %d/%d"%[state.found.size(),int(gate.tracks),int(state.distance_walked),int(gate.walk)])
+		if sector==5:
+			content.add_child(label("Dieser Pass entsteht durch eine echte Schleichpassage im Dorf – kein Quiz. Folge dem westlichen Zugang und entkomme nach Osten.",15))
+		elif not unlocked:
+			var index: int=sector
+			var trial_button := button("Duftprüfung beginnen" if ready else "Noch Spuren und Strecke sammeln",func():start_gate_trial(index))
+			trial_button.disabled=not ready
+			content.add_child(trial_button)
+	v.add_child(button("Weiter erkunden",close_overlay))
+
+func start_gate_trial(sector: int) -> void:
+	if not WolfRegionGates.ITEMS.has(sector) or sector==5:return
+	var gate: Dictionary=WolfRegionGates.ITEMS[sector]
+	if state.region_items.has(str(gate.id)) or not WolfRegionGates.trial_ready(gate,state.found.size(),state.distance_walked):return
+	active_gate_trial=sector
+	gate_trial_stage=0
+	show_gate_trial()
+
+func show_gate_trial() -> void:
+	if not WolfRegionGates.ITEMS.has(active_gate_trial):show_region_passes();return
+	var gate: Dictionary=WolfRegionGates.ITEMS[active_gate_trial]
+	var stage := gate_trial_stage
+	var question: Dictionary=WolfRegionGates.question(active_gate_trial,stage)
+	var v := modal(str(gate.title)+" · Duftprüfung")
+	card(v,"Runde %d/3"%[stage+1],str(question.q)+"\nDrei richtige Entscheidungen nacheinander führen zum Revierpass. Ein Fehler setzt die Prüfung zurück.")
+	for index in range(question.answers.size()):
+		var answer := index
+		v.add_child(button(str(question.answers[index]),func():answer_gate_trial(answer)))
+	v.add_child(button("Später versuchen",show_region_passes))
+
+func answer_gate_trial(answer: int) -> void:
+	if not WolfRegionGates.ITEMS.has(active_gate_trial):return
+	var trial: Dictionary=WolfRegionGates.question(active_gate_trial,gate_trial_stage)
+	if answer!=int(trial.correct):
+		gate_trial_stage=0
+		show_gate_trial()
+		return
+	gate_trial_stage+=1
+	if gate_trial_stage<3:
+		show_gate_trial()
+		return
+	var sector := active_gate_trial
+	active_gate_trial=-1
+	gate_trial_stage=0
+	if state.collect_region_item(str(WolfRegionGates.ITEMS[sector].id)):
+		_save_game()
+		check_quests()
+		show_region_passes()
+		notify("Revierpass verdient: "+str(WolfRegionGates.ITEMS[sector].name)+". Ein neuer Landstrich steht dir offen.")
+	else:show_region_passes()
 
 func show_travel_help() -> void:
 	var v := modal("Nase & sichere Wege")
