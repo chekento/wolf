@@ -382,6 +382,11 @@ func rebuild() -> void:
 				add_shape("box",p+Vector3(0,1.4,0),Vector3(4.7,2.8,4.2),Color("#d8c69a"))
 				add_shape("cone",p+Vector3(0,3.3,0),Vector3(3.8,2.2,3.8),Color("#a65c35"))
 				add_shape("box",p+Vector3(0,0.8,2.11),Vector3(0.9,1.6,0.06),Color("#654a2f"))
+			"guardian_relic":
+				# A persistent 3D find matching the shimmering 2D quest object.
+				add_shape("stone",p+Vector3(0,0.30,0),Vector3(0.80,0.55,0.75),Color("#577f75"))
+				add_shape("sphere",p+Vector3(0,1.15,0),Vector3(0.54,0.70,0.54),Color("#b7f3d4"))
+				add_shape("sphere",p+Vector3(0,1.95,0),Vector3(0.18,0.18,0.18),Color("#ffeca1"))
 			"food":
 				food_node=Node3D.new()
 				contents.add_child(food_node)
@@ -407,6 +412,12 @@ func rebuild() -> void:
 		if a.get("young",false):n.scale*=0.73
 		contents.add_child(n)
 		animal_nodes.append(n)
+		if a.get("guardian",false):
+			# Marker above the head makes the unique quest giver visible
+			# from both the wolves-eye camera and third-person perspective.
+			var marker := world_pos(a.p)
+			add_shape("sphere",marker+Vector3(0,3.5,0),Vector3(.40,.28,.40),Color("#f7d480"))
+			add_shape("stone",marker+Vector3(0,3.1,0),Vector3(.25,.38,.25),Color("#a4d9c0"))
 	if game.state.region==WolfVillageStealth.VILLAGE:
 		for index in range(4):
 			var person := Node3D.new()
