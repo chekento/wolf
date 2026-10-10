@@ -90,6 +90,12 @@ static func _make_regions() -> Array[Dictionary]:
 			for j in range(infos.size()):
 				if infos[j][3]==info[3]+delta:links[direction]=j
 		regions.append({"name":info[0],"subtitle":info[1],"biome":info[2],"coord":info[3],"ground":colors[info[2]],"seed":41+i*43,"links":links,"district":_district(info[3])})
+	# Keep all 256 existing IDs, but connect provinces only at established passes.
+	for i in range(regions.size()):
+		for direction in regions[i].links.keys():
+			var destination: int=regions[i].links[direction]
+			if not WolfRegionGates.border_open(regions[i].coord,regions[destination].coord):
+				regions[i].links.erase(direction)
 	return regions
 
 static func _outer_biome(coord: Vector2i) -> String:
@@ -243,7 +249,11 @@ static func generate(region: int) -> Dictionary:
 	if biome=="ruins":
 		for i in range(5):objects.append({"kind":"ruin","p":Vector2(570+i*80,700+sin(i*1.1)*100),"scale":1.0,"variant":i%3})
 	if biome=="village":
-		for i in range(4):objects.append({"kind":"house","p":Vector2(2060+i*220,650+float(i%2)*220),"scale":1.0,"variant":i%3})
+		for i in range(6):
+			objects.append({"kind":"house","p":Vector2(570+i*400,720+float(i%2)*185),"scale":1.0,"variant":i%3})
+		# Physical walk corridor from the western entrance to the eastern exit.
+		if region==14:
+			objects=objects.filter(func(o:Dictionary):return o.kind not in ["tree","rock"] or o.p.y<1370 or o.p.y>1830)
 	var animals: Array[Dictionary]=[]
 	for i in range(9):
 		var p := Vector2(1800+i%3*140,1300-i/3*170)
