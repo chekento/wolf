@@ -90,7 +90,7 @@ func run() -> void:
 		game.state.pos=sibling.p+Vector2(75,0)
 		game._refresh_family_buttons();await settle()
 		check(game.family_cuddle_button.visible and game.family_play_button.visible and game.hud_actions_grid.columns==3,"both extra touch actions appear near siblings and folded buttons reflow")
-		var points := game.state.pack_points
+		var points: int=game.state.pack_points
 		game._family_play()
 		check(game.state.pack_points>points and game.state.pack_signal.action=="play" and not str(game.state.pack_signal.get("target","")).is_empty(),"sibling play targets the exact wolf and awards pack points")
 		game._family_cuddle()
