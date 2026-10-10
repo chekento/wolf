@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0 · Rudelschule: Mutter, Vater und Geschwister
+
+- Mutter und Vater sind ansprechbare Familien-NPCs mit eigenen Dialogen, die jeweils drei praktische Lernaufträge anbieten: soziales Verhalten/Begrüßung, Schnüffeln und Geschwisterspiel bei der Mutter; sichere Wege, erste Jagdfährten und echte Aufgaben beim Vater.
+- Übungen messen selbst ausgeführte Spielaktionen, neue Fährten, Kartenbesuche und erfolgreich beendete Wildnisbegegnungen. Keine Sofortbelohnung nur durch Anklicken des Dialogs.
+- Zwei neue kleine Touchbuttons **Kuscheln** und **Spielen** werden nur in unmittelbarer Familiennähe eingeblendet. Kuscheln ist auch mit Eltern möglich, verbessert die Bindung aber weniger als bei den Geschwistern. Spielen bleibt Geschwistern vorbehalten.
+- Individuelle, pausierte Interaktionen mit realer Annäherungs-/Begrüßungsbewegung statt Teleportation; gesonderte Cooldowns verhindern sinnloses Dauerfarmen. Belohnung: Rudelbindung, Rudelpunkte und Erfahrung.
+- Neue Lektionen, Abschlüsse und Pausenzeiten erhalten die vorhandenen Spielstände der Version 0.14.0. Responsive HUD-, Multitouch- und Familienintegrationstests.
+
+
 ## 0.14.0 · Neun Reviertiere, echte Entdeckung und Rudelfeiern
 
 - Neun individuelle, benannte Haupttiere als dauerhaft ansprechbare NPCs – exakt eines je Großgebiet (unterschiedliche bestehende Tierarten).
