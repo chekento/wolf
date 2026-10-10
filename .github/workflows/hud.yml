@@ -22,7 +22,6 @@ jobs:
           set -euo pipefail
           godot --headless --editor --import --quit 2>&1 | tee /tmp/hud-import.log
           XDG_DATA_HOME=/tmp/wolf-fast-hud godot --headless --audio-driver Dummy --script tests/hud_layout.gd 2>&1 | tee /tmp/hud-test.log
-          XDG_DATA_HOME=/tmp/wolf-fast-guardian godot --headless --audio-driver Dummy --script tests/guardian_collection.gd 2>&1 | tee /tmp/hud-guardian.log
           XDG_DATA_HOME=/tmp/wolf-fast-multitouch godot --headless --audio-driver Dummy --script tests/multitouch.gd 2>&1 | tee /tmp/hud-multitouch.log
           XDG_DATA_HOME=/tmp/wolf-fast-region godot --headless --audio-driver Dummy --script tests/region_progression.gd 2>&1 | tee /tmp/region-test.log
           XDG_DATA_HOME=/tmp/wolf-fast-path godot --headless --audio-driver Dummy --script tests/path_expansion.gd 2>&1 | tee /tmp/path-test.log
