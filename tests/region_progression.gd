@@ -73,7 +73,6 @@ func run() -> void:
 		game.state.pos=food.p
 		game.sniff()
 		check(game.state.food_visible(food),"scent search physically reveals a local cached food source")
-		var old_hunger := game.state.hunger
 		game.state.hunger=40
 		game.interact()
 		check(game.state.hunger>40,"food needs actual search and interaction before feeding")
@@ -93,7 +92,7 @@ func run() -> void:
 	check(game.state.pos==WolfVillageStealth.START,"sustained detection resets the wolf to the village entrance")
 	game.change_region(15,Vector2(55,1600))
 	check(game.state.village_cleared and game.state.region_items.has("dorfpass"),"surviving the human passage awards the exclusive eastern pass")
-	var pass_count := game.state.region_items.size()
+	var pass_count: int=game.state.region_items.size()
 	game.change_region(14,Vector2(3145,1600))
 	game.change_region(15,Vector2(55,1600))
 	check(game.state.region_items.size()==pass_count,"crossing the village again cannot farm rewards")
