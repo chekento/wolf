@@ -1044,7 +1044,6 @@ func interact() -> void:
 	else:
 		if _interact_main_story():return
 		if _interact_nature_journey():return
-	if _interact_guardian():return
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
@@ -1072,7 +1071,7 @@ func interact() -> void:
 			mark_territory()
 			return
 	for a in world.animals:
-		if a.kind=="wolf" and a.p.distance_to(state.pos)<135:
+		if a.kind=="wolf" and not a.get("guardian",false) and a.p.distance_to(state.pos)<135:
 			if state.elapsed-last_pack_visit<20:
 				notify("Das Rudel bleibt bei dir. Lass ihm einen Moment Ruhe.")
 				return
@@ -1129,6 +1128,7 @@ func interact() -> void:
 					notify("Ein alter Wegstein. Du prägst dir den Ort und seine Gerüche ein.")
 					check_quests()
 					return
+	if _interact_guardian():return
 	if first_person and observe():return
 	notify("Nichts in unmittelbarer Nähe. Schnüffle nach Spuren oder nähere dich Wasser und Wegsteinen.")
 
