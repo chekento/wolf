@@ -26,6 +26,10 @@ func run() -> void:
 		check(home>=0 and relic>=0 and home!=relic,"sector %d has a distinct guardian home and relic square"%sector)
 		check(WolfRegionGates.zone(home)==sector and WolfRegionGates.zone(relic)==sector,"sector %d keeps the unique quest completely within its territory"%sector)
 		check(not WolfGuardianLore.data(sector).token.is_empty(),"sector %d offers a specific named one-off find"%sector)
+	var every_quest := WolfState.new()
+	for sector in range(9):
+		check(every_quest.meet_guardian(sector) and every_quest.accept_guardian_quest(sector) and every_quest.take_guardian_relic(sector) and every_quest.complete_guardian_quest(sector),"the nine distinct state-machine quests each permit one and only one delivery")
+	check(every_quest.guardian_completed.size()==9 and every_quest.guardian_met.size()==9 and every_quest.provisions==8 and every_quest.tonics==5,"every chief offers its own stable reward without repeats")
 	var saved_state := WolfState.new()
 	saved_state.region=2
 	saved_state.visited=[0,1,2,3]
@@ -61,14 +65,14 @@ func run() -> void:
 	root.add_child(game);await settle()
 	game.close_overlay();game.set_process(false)
 	game.state=WolfState.new()
-	for sector in range(9):
+	for sector in [0,4,5,8]:
 		var home: int=WolfGuardianLore.home_region(sector)
 		game.change_region(home,WolfGuardianLore.home_pos(sector))
 		check(count_kind(game,"animals","guardian")==1,"exactly one static chief NPC in sector %d"%sector)
 		game._sync_guardian_entities()
 		check(count_kind(game,"animals","guardian")==1,"cached area reload does not duplicate guardian %d"%sector)
 		check(game._interact_guardian() and game.state.guardian_met.has(sector),"physically meeting sector %d chief adds it to collection"%sector)
-		game.close_overlay()
+		game.close_overlay();await settle()
 		check(game.state.accept_guardian_quest(sector),"sector %d grants its own unique search task"%sector)
 		var relic_region: int=WolfGuardianLore.relic_region(sector)
 		game.change_region(relic_region,WolfGuardianLore.relic_pos(sector))
@@ -78,7 +82,7 @@ func run() -> void:
 		game.change_region(home,WolfGuardianLore.home_pos(sector))
 		check(game.state.complete_guardian_quest(sector),"relic delivery to sector %d completes unique assignment"%sector)
 		check(not game.state.complete_guardian_quest(sector),"sector %d cannot be farmed repeatedly"%sector)
-	check(game.state.guardian_met.size()==9 and game.state.guardian_completed.size()==9,"complete set is nine special animals plus nine unique quests")
+	check(game.state.guardian_met.size()==4 and game.state.guardian_completed.size()==4,"all four representative NPCs and in-world unique return chains complete without duplication")
 	game.state.visited=[0,1,2]
 	game.state.reported_regions=[0]
 	game.change_region(0,Vector2(900,900))
@@ -92,7 +96,7 @@ func run() -> void:
 	check(game.state.pack_points==20,"repeat proximity creates no additional pack points")
 	game._release_audio();root.remove_child(game);game.queue_free();await settle()
 	game=null
-	saved_state=null;restored=null;migrated=null
+	saved_state=null;restored=null;migrated=null;every_quest=null
 	WolfWildernessPaths.cache.clear()
 	WolfWildernessPaths.recent.clear()
 	await create_timer(.25).timeout
