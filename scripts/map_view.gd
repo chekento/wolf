@@ -254,7 +254,7 @@ func _draw() -> void:
 			if member.kind=="wolf" and not member.get("guardian",false) and member.p.distance_to(Vector2(1580,2200))<450:
 				draw_arc(member.p+Vector2(0,-54),29*pulse,0,TAU,22,Color("#ffe18a"),2)
 				for i in range(4):
-					var spark := member.p+Vector2(cos(game.clock*2+i*TAU/4),sin(game.clock*2+i*TAU/4))*35+Vector2(0,-58)
+					var spark: Vector2=member.p+Vector2(cos(game.clock*2+i*TAU/4),sin(game.clock*2+i*TAU/4))*35+Vector2(0,-58)
 					draw_circle(spark,4,Color("#ffebbb"))
 	for foot in game.state.pawsteps:
 		if bounds.has_point(foot.p):
