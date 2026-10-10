@@ -90,13 +90,22 @@ func run() -> void:
 		game.state.pos=sibling.p+Vector2(75,0)
 		game._refresh_family_buttons();await settle()
 		check(game.family_cuddle_button.visible and game.family_play_button.visible and game.hud_actions_grid.columns==3,"both extra touch actions appear near siblings and folded buttons reflow")
+		for portrait in [Vector2i(540,960),Vector2i(432,768),Vector2i(360,640)]:
+			root.size=portrait;root.content_scale_size=portrait
+			await settle()
+			for control in [game.family_cuddle_button,game.family_play_button]:
+				check(game.ui.get_global_rect().encloses(control.get_global_rect()) and control.size.x>=52 and control.size.y>=40,"near-sibling social button stays finger-sized and on-screen at %s"%portrait)
+			check(game.hud_lower.get_global_rect().position.y>game.toast_lane.get_global_rect().end.y,"near-sibling action rows leave a real toast clearance at %s"%portrait)
+			game.set_actions_expanded(true);await settle()
+			check(game.hud_actions_grid.columns==3 and game.hud_lower.get_global_rect().position.y>game.toast_lane.get_global_rect().end.y,"expanded social actions remain two compact rows without toast overlap at %s"%portrait)
+			game.set_actions_expanded(false);await settle()
 		var points: int=game.state.pack_points
 		game._family_play()
 		check(game.state.pack_points>points and game.state.pack_signal.action=="play" and not str(game.state.pack_signal.get("target","")).is_empty(),"sibling play targets the exact wolf and awards pack points")
 		game._family_cuddle()
 		check(game.state.pack_signal.action=="cuddle" and game.state.action_counts.cuddle==1,"cuddle is separate physical social event with actual selected wolf")
 	if not mother.is_empty():
-		game.state.pos=mother.p+Vector2(70,0)
+		game.state.pos=mother.p+Vector2(-75,0)
 		game._refresh_family_buttons();await settle()
 		check(game.family_cuddle_button.visible and not game.family_play_button.visible,"parent supports gentler cuddling but no sibling-only play")
 		game.show_parent_lesson("Mutter");await settle()
