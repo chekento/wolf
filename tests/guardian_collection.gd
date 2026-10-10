@@ -12,7 +12,8 @@ func settle() -> void:
 func count_kind(game: Node,key: String,kind: String) -> int:
 	var result := 0
 	for item in game.world[key]:
-		if item.get("guardian",false) if kind=="guardian" else item.get("kind","")==kind:result+=1
+		var matching: bool=bool(item.get("guardian",false)) if kind=="guardian" else str(item.get("kind",""))==kind
+		if matching:result+=1
 	return result
 
 func run() -> void:
