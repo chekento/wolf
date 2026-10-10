@@ -1036,13 +1036,15 @@ func sniff() -> void:
 	notify("Frische Fährten werden goldfarben sichtbar. Folge ihrem Verlauf und untersuche sie." if nearest<500 else "Du riechst Wald, Wasser und ferne Tiere. Suche entlang der Wege weiter.")
 
 func interact() -> void:
-	if _interact_guardian():return
+	# Active local mission actions take precedence over a passive named NPC.
+	# Otherwise a nearby guardian could steal a shelter/rest/water tap.
 	if state.nature_journey_status().accepted and guided_main_story.is_empty():
 		if _interact_nature_journey():return
 		if _interact_main_story():return
 	else:
 		if _interact_main_story():return
 		if _interact_nature_journey():return
+	if _interact_guardian():return
 	# A nearby food source stays usable even when a family member stands there.
 	if state.food_cooldown<=0:
 		for obj in world.objects:
