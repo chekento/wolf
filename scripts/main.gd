@@ -672,7 +672,6 @@ func change_region(index: int,entry: Vector2) -> void:
 		state.village_cleared=true
 		if state.collect_region_item("dorfpass"):
 			notify("Ungesehen durch das Dorf! Du hast den Dorfpass erhalten. Das Gebiet hinter den Menschen ist frei.")
-		_save_game()
 	world=world_memory.region_world(index)
 	world_cache=world_memory.worlds
 	collision_index.build(world.objects)
