@@ -203,6 +203,7 @@ func _draw() -> void:
 	var ground := seasonal_color(Color(WolfWorldData.REGIONS[game.state.region].ground).lerp(Color("#8d9872"),0.08))
 	draw_rect(Rect2(Vector2.ZERO,WolfWorldData.SIZE),ground)
 	_ground_texture(ground,biome)
+	_draw_terrain_character(biome)
 	if biome=="river":
 		var river := PackedVector2Array()
 		for i in range(65):river.append(Vector2(WolfWorldData.river_x(i*50),i*50))
@@ -233,10 +234,15 @@ func _draw() -> void:
 			_draw_track(t.p,Color("#ffda77") if not game.state.found.has(t.id) else Color("#8a9b76"),t.species)
 	for a in game.world.animals:
 		if bounds.has_point(a.p):items.append({"p":a.p,"animal":a})
+	if game.state.region==WolfVillageStealth.VILLAGE:
+		for guard in WolfVillageStealth.guards(game.clock):
+			if bounds.has_point(guard.p):items.append({"p":guard.p,"human":guard})
+	_draw_human_vision()
 	items.append({"p":game.state.pos,"player":true})
 	items.sort_custom(func(a:Dictionary,b:Dictionary):return a.p.y<b.p.y)
 	for item in items:
 		if item.has("object"):_draw_object(item.object,biome)
+		elif item.has("human"):_draw_human(item.human)
 		elif item.has("animal"):
 			var a: Dictionary=item.animal
 			_draw_animal(a.p,a.kind,a.get("facing",Vector2.LEFT),false,a.get("young",false),a.get("gait",0.0),a.get("speed",0.0),a.get("mood","lauschen"),a.get("attention",0.0),str(a.get("phase",0.0)))
@@ -336,6 +342,57 @@ func _draw_nature_site(p: Vector2,biome: String,variant: int) -> void:
 		_:
 			for i in range(4):_sprite(6,p+Vector2(sin(i*2.4)*25,cos(i*2.4)*22),Vector2(48,46)*(.7 if style=="alpine_flowers" else 1.0))
 
+func _draw_terrain_character(biome: String) -> void:
+	# Glacier fissures, packed drifts and layered rock strata stay visually
+	# interesting at all zoom levels without turning every slope into a wall.
+	if biome not in ["snow","alpine"]:return
+	for i in range(12):
+		var x := 100.0+float(i%4)*810.0
+		var y := 360.0+float(i/4)*1040.0
+		var center := Vector2(x,y)
+		if not bounds.grow(180).has_point(center):continue
+		for j in range(4):
+			var a := center+Vector2(-190+j*24,cos(j*.55+i)*26-j*32)
+			var b := center+Vector2(230-j*25,-75+j*22)
+			draw_line(a,b,Color("#b6d9df") if biome=="snow" else Color("#617b78"),14.0 if biome=="snow" else 11.0,true)
+			draw_line(a+Vector2(2,-5),b+Vector2(2,-5),Color("#eef9f8") if biome=="snow" else Color("#bec9b8"),3.0,true)
+		if biome=="snow":
+			draw_arc(center+Vector2(30,65),190,PI*.9,PI*1.96,32,Color("#f3faf8"),10.0,true)
+			draw_arc(center+Vector2(42,78),125,PI*.9,PI*1.9,28,Color("#a2c9d7"),4.0,true)
+		else:
+			for n in range(3):
+				var q := center+Vector2(-120+n*90,-150)
+				draw_colored_polygon(PackedVector2Array([q-Vector2(130,-60),q+Vector2(50,-170-n*14),q+Vector2(140,45)]),Color("#829793").lerp(Color("#a5b4a5"),float(n)*.22))
+
+func _draw_human_vision() -> void:
+	if game.state.region!=WolfVillageStealth.VILLAGE:return
+	for person in WolfVillageStealth.guards(game.clock):
+		var pos: Vector2=person.p
+		if not bounds.grow(500).has_point(pos):continue
+		var direction: Vector2=person.facing
+		var half := WolfVillageStealth.HALF_ANGLE
+		var points := PackedVector2Array([pos])
+		for i in range(15):
+			var rotation := -half+float(i)/14.0*half*2.0
+			points.append(pos+direction.rotated(rotation)*WolfVillageStealth.GUARD_RANGE)
+		draw_colored_polygon(points,Color(0.92,0.73,0.39,0.13))
+		draw_line(pos,pos+direction.rotated(-half)*WolfVillageStealth.GUARD_RANGE,Color(0.94,0.8,0.5,0.32),3,true)
+		draw_line(pos,pos+direction.rotated(half)*WolfVillageStealth.GUARD_RANGE,Color(0.94,0.8,0.5,0.32),3,true)
+
+func _draw_human(person: Dictionary) -> void:
+	var pos: Vector2=person.p
+	var d: Vector2=person.facing
+	var side := Vector2(-d.y,d.x)
+	draw_circle(pos+Vector2(0,6),20,Color(0.08,0.14,0.12,0.28))
+	draw_line(pos-side*7-d*10,pos-side*7+d*16,Color("#3d5760"),8,true)
+	draw_line(pos+side*7-d*10,pos+side*7+d*16,Color("#3d5760"),8,true)
+	draw_circle(pos,17,Color("#476279") if int(person.id)%2==0 else Color("#8e674d"))
+	draw_line(pos-side*22,pos+side*22,Color("#bca188"),9,true)
+	draw_circle(pos-d*14,12,Color("#e4be99"))
+	draw_arc(pos-d*14,10,0,TAU,24,Color("#654b36"),3,true)
+	draw_circle(pos-d*14+side*4+d*4,2,Color("#2b3834"))
+	draw_line(pos-d*22,pos-d*35,Color("#f7dda8"),2,true)
+
 func _draw_object(obj: Dictionary,biome: String) -> void:
 	var p: Vector2=obj.p
 	var s: float=obj.scale
@@ -377,7 +434,7 @@ func _draw_object(obj: Dictionary,biome: String) -> void:
 				var q := p+Vector2(cos(i*0.7),sin(i*0.7))*(r+9)
 				_sprite(4,q,Vector2(60,55))
 		"food":
-			if game.state.food_cooldown<=0:
+			if game.state.food_cooldown<=0 and game.state.food_visible(obj):
 				draw_circle(p,19,Color("#d6c398"))
 				draw_circle(p+Vector2(-5,-1),12,Color("#b37b58"))
 				draw_circle(p+Vector2(8,2),8,Color("#cd936d"))
