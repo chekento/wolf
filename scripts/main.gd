@@ -1966,7 +1966,7 @@ func show_settings() -> void:
 	card(v,"Deine Wildnis","%s · Tag %d\nWähle die Atmosphäre, die zu dir passt. Menüs halten die Zeit an."%[state.season_name(),state.day()])
 	v.add_child(button("3D-Kamera: "+("Folgekamera" if state.camera_follow else "Wolfsblick"),func():switch_camera();show_settings()))
 	v.add_child(button(("✓  " if state.compact_hud else "○  ")+"Mehr Platz für die Wildnis",func():set_hud_compact(not state.compact_hud);show_settings()))
-	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"],["map_reveal","Zusatzhinweise bei besuchten Orten"]]:
+	for item in [["sound_enabled","Naturklang & Rufe"],["weather_enabled","Wettereffekte"],["reduced_motion","Ruhige Animationen"],["smooth_edges","Weiche Kanten in 3D"]]:
 		var setting: String=item[0]
 		var toggle := button(("✓  " if state.get(setting) else "○  ")+item[1],func():
 			state.set(setting,not state.get(setting));_save_game()
