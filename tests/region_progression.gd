@@ -110,6 +110,12 @@ func run() -> void:
 	game.close_overlay()
 	game._release_audio();root.remove_child(game);game.queue_free()
 	await settle()
+	game=null
+	# Headless renderer and cached wilderness trails can retain refcounted
+	# data for another idle frame after scene teardown.
+	WolfWildernessPaths.cache.clear()
+	WolfWildernessPaths.recent.clear()
+	await create_timer(.25).timeout
 	# The coroutine remains on the stack until quit; release its extra
 	# RefCounted save-test objects before engine teardown.
 	fresh=null
