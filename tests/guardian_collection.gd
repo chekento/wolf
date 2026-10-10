@@ -83,8 +83,10 @@ func run() -> void:
 		check(game.state.complete_guardian_quest(sector),"relic delivery to sector %d completes unique assignment"%sector)
 		check(not game.state.complete_guardian_quest(sector),"sector %d cannot be farmed repeatedly"%sector)
 	check(game.state.guardian_met.size()==1 and game.state.guardian_completed.size()==1,"actual in-world NPC encounter, unique find and hand-in complete without duplication")
-	game.state.visited=[0,1,2]
-	game.state.reported_regions=[0]
+	var recent_visits: Array[int]=[0,1,2]
+	var already_reported: Array[int]=[0]
+	game.state.visited=recent_visits
+	game.state.reported_regions=already_reported
 	game.change_region(0,Vector2(900,900))
 	game.clock=50
 	game._maybe_pack_welcome()
