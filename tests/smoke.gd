@@ -134,6 +134,8 @@ func run() -> void:
 	game.world.animals=game.world.animals.slice(0,1)
 	game.world.objects=[{"kind":"tree","p":Vector2(800,700),"scale":1.0,"variant":0}]
 	check(not game.observe(),"tree blocks animal observation")
+	# Long-range navigation becomes available after the region-pass challenges.
+	for sector in WolfRegionGates.ITEMS:game.state.collect_region_item(str(WolfRegionGates.ITEMS[sector].id))
 	var route: Array[int]=game.route_to(63)
 	var previous_region: int=game.state.region
 	var valid_route: bool=not route.is_empty()

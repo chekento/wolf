@@ -2,17 +2,19 @@
 
 [![Wolf – Download Android APK](docs/download-android-apk.svg)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
 
-### 📱 [**Download Android APK – Wolf 0.12.2 direkt herunterladen**](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
+### 📱 [**Download Android APK – Wolf 0.13.0 direkt herunterladen**](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
 
 [🇬🇧 Download latest Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk) · [Alle Releases / All releases](https://github.com/chekento/wolf/releases)
 
-[![Android APK 0.12.2](https://img.shields.io/badge/Android-APK%200.12.2-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
-[![Version](https://img.shields.io/badge/Version-0.12.2-5865F2?style=for-the-badge)](CHANGELOG.md)
+[![Android APK 0.13.0](https://img.shields.io/badge/Android-APK%200.13.0-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)
+[![Version](https://img.shields.io/badge/Version-0.13.0-5865F2?style=for-the-badge)](CHANGELOG.md)
 [![Godot](https://img.shields.io/badge/Godot-4.5.1-478CBF?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org/)
 
 **[🇩🇪 Deutsch](#-deutsch) · [🇬🇧 English](#-english)**
 
-**Neu in 0.12.2 / New in 0.12.2:** Willkommensinfos jetzt direkt über den Text scrollen; oben Hunger, Durst, Kraft und Rudel stets als Zahlen mit Minibalken; vier praktische Aktionen ein-/ausklappbar, Rudel und Geschichte in einer schmalen untersten Zeile. / Scroll by dragging anywhere across welcome cards, always-visible numeric compact stats, collapsible four-action tray and discreet pack/story utility buttons.
+**Neu in 0.13.0 / New in 0.13.0:** Neun zusammenhängende Landschaftssektoren mit echten Revierpass-Sperren, drei anspruchsvollen Duftentscheidungen je Item, vier Menschen mit Sichtkegeln und Schleichpassage durchs Dorf, erschnüffelbare Nahrung und überarbeitete Gletscher- und Berglandschaften. / Nine connected world sectors, collectible passes, three-question scent challenges, moving human guards and village stealth, scent-found forage, enhanced glacier and mountain terrain.
+
+**0.12.2:** Willkommensinfos jetzt direkt über den Text scrollen; oben Hunger, Durst, Kraft und Rudel stets als Zahlen mit Minibalken; vier praktische Aktionen ein-/ausklappbar, Rudel und Geschichte in einer schmalen untersten Zeile. / Scroll by dragging anywhere across welcome cards, always-visible numeric compact stats, collapsible four-action tray and discreet pack/story utility buttons.
 
 **0.12.1:** Multitouch: unabhängige Finger für Joystick, 3D-Kamerablick, gleichzeitig erreichbare Aktionstasten und Sprint/Leise, mit Finger-ID-Verfolgung und zuverlässigem Abbruch bei Menüwechsel oder App-Wechsel. In Menüs bleibt das normale Tippen und Scrollen erhalten. / Independent multitouch finger ownership for stick, 3D look, action taps and movement toggles; gesture cleanup on pause/menu, normal menu scrolling preserved.
 
@@ -164,7 +166,7 @@ Seit Version 0.9.0 gibt es:
 
 Dazu kommen bewegtes Wasser, Wolken, Mond, Sterne, Regen, Schnee, Nebel und jahreszeitliche Farbänderungen.
 
-Version 0.12.2 korrigiert den seitlichen Versatz bei Wolfaktionen. Die erste Hauptmission verwendet den erreichbaren Höhleneingang und tatsächliche ruhige Mutternähe. Ein kompakter einklappbarer Missionshinweis hält Toasttexte getrennt; Details bleiben über **?** erreichbar. Rudelmitglieder nutzen getrennte körperlich erreichbare Näheziele.
+Version 0.13.0 korrigiert den seitlichen Versatz bei Wolfaktionen. Die erste Hauptmission verwendet den erreichbaren Höhleneingang und tatsächliche ruhige Mutternähe. Ein kompakter einklappbarer Missionshinweis hält Toasttexte getrennt; Details bleiben über **?** erreichbar. Rudelmitglieder nutzen getrennte körperlich erreichbare Näheziele.
 
 ## 📸 Echte Spielaufnahmen
 
@@ -237,7 +239,7 @@ Wetter, Licht und Umgebung verändern die Atmosphäre über:
 
 ## 📱 Android-Download
 
-**Aktuelle Version: 0.12.2 · Rudelnähe & HUD**
+**Aktuelle Version: 0.13.0 · Rudelnähe & HUD**
 
 1. **[Download Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)** antippen (oder den Banner oben).
 2. Die heruntergeladene Datei `Wolf-android.apk` auf Android öffnen und installieren.
@@ -258,7 +260,7 @@ Technik:
 
 ## 🧪 Entwicklungsstand
 
-Version **0.12.2** wurde laut aktuellem Prüfbericht mit **3513 Prüfungen** validiert.
+Version **0.13.0** wurde laut aktuellem Prüfbericht mit **3513 Prüfungen** validiert.
 
 Noch nicht vollständig umgesetzt sind unter anderem:
 
@@ -270,7 +272,7 @@ Noch nicht vollständig umgesetzt sind unter anderem:
 Weitere Dokumentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validierung 0.12.2](docs/validation-0.12.2.md)
+- [Validierung 0.13.0](docs/validation-0.13.0.md)
 - [Android-Installation](docs/android-install.md)
 - [Grafikherkunft & Schriftlizenz](docs/art-assets.md)
 - [Entwicklungsübergabe](docs/development-handoff.md)
@@ -413,7 +415,7 @@ Since version 0.9.0:
 
 Animated water, clouds, moon, stars, rain, snow, fog and seasonal colour changes add atmosphere.
 
-Version 0.12.2 fixes the sideways jump when wolf actions change. The first main mission uses the reachable den entrance and actual calm proximity to the mother. A compact collapsible mission hint separates toast messages; full details remain available through **?**. Pack members use separate physically reachable nearby goals.
+Version 0.13.0 fixes the sideways jump when wolf actions change. The first main mission uses the reachable den entrance and actual calm proximity to the mother. A compact collapsible mission hint separates toast messages; full details remain available through **?**. Pack members use separate physically reachable nearby goals.
 
 ## 📸 Real gameplay screenshots
 
@@ -486,7 +488,7 @@ Atmosphere changes through:
 
 ## 📱 Android download
 
-**Current version: 0.12.2 · Pack proximity & HUD**
+**Current version: 0.13.0 · Pack proximity & HUD**
 
 1. Tap **[Download Android APK](https://github.com/chekento/wolf/releases/latest/download/Wolf-android.apk)** (or the banner above).
 2. Open the downloaded `Wolf-android.apk` file on Android and install it.
@@ -507,7 +509,7 @@ Technical requirements:
 
 ## 🧪 Development status
 
-Version **0.12.2** is documented as validated with **3,513 checks** in the current validation report.
+Version **0.13.0** is documented as validated with **3,513 checks** in the current validation report.
 
 Not yet fully implemented:
 
@@ -519,7 +521,7 @@ Not yet fully implemented:
 Further documentation:
 
 - [Changelog](CHANGELOG.md)
-- [Validation 0.12.2](docs/validation-0.12.2.md)
+- [Validation 0.13.0](docs/validation-0.13.0.md)
 - [Android installation](docs/android-install.md)
 - [Art assets & font licence](docs/art-assets.md)
 - [Development handoff](docs/development-handoff.md)
@@ -552,7 +554,7 @@ godot --headless --script tests/animal_detail.gd
 godot --headless --script tests/nature_journeys.gd
 godot --headless --script tests/nature_journey_controls.gd
 godot --headless --script tests/nature_journey_integration.gd
-godot --headless --export-debug Android builds/Wolf-0.12.2-debug.apk
+godot --headless --export-debug Android builds/Wolf-0.13.0-debug.apk
 ```
 
 Idea and direction / Idee und Ausrichtung: **KoSch / Kolja Werner Schumann**.

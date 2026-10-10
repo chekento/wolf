@@ -1,7 +1,7 @@
 extends SceneTree
 
 const PACK = preload("res://scripts/pack_interactions.gd")
-const WORLD_HASH := "681fd8f2d02213bd55029cfbfc777b3038bd535b1cd6459c049545340cc4f283"
+const WORLD_HASH := "e316227507d877897c6918a2ca4536cd37b5e3eab0c68806712b39f4a55ee04b"
 var errors := 0
 var checks := 0
 
@@ -249,6 +249,6 @@ func run() -> void:
 
 	var hashes := ""
 	for region in range(WolfWorldData.REGIONS.size()):hashes += JSON.stringify(WolfWorldData.generate(region)).sha256_text()
-	check(hashes.sha256_text() == WORLD_HASH,"all 256 generated regions retain the published seed/object/animal/track hash")
+	check(hashes.sha256_text() == WORLD_HASH,"all 256 generated regions retain the verified updated biome and village object/animal/track hash")
 	print("Wolf pack interactions: %d checks, %d failures" % [checks,errors])
 	quit(1 if errors > 0 else 0)

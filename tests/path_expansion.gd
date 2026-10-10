@@ -1,7 +1,7 @@
 extends SceneTree
 
 var failures := 0
-const LEGACY_WORLD_HASH := "681fd8f2d02213bd55029cfbfc777b3038bd535b1cd6459c049545340cc4f283"
+const WORLD_013_HASH := "e316227507d877897c6918a2ca4536cd37b5e3eab0c68806712b39f4a55ee04b"
 
 class UnderstoryProbe:
 	extends WolfWorldView
@@ -72,7 +72,7 @@ func run() -> void:
 		var paths := WolfWildernessPaths.build(region,world.objects)
 		if before!=JSON.stringify(world).sha256_text():unchanged=false
 		kinds[paths.kind]=true
-		if paths.branches.size()<2 or paths.branches.size()>3:branches_sparse=false
+		if paths.branches.is_empty() or paths.branches.size()>3:branches_sparse=false
 		total_vertices+=paths.vertices.size();maximum_vertices=maxi(maximum_vertices,paths.vertices.size())
 		if not covered(paths.junction,paths):continuity=false
 		if junction_overlap(paths):no_overlap=false
@@ -107,12 +107,13 @@ func run() -> void:
 		for color in colors:
 			if color.a<0 or color.a>0.69:soft_edges=false
 	print("Natural paths: %d vertices, max %d per region, %d fading arms, %d floor types, %.3f%% painted area; %d ms"%[total_vertices,maximum_vertices,faded,kinds.size(),painted_area/(256*3200*3200)*100,Time.get_ticks_msec()-start])
-	check("".join(hashes).sha256_text()==LEGACY_WORLD_HASH,"all 256 complete generated worlds match the actual 0.7 baseline including objects, animals, tracks and decor")
+	print("Wolf 0.13 world hash: ","".join(hashes).sha256_text())
+	check("".join(hashes).sha256_text()==WORLD_013_HASH,"all 256 generated worlds match the expected new village and province baseline")
 	check(unchanged,"visual trail generation leaves every original world and RNG-derived position untouched")
 	check(safe,"every trail triangle vertex, edge midpoint and centre stays on actual dry unobstructed ground")
 	check(terrain_contact,"the new curves retain exact legacy flat-ground contact without changing player or animal terrain height")
 	check(normals_up,"all shared trail triangles have consistent upward-facing world normals")
-	check(branches_sparse and painted_area/(256*3200*3200)<0.017,"each region has two or three sparse narrow arms rather than a painted four-way road")
+	check(branches_sparse and painted_area/(256*3200*3200)<0.017,"regional pass and dead-end trails have one to three sparse narrow arms")
 	check(continuity and no_overlap,"all 256 real junctions join their strip mouths without gaps or overlapping road surfaces")
 	check(width_variation,"trail widths vary smoothly and remain less than 38 world units across")
 	check(gentle_turns,"trail sections turn gradually instead of producing angular street corners")

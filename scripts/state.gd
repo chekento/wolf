@@ -44,6 +44,9 @@ var map_reveal := false
 var camera_follow := false
 var smooth_edges := true
 var compact_hud := true
+var region_items: Array[String]=[]
+var food_found: Array[String]=[]
+var village_cleared := false
 var pawsteps: Array[Dictionary] = []
 var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"play":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
 var active_encounter: Dictionary = {}
@@ -153,6 +156,30 @@ func biomes_visited() -> Array[String]:
 
 func pack_routine(role: String="Mutter") -> Dictionary:
 	return WolfPackLife.routine(hour(),role)
+
+func can_enter_region(target: int) -> bool:
+	if target<0 or target>=WolfWorldData.REGIONS.size():return false
+	# A pass unlocks a whole connected sector; it is never required again
+	# between its own tiles. This also preserves legacy saves in outer zones.
+	if WolfRegionGates.zone(target)==WolfRegionGates.zone(region):return true
+	return WolfRegionGates.accessible(region_items,target,visited)
+
+func collect_region_item(item: String) -> bool:
+	for zone in WolfRegionGates.ITEMS:
+		if str(WolfRegionGates.ITEMS[zone].id)!=item:continue
+		if region_items.has(item):return false
+		region_items.append(item)
+		xp+=35
+		record("Neuer Revierpass · "+str(WolfRegionGates.ITEMS[zone].name)+" · Ein zusammenhängender Landstrich ist erreichbar.")
+		return true
+	return false
+
+func food_key(object: Dictionary) -> String:
+	var p: Vector2=object.get("p",Vector2.ZERO)
+	return "%d:%d:%d"%[region,roundi(p.x),roundi(p.y)]
+
+func food_visible(object: Dictionary) -> bool:
+	return region==0 or food_found.has(food_key(object))
 
 func main_story_status() -> Dictionary:
 	return WolfMainStory.status(main_story_progress,region,pos,escort)
@@ -361,7 +388,7 @@ func _preview_encounter() -> Dictionary:
 	if result.task=="visit":
 		var target := -1
 		for neighbor in WolfWorldData.REGIONS[region].links.values():
-			if not visited.has(int(neighbor)):target=int(neighbor);break
+			if not visited.has(int(neighbor)) and WolfRegionGates.accessible(region_items,int(neighbor),visited):target=int(neighbor);break
 		if target>=0:result.target_region=target
 		else:result=_journey_encounter(result)
 	if result.task=="tracks":
@@ -574,7 +601,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"region_items":region_items,"food_found":food_found,"village_cleared":village_cleared,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -640,6 +667,19 @@ func load_from(path: String = "") -> bool:
 	camera_follow=data.camera_follow if data.get("camera_follow") is bool else false
 	smooth_edges=data.smooth_edges if data.get("smooth_edges") is bool else true
 	compact_hud=data.compact_hud if data.get("compact_hud") is bool else true
+	region_items.clear()
+	if data.get("region_items") is Array:
+		for entry in data.region_items:
+			if entry is String and not region_items.has(entry):
+				for sector in WolfRegionGates.ITEMS:
+					if str(WolfRegionGates.ITEMS[sector].id)==entry:region_items.append(entry)
+	food_found.clear()
+	if data.get("food_found") is Array:
+		for entry in data.food_found:
+			if entry is String and entry.length()<64 and entry.count(":")==2 and food_found.size()<512 and not food_found.has(entry):
+				food_found.append(entry)
+	village_cleared=bool(data.get("village_cleared",false))
+	if village_cleared and not region_items.has("dorfpass"):region_items.append("dorfpass")
 	drank=bool(data.get("drank",false))
 	rested=bool(data.get("rested",false))
 	howled=bool(data.get("howled",false))

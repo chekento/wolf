@@ -91,7 +91,7 @@ static func _branch(region: int,junction: Vector2,direction: String,fraction: fl
 		var legacy := _legacy_center(along,region)
 		var start_center := _legacy_center(origin,region)
 		var start_offset: float=(junction.y if horizontal else junction.x)-start_center
-		var wander: float=sin(t*PI)*(sin(t*PI*3+phase)*13+sin(t*PI*5-phase)*6)
+		var wander: float=sin(t*PI)*(sin(t*PI*3+phase)*9+sin(t*PI*5-phase)*3.5)
 		var across := legacy+start_offset*pow(1-t,4)+wander
 		var point := Vector2(along,across) if horizontal else Vector2(across,along)
 		if horizontal and WolfWorldData.REGIONS[region].biome=="river":

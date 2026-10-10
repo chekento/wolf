@@ -161,6 +161,8 @@ func _world() -> void:
 		var c := Color(region.ground)
 		var paper := c.lerp(Color("#ded5ae"),0.30)
 		draw_rect(rect,paper.lerp(Color("#aaa98d"),0.60) if not known else paper)
+		var locked: bool=not game.state.can_enter_region(index)
+		if locked:draw_rect(rect,Color(0.08,0.15,0.19,0.48))
 		var random := RandomNumberGenerator.new()
 		random.seed=region.seed
 		for i in range(9):
@@ -182,10 +184,14 @@ func _world() -> void:
 		if selected==index:draw_rect(rect.grow(-2),Color("#ffe8a0"),false,3)
 		if index==0:_paw(middle,cell*0.075,Color("#4c4937"))
 		if game.state.marked.has(index):draw_arc(middle,cell*0.14,0,TAU,20,Color("#f0d990"),1.5)
+		if locked:
+			draw_circle(middle,cell*.19,Color(0.10,0.20,0.22,0.76))
+			if cell>=16:
+				draw_string(ThemeDB.fallback_font,middle+Vector2(-cell*.12,cell*.10),"×",HORIZONTAL_ALIGNMENT_CENTER,cell*.24,maxi(10,int(cell*.29)),Color("#ebd4a5"))
 		if not known:
 			for cloud in range(3):draw_circle(middle+Vector2((cloud-1)*cell*0.2,sin(index+cloud)*cell*0.12),cell*0.24,Color(0.72,0.73,0.64,0.32))
 		if cell>72:
-			var name: String=region.name if known else "Unerkundet"
+			var name: String="Pass gesperrt" if locked else region.name if known else "Unerkundet"
 			var font := ThemeDB.fallback_font
 			draw_string(font,p+Vector2(5,cell-10),name,HORIZONTAL_ALIGNMENT_CENTER,cell-10,11,Color("#253e34"))
 	var player: Vector2=origin+(Vector2(WolfWorldData.REGIONS[game.state.region].coord)+game.state.pos/3200)*cell
@@ -291,11 +297,12 @@ func _draw_exits(origin: Vector2,scale_value: float) -> void:
 		if not Rect2(Vector2.ZERO,size).grow(12).has_point(q):continue
 		var outward: Vector2={"north":Vector2.UP,"south":Vector2.DOWN,"west":Vector2.LEFT,"east":Vector2.RIGHT}[direction]
 		var side := Vector2(-outward.y,outward.x)
-		draw_circle(q,11,Color("#eee0b2"))
+		draw_circle(q,11,Color("#eee0b2") if game.state.can_enter_region(target) else Color("#9a6a65"))
 		draw_colored_polygon(PackedVector2Array([q+outward*7,q-outward*4+side*5,q-outward*4-side*5]),Color("#576b4a"))
 		if magnification<1.3:continue
 		var known: bool=game.state.visited.has(target) or game.state.map_reveal
 		var caption: String=WolfWorldData.REGIONS[target].name if known else "Neue Wildnis"
+		if not game.state.can_enter_region(target):caption="Gesperrt · "+WolfRegionGates.pass_name(target)
 		var font := ThemeDB.fallback_font
 		var text_width := minf(font.get_string_size(caption,HORIZONTAL_ALIGNMENT_LEFT,-1,11).x,size.x-24)
 		var baseline := (q-outward*23+Vector2(-text_width*0.5,4)).clamp(Vector2(8,18),size-Vector2(text_width+8,40))

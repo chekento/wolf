@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.0 · Freischaltbare Reviere, Menschen und Nahrungssuche
+
+- Die 256 Gebiete bleiben mit stabilen IDs erhalten, gehören jedoch zu neun zusammenhängenden großen Landschaftssektoren. Provinzgrenzen haben jeweils nur einen gezielten Pass; das Menschendorf ist eine echte Ein-/Ausgangspassage.
+- Sieben Items erhält man über wirklich gefundene Fährten und die gelaufene Strecke sowie drei aufeinanderfolgende mittelschwere Duftfragen. Ein Fehler setzt die Prüfung zurück. Der achte Pass wird durch unentdecktes Durchqueren des Dorfes verdient.
+- Bewegte Menschengestalten in der 2D- und 3D-Landschaft, echte Blickrichtungen und 2D-Sichtkegel, Verdeckung durch Gebäude und Bäume, Sichtweiten-Vorteil beim Schleichen. Bei Entdeckung wird der Wolf an den westlichen Dorfeingang zurückgesetzt.
+- Nahrung außerhalb des Tutorials ist verborgen, muss nahe einer Futterquelle erschnüffelt und anschließend per Aktion aufgenommen werden. Die bekannte erste Mahlzeit bei der Rudelhöhle bleibt erhalten.
+- Zusätzliche Gletscherfurchen, Schneeverwehungen, alpine Felsterrassen und Dorfgebäude.
+- Atlas kennzeichnet gesperrte Sektoren und das erforderliche Item. Ein neues Revierpass-Menü erläutert Voraussetzungen und startet die Duftprüfungen.
+- Kompatible Spielstände im bestehenden Format 4: Bereits besuchte Orte bleiben begehbar, neue Gebiete benötigen ihre Items. Automatisierte Passage-, Save-, Stealth- und Nahrungsprüfungen.
+
+
 ## 0.12.2 · Lesbare Statuswerte, scrollbare Texte, aufklappbare Aktionen
 
 - Begrüßungsbild und sämtliche Informationskarten geben vertikale Wischgesten an den Scrollcontainer weiter; Scrollen funktioniert jetzt auch direkt auf Textflächen und Hintergrundkarten.

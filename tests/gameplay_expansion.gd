@@ -120,7 +120,7 @@ func run() -> void:
 		if food_count!=3 or den_count!=2 or water_count!=1:resources_safe=false
 		for animal in data.animals:
 			if not WolfWorldData.walkable(animal.p,data.objects) or WolfWorldData.water_blocked(animal.p,index):species_valid=false
-	check(seen_coords.size()==256 and directed_links==960,"complete grid has unique coordinates and reciprocal links")
+	check(seen_coords.size()==256 and directed_links==844,"all 256 unique map coordinates now use precisely the intended choke-point topology")
 	check(entries_safe,"every regional entrance remains water-safe and unblocked")
 	check(sites_safe and nature_count==1536,"all 1,536 distinct nature sites stand on reachable dry ground")
 	check(resources_safe,"every region provides accessible food, water and two rest places")
