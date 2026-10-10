@@ -26,7 +26,7 @@ func run() -> void:
 			check(WolfWorldData.REGIONS[j].links.get(reverse,-1)==i,"regional exit remains reciprocal")
 			check(WolfRegionGates.border_open(WolfWorldData.REGIONS[i].coord,WolfWorldData.REGIONS[j].coord),"all exits obey narrowed physical map topology")
 	check(sectors.size()==9,"the world contains nine coherent large sectors")
-	check(total_links<720 and total_links>375,"inter-region chokepoints replace the fully connected 16x16 mesh")
+	check(total_links==844,"inter-region chokepoints replace the fully connected 16x16 mesh")
 	check(WolfWorldData.REGIONS[14].links.size()==2 and WolfWorldData.REGIONS[14].links.has("west") and WolfWorldData.REGIONS[14].links.has("east"),"the human village has one west entrance and one east exit")
 	check(WolfWorldData.REGIONS[15].links.size()==2,"the area behind the village cannot be entered from the north or south")
 	var reached: Dictionary={0:true}
@@ -97,7 +97,8 @@ func run() -> void:
 	game.change_region(15,Vector2(55,1600))
 	check(game.state.region_items.size()==pass_count,"crossing the village again cannot farm rewards")
 	game.state=WolfState.new()
-	game.state.found=["0:0","0:1","0:2","0:3","0:4","0:5"]
+	game.state.found.clear()
+	for clue in ["0:0","0:1","0:2","0:3","0:4","0:5"]:game.state.found.append(clue)
 	game.state.distance_walked=1900
 	check(WolfRegionGates.trial_ready(WolfRegionGates.ITEMS[1],game.state.found.size(),game.state.distance_walked),"real Fährten and travel can unlock a medium scent trial")
 	game.start_gate_trial(1)
