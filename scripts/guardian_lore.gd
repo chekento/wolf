@@ -32,7 +32,8 @@ static func relic_pos(zone: int) -> Vector2:
 	return WolfWorldData.nature_sites(region)[4].p if region>=0 else WolfWorldData.CENTER
 
 static func home_pos(zone: int) -> Vector2:
-	return Vector2(890,1080) if zone==4 else Vector2(1650,960)
+	# A quiet public trail clearing well away from story shelters and water.
+	return Vector2(1600,315)
 
 static func find_zone(region: int) -> int:
 	return WolfRegionGates.zone(region)
