@@ -85,6 +85,9 @@ var hud_lower: HBoxContainer
 var actions_fold: Button
 var actions_expanded := false
 var pack_button: Button
+var family_cuddle_button: Button
+var family_play_button: Button
+var family_button_mode := -1
 var hud_bottom_controls: Array[Button]=[]
 var hud_layout_width_mode := -1
 var village_exposure := 0.0
@@ -448,6 +451,16 @@ func _build_ui() -> void:
 		hud_actions_grid.add_child(action)
 		hud_action_controls.append(action)
 		if item[0]=="Aktion":action_button=action
+	family_cuddle_button=button("Kuscheln",_family_cuddle)
+	family_cuddle_button.tooltip_text="Kuschele mit einem erreichbaren Familienmitglied; Geschwister freuen sich besonders."
+	family_cuddle_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	family_cuddle_button.hide()
+	hud_actions_grid.add_child(family_cuddle_button)
+	family_play_button=button("Spielen",_family_play)
+	family_play_button.tooltip_text="Spiele nur mit einem Geschwister in Pfotennähe."
+	family_play_button.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	family_play_button.hide()
+	hud_actions_grid.add_child(family_play_button)
 	var bottom := HBoxContainer.new()
 	ui.add_child(bottom)
 	bottom.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -508,12 +521,15 @@ func set_actions_expanded(expanded: bool) -> void:
 	if not is_instance_valid(hud_lower):return
 	# Expanded: a relaxed 2x2 action pad; folded: four small one-row actions.
 	# The six secondary utilities always stay on their own unobtrusive row.
-	hud_actions_grid.columns=2 if expanded else 4
-	hud_lower.offset_top=-237 if expanded else -183
+	var family_count := int(family_cuddle_button.visible)+int(family_play_button.visible)
+	# Six nearby family actions fit in two rows (3 x 2) both folded
+	# and expanded, preserving the toast/mission space on small phones.
+	hud_actions_grid.columns=3 if family_count>0 else 2 if expanded else 4
+	hud_lower.offset_top=-237 if expanded else -234 if family_count>0 else -183
 	actions_fold.text="⌄  Weniger Aktionen" if expanded else "⌃  Mehr Aktionen"
 	actions_fold.tooltip_text="Aktionsmenü verkleinern" if expanded else "Aktionsmenü aufklappen"
 	var narrow := ui.size.x<440
-	for action in hud_action_controls:
+	for action in hud_action_controls+[family_cuddle_button,family_play_button]:
 		action.custom_minimum_size.y=51 if expanded else 43
 		action.add_theme_font_size_override("font_size",14 if expanded else 12)
 		for key in ["normal","hover","pressed"]:
@@ -611,6 +627,7 @@ func _process(dt: float) -> void:
 	status_timer+=dt
 	if status_timer>0.25:
 		status_timer=0
+		_refresh_family_buttons()
 		check_quests()
 		_refresh_encounter_guide()
 		_refresh_main_story_guide()
@@ -936,7 +953,7 @@ func _look_input(event: InputEvent) -> void:
 # A finger owns exactly one surface for its lifetime: joystick, 3D look,
 # or a HUD button. No finger may hijack another finger's gesture.
 func _touch_button_at(pos: Vector2) -> Button:
-	var controls: Array[Button]=[fold_button,menu_button,encounter_button,camera_button,observation_fold,observation_details,actions_fold]
+	var controls: Array[Button]=[fold_button,menu_button,encounter_button,camera_button,observation_fold,observation_details,actions_fold,family_cuddle_button,family_play_button]
 	controls.append_array(hud_action_controls)
 	controls.append_array(hud_bottom_controls)
 	for control in controls:
@@ -1031,6 +1048,7 @@ func sniff() -> void:
 	if newly_discovered>0:
 		notify("Du hast %d versteckte Nahrungsspur(en) unter Blättern oder Schnee aufgespürt. Nähere dich und sammle mit Aktion."%newly_discovered)
 		_save_game()
+	state.note_action("sniff")
 	player_mood="schnüffeln"
 	action_timer=2
 	var nearest := 9999.0
@@ -1077,7 +1095,12 @@ func interact() -> void:
 			mark_territory()
 			return
 	for a in world.animals:
-		if a.kind=="wolf" and not a.get("guardian",false) and a.p.distance_to(state.pos)<135:
+		if a.kind=="wolf" and not a.get("guardian",false) and not a.get("companion",false) and a.p.distance_to(state.pos)<145:
+			# First contact stays a real greeting for the story and old
+			# saves; a second nearby tap starts the parent's lesson dialogue.
+			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family" and state.elapsed-last_pack_visit<20:
+				show_parent_lesson(str(a.role))
+				return
 			if state.elapsed-last_pack_visit<20:
 				notify("Das Rudel bleibt bei dir. Lass ihm einen Moment Ruhe.")
 				return
@@ -1100,6 +1123,7 @@ func interact() -> void:
 			distance=d
 	if not best.is_empty():
 		state.found.append(best.id)
+		state.note_action("track")
 		state.skills.nose=mini(100,int(state.skills.nose)+1)
 		player_mood="schnüffeln";action_timer=2
 		state.record("Fährte · "+best.species+" im Gebiet "+WolfWorldData.REGIONS[state.region].name+". Die Trittsiegel sind noch frisch.")
@@ -1386,7 +1410,9 @@ func context_action() -> String:
 		for obj in world.objects:
 			if obj.kind=="den" and obj.p.distance_to(state.pos)<190:return "Ruhen"
 	for a in world.animals:
-		if a.kind=="wolf" and a.p.distance_to(state.pos)<135:return "Begrüßen"
+		if a.kind=="wolf" and a.p.distance_to(state.pos)<145 and not a.get("guardian",false):
+			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family" and state.elapsed-last_pack_visit<20:return "Reden"
+			return "Begrüßen"
 	for t in world.tracks:
 		if scent_time>0 and not state.found.has(t.id) and t.p.distance_to(state.pos)<100:return "Spur lesen"
 	for obj in world.objects:
@@ -1907,6 +1933,106 @@ func guide_new_region(unmarked: bool=false) -> void:
 			if not (state.marked.has(target) if unmarked else state.visited.has(target)):
 				set_waypoint(target,Vector2(1600,1600));return
 
+func _nearest_family(role: String="",distance_limit: float=170.0) -> Dictionary:
+	if state.region!=0:return {}
+	var selected: Dictionary={}
+	var nearest := distance_limit
+	for wolf in world.animals:
+		if wolf.kind!="wolf" or wolf.get("guardian",false) or wolf.get("companion",false):continue
+		if not role.is_empty() and str(wolf.get("role",""))!=role:continue
+		var dist: float=wolf.p.distance_to(state.pos)
+		if dist<nearest:
+			selected=wolf
+			nearest=dist
+	return selected
+
+func _refresh_family_buttons() -> void:
+	if not is_instance_valid(family_play_button) or not is_instance_valid(family_cuddle_button):return
+	var near_sibling := not _nearest_family("Geschwister",165).is_empty()
+	var near_parent := not _nearest_family("Mutter",165).is_empty() or not _nearest_family("Vater",165).is_empty()
+	var family_mode := int(near_sibling)*2+int(near_parent)
+	if family_mode==family_button_mode:return
+	family_button_mode=family_mode
+	family_play_button.visible=near_sibling
+	family_cuddle_button.visible=near_sibling or near_parent
+	set_actions_expanded(actions_expanded)
+
+func _family_cuddle() -> void:
+	# Check distance at the actual tap, not the preceding HUD refresh.
+	var nearby := _nearest_family("Geschwister",165)
+	if nearby.is_empty():
+		var mum := _nearest_family("Mutter",165)
+		var dad := _nearest_family("Vater",165)
+		nearby=mum if dad.is_empty() or (not mum.is_empty() and mum.p.distance_to(state.pos)<dad.p.distance_to(state.pos)) else dad
+	if nearby.is_empty():
+		notify("Kuscheln geht nur ganz nah bei deiner Familie.")
+		return
+	var role: String=str(nearby.role)
+	var identity := WolfPackLife.animal_key(nearby)
+	if not state.family_affection(role,identity,"cuddle"):
+		notify("Ein kurzer Moment Ruhe: "+role+" braucht eine kleine Pause.")
+		return
+	state.pack_signal={"action":"cuddle","target":identity,"region":state.region,"pos":state.pos,"at":state.elapsed,"serial":int(state.action_counts.cuddle)}
+	player_mood="begrüßen"
+	action_timer=2.4
+	notify(("Dein Geschwister lehnt sich an dich. Eure Rudelbindung wächst!" if role=="Geschwister" else role+" stupst dich liebevoll an. Ein ruhiger, vertrauter Moment."))
+	_save_game()
+
+func _family_play() -> void:
+	var sibling := _nearest_family("Geschwister",175)
+	if sibling.is_empty():
+		notify("Zum gemeinsamen Spielen muss ein Geschwister in deiner Nähe sein.")
+		return
+	var identity := WolfPackLife.animal_key(sibling)
+	if not state.family_affection("Geschwister",identity,"play"):
+		notify("Dein Geschwister muss sich kurz vom letzten Spiel erholen.")
+		return
+	state.note_action("play")
+	state.pack_signal={"action":"play","target":identity,"region":0,"pos":state.pos,"at":state.elapsed,"serial":int(state.action_counts.sibling_play)}
+	player_mood="spielen"
+	action_timer=3
+	notify("Dein Geschwister macht einen Spielbogen und springt fröhlich zu dir! +3 Rudelpunkte.")
+	_save_game()
+
+func show_parent_lesson(parent: String) -> void:
+	if parent not in ["Mutter","Vater"]:return
+	var near := _nearest_family(parent,180)
+	if near.is_empty():
+		close_overlay()
+		notify("Komm erst wirklich in die Nähe von "+parent+".")
+		return
+	var content := modal("Rudelunterricht · "+parent)
+	hero(content,"WAS JUNGE WÖLFE LERNEN",135)
+	var intro := "„Wir leben miteinander. Beobachte unsere Pfotensprache, bleib freundlich und achte auf Ruhe und Nähe.“" if parent=="Mutter" else "„Merke dir unsere Wege. Jagd beginnt mit Geduld, und jeder Auftrag braucht einen sicheren Rückweg.“"
+	card(content,parent+" spricht mit dir",intro)
+	card(content,"Dein Lernfortschritt","%d von 6 Familienlektionen abgeschlossen · Rudelpunkte: %d"%[state.family_lessons_completed.size(),state.pack_points])
+	if not state.family_lesson.is_empty():
+		var id: String=str(state.family_lesson.id)
+		var entry := WolfFamilyLessons.entry(id)
+		var progress := state.family_lesson_status()
+		card(content,"Aktive Lektion: "+str(entry.title),str(entry.text)+"\n"+str(entry.task)+"\nErfüllt: %d/%d"%[int(progress.current),int(progress.goal)])
+		if str(entry.parent)==parent:
+			if progress.ready:
+				content.add_child(button("Die Übungen vorführen und Belohnung erhalten",func():
+					if state.claim_family_lesson(parent):
+						_save_game()
+						show_parent_lesson(parent)
+				))
+			else:
+				content.add_child(button("Die Übungen draußen machen",close_overlay))
+		else:
+			card(content,"Zuerst den anderen Elternteil aufsuchen","Schließe zunächst die Übung von "+str(entry.parent)+" ab.")
+	else:
+		for entry in WolfFamilyLessons.available(parent,state.family_lessons_completed):
+			var id: String=str(entry.id)
+			card(content,str(entry.title),str(entry.text)+"\nAufgabe: "+str(entry.task))
+			content.add_child(button("Diese Übung gemeinsam beginnen",func():
+				if state.start_family_lesson(id):
+					_save_game()
+					show_parent_lesson(parent)
+			))
+	content.add_child(button("Zur Familie zurück",show_pack))
+
 func _invite_pack_play() -> void:
 	var nearby := false
 	for animal in world.animals:
@@ -1947,6 +2073,17 @@ func show_pack() -> void:
 	v.add_child(play_button)
 	if not family_near:v.add_child(label("Zum Spielen musst du deiner Familie nahe sein.",16))
 	v.add_child(label("Bindung: %d / 100 · Rudelpunkte: %d · Neue Karten: %d"%[state.bond,state.pack_points,state.unreported_regions().size()],18))
+	for parent in ["Mutter","Vater"]:
+		var nearby_parent := not _nearest_family(parent,180).is_empty()
+		var talk := button("Mit "+parent+" sprechen · Lektionen und Übungen",func():show_parent_lesson(parent))
+		talk.disabled=not nearby_parent
+		v.add_child(talk)
+	if state.family_lesson.is_empty():
+		card(v,"Lernen von den Eltern","Die Mutter erklärt Rudelregeln, Schnüffeln und Spielen; der Vater begleitet dich bei Fährten, Orientierung und echten Aufträgen.")
+	else:
+		var lesson := WolfFamilyLessons.entry(str(state.family_lesson.id))
+		var progress := state.family_lesson_status()
+		card(v,"Aktueller Rudelunterricht","%s · %d/%d · %s"%[str(lesson.title),int(progress.current),int(progress.goal),str(lesson.task)])
 	v.add_child(button("Unsere Reviertiere & Sammelalbum",show_guardian_collection))
 	var follow := button("Begleitung beenden" if state.escort else "Mit der Mutter die Wildnis erkunden",func():
 		state.escort=not state.escort

@@ -53,10 +53,13 @@ var guardian_relics: Array[int]=[]
 var guardian_completed: Array[int]=[]
 var reported_regions: Array[int]=[0]
 var pack_points := 0
+var family_lesson: Dictionary={}
+var family_lessons_completed: Array[String]=[]
+var family_cooldowns: Dictionary={}
 var provisions := 0
 var tonics := 0
 var pawsteps: Array[Dictionary] = []
-var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"play":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
+var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"play":0,"sniff":0,"cuddle":0,"sibling_play":0,"track":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
 var active_encounter: Dictionary = {}
 var completed_encounters: Array[String] = []
 var encounter_serial := 0
@@ -68,6 +71,54 @@ var main_story_progress: Dictionary = WolfMainStory.initial()
 var nature_journey_progress: Dictionary = WolfNatureJourneys.initial()
 
 
+
+func family_metrics() -> Dictionary:
+	return {"greet":int(action_counts.greet),"cuddle":int(action_counts.cuddle),"sniff":int(action_counts.sniff),"sibling_play":int(action_counts.sibling_play),"found":found.size(),"visited":visited.size(),"mark":int(action_counts.mark),"encounters":completed_encounters.size()}
+
+func start_family_lesson(id: String) -> bool:
+	if not family_lesson.is_empty() or family_lessons_completed.has(id) or WolfFamilyLessons.entry(id).is_empty():return false
+	family_lesson={"id":id,"baseline":family_metrics()}
+	record("Rudelunterricht · "+str(WolfFamilyLessons.entry(id).title))
+	return true
+
+func family_lesson_status() -> Dictionary:
+	if family_lesson.is_empty():return {}
+	var identifier: String=str(family_lesson.id)
+	var info := WolfFamilyLessons.entry(identifier)
+	if info.is_empty():return {}
+	return WolfFamilyLessons.progress(identifier,family_lesson.baseline,family_metrics())
+
+func claim_family_lesson(parent: String) -> bool:
+	if family_lesson.is_empty():return false
+	var info := WolfFamilyLessons.entry(str(family_lesson.id))
+	if info.is_empty() or str(info.parent)!=parent or not family_lesson_status().ready:return false
+	family_lessons_completed.append(str(info.id))
+	family_lesson={}
+	xp+=30
+	bond=minf(100,bond+5)
+	skills[info.skill]=mini(100,int(skills[info.skill])+4)
+	pack_points+=5
+	record("Rudelunterricht bestanden · "+str(info.title)+" · +5 Rudelpunkte und +30 Erfahrung.")
+	return true
+
+func family_affection(role: String,key: String,kind: String) -> bool:
+	if region!=0 or not (role in ["Geschwister","Mutter","Vater"]):return false
+	if kind=="play" and role!="Geschwister":return false
+	if kind not in ["cuddle","play"]:return false
+	var identity := kind+":"+key
+	if elapsed<float(family_cooldowns.get(identity,-100)):return false
+	family_cooldowns[identity]=elapsed+(24.0 if kind=="play" else 16.0)
+	if kind=="play":
+		note_action("sibling_play")
+		bond=minf(100,bond+4)
+		pack_points+=3
+		record("Familienmoment · Mit einem Geschwister gespielt.")
+	else:
+		note_action("cuddle")
+		bond=minf(100,bond+(4 if role=="Geschwister" else 1))
+		pack_points+=2 if role=="Geschwister" else 1
+		record("Familienmoment · Mit "+role+" gekuschelt.")
+	return true
 
 func tick(dt: float, moving: bool, sprint: bool) -> void:
 	elapsed += dt
@@ -670,7 +721,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"region_items":region_items,"food_found":food_found,"village_cleared":village_cleared,"guardian_met":guardian_met,"guardian_quests":guardian_quests,"guardian_relics":guardian_relics,"guardian_completed":guardian_completed,"reported_regions":reported_regions,"pack_points":pack_points,"provisions":provisions,"tonics":tonics,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"region_items":region_items,"food_found":food_found,"village_cleared":village_cleared,"guardian_met":guardian_met,"guardian_quests":guardian_quests,"guardian_relics":guardian_relics,"guardian_completed":guardian_completed,"reported_regions":reported_regions,"pack_points":pack_points,"provisions":provisions,"tonics":tonics,"family_lesson":family_lesson,"family_lessons_completed":family_lessons_completed,"family_cooldowns":family_cooldowns,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -777,6 +828,24 @@ func load_from(path: String = "") -> bool:
 	pack_points=clampi(int(_safe_number(data.get("pack_points",0),0)),0,1000000)
 	provisions=clampi(int(_safe_number(data.get("provisions",0),0)),0,99)
 	tonics=clampi(int(_safe_number(data.get("tonics",0),0)),0,99)
+	family_lessons_completed.clear()
+	if data.get("family_lessons_completed") is Array:
+		for item in data.family_lessons_completed:
+			if item is String and not WolfFamilyLessons.entry(item).is_empty() and not family_lessons_completed.has(item):family_lessons_completed.append(item)
+	family_lesson={}
+	if data.get("family_lesson") is Dictionary:
+		var saved_lesson: Dictionary=data.family_lesson
+		var identifier: String=str(saved_lesson.get("id",""))
+		if not WolfFamilyLessons.entry(identifier).is_empty() and not family_lessons_completed.has(identifier) and saved_lesson.get("baseline") is Dictionary:
+			var metrics: Dictionary={}
+			for key in family_metrics():metrics[key]=clampi(int(_safe_number(saved_lesson.baseline.get(key,0),0)),0,100000000)
+			family_lesson={"id":identifier,"baseline":metrics}
+	family_cooldowns.clear()
+	if data.get("family_cooldowns") is Dictionary:
+		for key in data.family_cooldowns:
+			if key is String and key.length()<70 and (key.begins_with("cuddle:") or key.begins_with("play:")) and family_cooldowns.size()<12:
+				var cooldown: float=_safe_number(data.family_cooldowns[key],-100)
+				if cooldown>=0 and cooldown<=elapsed+60:family_cooldowns[key]=cooldown
 	drank=bool(data.get("drank",false))
 	rested=bool(data.get("rested",false))
 	howled=bool(data.get("howled",false))

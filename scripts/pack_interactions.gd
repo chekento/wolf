@@ -47,12 +47,20 @@ static func plan(animal: Dictionary,members: Array,navigation: WolfAnimalMotion,
 	# A deliberate family play invitation is an ephemeral, local signal.
 	# Wolves travel to safe individual play spots instead of teleporting
 	# into an animation, and unrelated animals do not react.
-	if not invitation.is_empty() and invitation.get("action","") == "play" and int(invitation.get("region",-1)) == int(context.region) and float(context.elapsed)-float(invitation.get("at",-100)) >= 0 and float(context.elapsed)-float(invitation.get("at",-100)) < 4 and distance < 210:
+	if not invitation.is_empty() and invitation.get("action","") == "play" and (str(invitation.get("target","")).is_empty() or str(invitation.target)==WolfPackLife.animal_key(animal)) and int(invitation.get("region",-1)) == int(context.region) and float(context.elapsed)-float(invitation.get("at",-100)) >= 0 and float(context.elapsed)-float(invitation.get("at",-100)) < 4 and distance < 210:
 		var play_event := "%d:%d" % [int(invitation.region),int(invitation.serial)]
 		if play_event != str(animal.get("_play_event","")):
 			animal._play_event = play_event
 			animal._play_until = now+7.0
 			animal._play_anchor = player
+	# Cuddling is a targeted invitation: only the selected real family
+	# member responds by walking to a safe place, never teleporting.
+	if not invitation.is_empty() and invitation.get("action","")=="cuddle" and str(invitation.get("target",""))==WolfPackLife.animal_key(animal) and int(invitation.get("region",-1))==int(context.region) and float(context.elapsed)-float(invitation.get("at",-100))>=0 and float(context.elapsed)-float(invitation.get("at",-100))<4 and distance<190:
+		var cuddle_event := "%d:%d"%[int(invitation.region),int(invitation.serial)]
+		if cuddle_event != str(animal.get("_cuddle_event","")):
+			animal._cuddle_event=cuddle_event
+			animal._cuddle_until=now+5.5
+			animal._cuddle_anchor=player
 	if bool(context.get("howling",false)) and distance < 500 and not meeting:
 		result.target = position;result.speed = 0.0;result.mood = "heulen";result.look_target = player;result.attention = 0.7
 		return result
@@ -78,6 +86,25 @@ static func plan(animal: Dictionary,members: Array,navigation: WolfAnimalMotion,
 		result.look_target = player
 		result.attention = 0.65
 		return result
+	if now<float(animal.get("_cuddle_until",-1)) and not meeting and not accompanying:
+		var cuddle_anchor: Vector2=animal.get("_cuddle_anchor",player)
+		if cuddle_anchor.distance_to(player)>155 or float(context.player_speed)>55:
+			animal._cuddle_until=-1.0
+		else:
+			var space := maxf(65.0 if animal.get("young",false) else 82.0,navigation.body_radius(animal)+player_radius+10.0)
+			var away := player.direction_to(position)
+			if away.length_squared()<.01:away=Vector2.from_angle(float(animal.get("phase",0))+.3)
+			var nearby_point := player+away*space
+			animal._near_active_until=now+.2
+			var cuddle_target := _near_target(animal,members,navigation,player,nearby_point,space,"cuddle",now,Vector2(INF,INF),INF,player_radius)
+			var reached: bool=position.distance_to(cuddle_target)<10 and visible
+			result.target=position if reached else cuddle_target
+			result.speed=0.0 if reached else 42.0
+			result.mood="begrüßen" if reached else "wandern"
+			result.behavior="cuddle" if reached else "cuddle_approach"
+			result.look_target=player
+			result.attention=.95
+			return result
 	# Mission halts and escort navigation outrank play. Otherwise a playful
 	# invitation produces a real approach, a bow and a wagging tail. Releasing
 	# the player position or beginning to run cancels the play naturally.
