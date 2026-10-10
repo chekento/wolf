@@ -1,7 +1,7 @@
 extends SceneTree
 
 var failures := 0
-const WORLD_013_HASH := "UNSET"
+const WORLD_013_HASH := "e316227507d877897c6918a2ca4536cd37b5e3eab0c68806712b39f4a55ee04b"
 
 class UnderstoryProbe:
 	extends WolfWorldView
