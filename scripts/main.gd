@@ -2079,7 +2079,7 @@ func show_pack() -> void:
 	else:
 		var lesson := WolfFamilyLessons.entry(str(state.family_lesson.id))
 		var progress := state.family_lesson_status()
-		card(v,"Aktueller Rudelunterricht",str(lesson.title)+" · %d/%d · "+str(lesson.task)%[int(progress.current),int(progress.goal)])
+		card(v,"Aktueller Rudelunterricht","%s · %d/%d · %s"%[str(lesson.title),int(progress.current),int(progress.goal),str(lesson.task)])
 	v.add_child(button("Unsere Reviertiere & Sammelalbum",show_guardian_collection))
 	var follow := button("Begleitung beenden" if state.escort else "Mit der Mutter die Wildnis erkunden",func():
 		state.escort=not state.escort
