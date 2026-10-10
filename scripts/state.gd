@@ -47,6 +47,14 @@ var compact_hud := true
 var region_items: Array[String]=[]
 var food_found: Array[String]=[]
 var village_cleared := false
+var guardian_met: Array[int]=[]
+var guardian_quests: Array[int]=[]
+var guardian_relics: Array[int]=[]
+var guardian_completed: Array[int]=[]
+var reported_regions: Array[int]=[0]
+var pack_points := 0
+var provisions := 0
+var tonics := 0
 var pawsteps: Array[Dictionary] = []
 var action_counts := {"drink":0,"rest":0,"howl":0,"greet":0,"play":0,"feed":0,"site":0,"mark":0,"observe:Reh":0,"observe:Hase":0,"observe:Fuchs":0}
 var active_encounter: Dictionary = {}
@@ -69,6 +77,67 @@ func tick(dt: float, moving: bool, sprint: bool) -> void:
 	food_cooldown=maxf(0,food_cooldown-dt)
 	var routine: Dictionary=pack_routine()
 	if region==0 and not routine_seen.has(routine.label):routine_seen.append(routine.label)
+
+func unreported_regions() -> Array[int]:
+	var pending: Array[int]=[]
+	for index in visited:
+		if not reported_regions.has(index):pending.append(index)
+	return pending
+
+func report_discoveries() -> int:
+	if region!=0:return 0
+	var pending := unreported_regions()
+	if pending.is_empty():return 0
+	for index in pending:reported_regions.append(index)
+	pack_points+=pending.size()*10
+	xp+=pending.size()*12
+	skills.pack=mini(100,int(skills.pack)+mini(15,pending.size()*2))
+	bond=minf(100,bond+minf(24,pending.size()*4))
+	pack_signal={"action":"celebrate","region":0,"pos":pos,"at":elapsed,"serial":reported_regions.size()}
+	record("Rudel feiert die Heimkehr · %d neue Reviere gemeldet, +%d Rudelpunkte."%[pending.size(),pending.size()*10])
+	return pending.size()
+
+func meet_guardian(zone: int) -> bool:
+	if zone<0 or zone>=WolfGuardianLore.GUARDIANS.size() or guardian_met.has(zone):return false
+	guardian_met.append(zone)
+	record("Besonderes Reviertier getroffen · "+str(WolfGuardianLore.data(zone).name))
+	return true
+
+func accept_guardian_quest(zone: int) -> bool:
+	if not guardian_met.has(zone) or guardian_quests.has(zone) or guardian_completed.has(zone):return false
+	guardian_quests.append(zone)
+	record("Reviertier-Suche angenommen · "+str(WolfGuardianLore.data(zone).token))
+	return true
+
+func take_guardian_relic(zone: int) -> bool:
+	if not guardian_quests.has(zone) or guardian_relics.has(zone) or guardian_completed.has(zone):return false
+	guardian_relics.append(zone)
+	record("Einmaliges Fundstück gesichert · "+str(WolfGuardianLore.data(zone).token))
+	return true
+
+func complete_guardian_quest(zone: int) -> bool:
+	if not guardian_relics.has(zone) or guardian_completed.has(zone):return false
+	guardian_completed.append(zone)
+	guardian_relics.erase(zone)
+	xp+=65
+	if str(WolfGuardianLore.data(zone).reward)=="food":provisions+=2
+	else:tonics+=1
+	record("Reviertier-Auftrag beendet · "+str(WolfGuardianLore.data(zone).name)+" · besondere Belohnung erhalten.")
+	return true
+
+func consume_provision() -> bool:
+	if provisions<=0 or hunger>=99:return false
+	provisions-=1
+	hunger=minf(100,hunger+45)
+	note_action("feed")
+	return true
+
+func consume_tonic() -> bool:
+	if tonics<=0 or (energy>=99 and thirst>=99):return false
+	tonics-=1
+	energy=minf(100,energy+55)
+	thirst=minf(100,thirst+30)
+	return true
 
 func level() -> int:
 	return 1+int(xp/100)
@@ -601,7 +670,7 @@ func save_to(path: String = "") -> bool:
 	var pending_path := path+".pending"
 	var file := FileAccess.open(pending_path,FileAccess.WRITE)
 	if file==null:return false
-	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"region_items":region_items,"food_found":food_found,"village_cleared":village_cleared,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
+	file.store_string(JSON.stringify({"version":4,"region":region,"pos":[pos.x,pos.y],"facing":[facing.x,facing.y],"hunger":hunger,"thirst":thirst,"energy":energy,"bond":bond,"elapsed":elapsed,"found":found,"visited":visited,"landmarks":landmarks,"observations":observations,"journal":journal,"drank":drank,"rested":rested,"howled":howled,"completed":completed,"food_cooldown":food_cooldown,"discoveries":discoveries,"pack_contacts":pack_contacts,"xp":xp,"distance_walked":distance_walked,"marked":marked,"sites":sites,"story_step":story_step,"story_choices":story_choices,"skills":skills,"escort":escort,"waypoint_region":waypoint_region,"waypoint_pos":[waypoint_pos.x,waypoint_pos.y],"tracked_quest":tracked_quest,"sound_enabled":sound_enabled,"reduced_motion":reduced_motion,"weather_enabled":weather_enabled,"map_reveal":map_reveal,"camera_follow":camera_follow,"smooth_edges":smooth_edges,"compact_hud":compact_hud,"action_counts":action_counts,"active_encounter":_save_encounter(),"completed_encounters":completed_encounters,"encounter_serial":encounter_serial,"routine_seen":routine_seen,"region_items":region_items,"food_found":food_found,"village_cleared":village_cleared,"guardian_met":guardian_met,"guardian_quests":guardian_quests,"guardian_relics":guardian_relics,"guardian_completed":guardian_completed,"reported_regions":reported_regions,"pack_points":pack_points,"provisions":provisions,"tonics":tonics,"main_story":WolfMainStory.saved(main_story_progress),"nature_journeys":WolfNatureJourneys.saved(nature_journey_progress)}))
 	file.flush()
 	var write_ok := file.get_error()==OK
 	file.close()
@@ -680,6 +749,34 @@ func load_from(path: String = "") -> bool:
 				food_found.append(entry)
 	village_cleared=bool(data.get("village_cleared",false))
 	if village_cleared and not region_items.has("dorfpass"):region_items.append("dorfpass")
+	for key in ["guardian_met","guardian_quests","guardian_relics","guardian_completed"]:
+		var result: Array[int]=[]
+		if data.get(key) is Array:
+			for raw in data[key]:
+				if not (raw is int or raw is float):continue
+				var index: int=int(raw)
+				if index>=0 and index<9 and not result.has(index):result.append(index)
+		set(key,result)
+	for index in guardian_completed:
+		guardian_relics.erase(index)
+		guardian_quests.erase(index)
+		if not guardian_met.has(index):guardian_met.append(index)
+	for index in guardian_relics:
+		if not guardian_quests.has(index):guardian_quests.append(index)
+		if not guardian_met.has(index):guardian_met.append(index)
+	reported_regions.clear()
+	if data.get("reported_regions") is Array:
+		for raw in data.reported_regions:
+			if not (raw is int or raw is float):continue
+			var index: int=int(raw)
+			if visited.has(index) and not reported_regions.has(index):reported_regions.append(index)
+	else:
+		# Do not retroactively award hundreds of regions from older saves.
+		reported_regions=visited.duplicate()
+	if not reported_regions.has(0):reported_regions.append(0)
+	pack_points=clampi(int(_safe_number(data.get("pack_points",0),0)),0,1000000)
+	provisions=clampi(int(_safe_number(data.get("provisions",0),0)),0,99)
+	tonics=clampi(int(_safe_number(data.get("tonics",0),0)),0,99)
 	drank=bool(data.get("drank",false))
 	rested=bool(data.get("rested",false))
 	howled=bool(data.get("howled",false))
