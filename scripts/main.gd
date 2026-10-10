@@ -522,8 +522,10 @@ func set_actions_expanded(expanded: bool) -> void:
 	# Expanded: a relaxed 2x2 action pad; folded: four small one-row actions.
 	# The six secondary utilities always stay on their own unobtrusive row.
 	var family_count := int(family_cuddle_button.visible)+int(family_play_button.visible)
-	hud_actions_grid.columns=2 if expanded else 3 if family_count>0 else 4
-	hud_lower.offset_top=(-310 if expanded else -234) if family_count>0 else (-237 if expanded else -183)
+	# Six nearby family actions fit in two rows (3 x 2) both folded
+	# and expanded, preserving the toast/mission space on small phones.
+	hud_actions_grid.columns=3 if family_count>0 else 2 if expanded else 4
+	hud_lower.offset_top=-237 if expanded else -234 if family_count>0 else -183
 	actions_fold.text="⌄  Weniger Aktionen" if expanded else "⌃  Mehr Aktionen"
 	actions_fold.tooltip_text="Aktionsmenü verkleinern" if expanded else "Aktionsmenü aufklappen"
 	var narrow := ui.size.x<440
