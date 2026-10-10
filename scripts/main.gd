@@ -1096,7 +1096,9 @@ func interact() -> void:
 			return
 	for a in world.animals:
 		if a.kind=="wolf" and not a.get("guardian",false) and not a.get("companion",false) and a.p.distance_to(state.pos)<145:
-			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family":
+			# First contact stays a real greeting for the story and old
+			# saves; a second nearby tap starts the parent's lesson dialogue.
+			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family" and state.elapsed-last_pack_visit<20:
 				show_parent_lesson(str(a.role))
 				return
 			if state.elapsed-last_pack_visit<20:
@@ -1409,7 +1411,7 @@ func context_action() -> String:
 			if obj.kind=="den" and obj.p.distance_to(state.pos)<190:return "Ruhen"
 	for a in world.animals:
 		if a.kind=="wolf" and a.p.distance_to(state.pos)<145 and not a.get("guardian",false):
-			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family":return "Reden"
+			if a.get("role","") in ["Mutter","Vater"] and state.active_encounter.get("task","")!="family" and state.elapsed-last_pack_visit<20:return "Reden"
 			return "Begrüßen"
 	for t in world.tracks:
 		if scent_time>0 and not state.found.has(t.id) and t.p.distance_to(state.pos)<100:return "Spur lesen"
