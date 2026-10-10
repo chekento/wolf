@@ -110,6 +110,10 @@ func run() -> void:
 	game.close_overlay()
 	game._release_audio();root.remove_child(game);game.queue_free()
 	await settle()
+	# The coroutine remains on the stack until quit; release its extra
+	# RefCounted save-test objects before engine teardown.
+	fresh=null
+	loaded=null
 	for path in [WolfState.save_path,WolfState.save_path+".wildlife.json"]:
 		if FileAccess.file_exists(path):DirAccess.remove_absolute(path)
 	print("Wolf region progression: %d checks, %d failures"%[checks,failures])
