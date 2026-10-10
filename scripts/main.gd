@@ -1355,10 +1355,6 @@ func _refresh_observation_hud() -> void:
 	else:observation_hint.text="Ruhiger Blick · %.1f / 12 aktive Sekunden"%float(encounter.get("watch_seconds",0))
 
 func context_action() -> String:
-	for animal in world.animals:
-		if animal.get("guardian",false) and animal.p.distance_to(state.pos)<165:return "Reden"
-	for object in world.objects:
-		if object.kind=="guardian_relic" and object.p.distance_to(state.pos)<115:return "Finden"
 	var main_action := _main_story_context()
 	var nature_action := _nature_journey_context()
 	if state.nature_journey_status().accepted and guided_main_story.is_empty():
@@ -1367,6 +1363,10 @@ func context_action() -> String:
 	else:
 		if not main_action.is_empty():return main_action
 		if not nature_action.is_empty():return nature_action
+	for animal in world.animals:
+		if animal.get("guardian",false) and animal.p.distance_to(state.pos)<165:return "Reden"
+	for object in world.objects:
+		if object.kind=="guardian_relic" and object.p.distance_to(state.pos)<115:return "Finden"
 	if state.food_cooldown<=0:
 		for obj in world.objects:
 			if obj.kind=="food" and obj.p.distance_to(state.pos)<85 and state.food_visible(obj):return "Fressen"
