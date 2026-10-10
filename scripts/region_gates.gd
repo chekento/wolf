@@ -59,7 +59,7 @@ static func trial_ready(entry: Dictionary,found_count: int,distance: float) -> b
 	return found_count>=int(entry.tracks) and distance>=float(entry.walk)
 
 static func question(sector: int,stage: int) -> Dictionary:
-	return QUESTIONS[posmod(sector*2+stage*3,QUESTIONS.size())]
+	return QUESTIONS[posmod(sector+stage*2,QUESTIONS.size())]
 
 static func pass_name(region: int) -> String:
 	var z := zone(region)
